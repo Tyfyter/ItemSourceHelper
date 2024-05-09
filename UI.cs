@@ -7,29 +7,139 @@ using System.Text;
 using System.Threading.Tasks;
 using Terraria;
 using Terraria.GameContent;
+using Terraria.ID;
 using Terraria.UI;
 
 namespace ItemSourceHelper {
 	public class ItemSourceBrowser : GameInterfaceLayer {
 		public ManipulableRectangleElement MainWindow { get; private set; }
+		public ItemSourceListGridItem Sources { get; private set; }
+		public ItemListGridItem Ingredience { get; private set; }
 		public ItemSourceBrowser() : base($"{nameof(ItemSourceHelper)}: Browser", InterfaceScaleType.UI) {
 			MainWindow = new() {
-				area = new Rectangle(100, 100, 200, 150),
+				Left = new(100, 0),
+				Top = new(100, 0),
+				Width = new(200, 0),
+				Height = new(150, 0),
 				color = Color.CornflowerBlue,
 				handles = RectangleHandles.Top | RectangleHandles.Left,
-				minSize = new(150, 100)
+				MinWidth = new(150, 0),
+				MinHeight = new(100, 0),
+				MarginTop = 4, MarginLeft = 4, MarginBottom = 4, MarginRight = 4,
 			};
+			MainWindow.Initialize();
+			MainWindow.Append(new RoundedRectangleGridElement() {
+				items = new() {
+					[1] = new GridItem() { color = Color.Coral },
+					[2] = Sources = new ItemSourceListGridItem() {
+						color = Color.DodgerBlue
+					},
+					[3] = Ingredience = new ItemListGridItem() {
+						color = Color.Tan,
+						items = [new(ItemID.AaronsBreastplate), new(ItemID.WorkBench), new(ItemID.Zenith)]
+					},
+				},
+				mergeIDs = new int[3, 3] {
+					{ 1, 1, 1 },
+					{ -1, 2, 3 },
+					{ -1, 2, 3 }
+				},
+				widths = [new(-4, 1 / 3f), new(-4, 1 / 3f), new(-4, 1 / 3f)],
+				heights = [new(-4, 1 / 4f), new(-4, 1 / 2f), new(-4, 1 / 4f)]
+			});
 		}
 		protected override bool DrawSelf() {
+			MainWindow.Recalculate();
 			MainWindow.Draw(Main.spriteBatch);
 			return true;
 		}
 	}
+	public class ItemSourceListGridItem : GridItem {
+		public IEnumerable<ItemSource> items;
+		int scroll;
+		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
+			Color color = this.color;
+			spriteBatch.DrawRoundedRetangle(bounds, color);
+			bounds.Width += 20;
+			bounds.Height += 10;
+			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
+				int size = (int)(52 * Main.inventoryScale);
+				const int padding = 4;
+				int sizeWithPadding = size + padding;
+
+				int minX = bounds.X + padding;
+				int baseX = minX - scroll;
+				int x = baseX;
+				int maxX = bounds.X + bounds.Width - sizeWithPadding;
+				int y = bounds.Y + padding;
+				int maxY = bounds.Y + bounds.Height - sizeWithPadding;
+				int itemsPerRow = bounds.Width - sizeWithPadding;
+				bool cutOff = false;
+                foreach (ItemSource itemSource in items.Skip(itemsPerRow * scroll)) {
+					if (x >= minX - size) {
+						Item item = itemSource.Item;
+						bool hover = Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size;
+						ItemSlot.Draw(spriteBatch, ref item, ItemSlot.Context.CraftingMaterial, new Vector2(x, y));
+						if (hover) {
+							ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
+							if (Main.mouseLeft && Main.mouseLeftRelease) {
+								ItemSourceHelper.Instance.BrowserWindow.Ingredience.items = itemSource.GetSourceItems().ToArray();
+							}
+						}
+					}
+					x += sizeWithPadding;
+					if (x >= maxX - padding) {
+						x = baseX;
+						y += sizeWithPadding;
+						if (y >= maxY - padding) {
+							cutOff = true;
+							break;
+						}
+					}
+				}
+            }
+		}
+	}
+	public class ItemListGridItem : GridItem {
+		public Item[] items;
+		int scroll;
+		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
+			Color color = this.color;
+			spriteBatch.DrawRoundedRetangle(bounds, color);
+			bounds.Width += 20;
+			bounds.Height += 10;
+			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
+				int minX = bounds.X + 4;
+				int baseX = minX - scroll;
+				int x = baseX;
+				int maxX = bounds.X +  bounds.Width - 26;
+				int y = bounds.Y + 4;
+				int maxY = bounds.Y + bounds.Height - 26;
+				bool cutOff = false;
+				for (int i = 0; i < items.Length; i++) {
+					if (x >= minX - 52) {
+						ItemSlot.Draw(spriteBatch, items, ItemSlot.Context.CraftingMaterial, i, new Vector2(x, y));
+						if (Main.mouseX >= x && Main.mouseX <= x + 52 && Main.mouseY >= y && Main.mouseY <= y + 52) {
+							ItemSlot.MouseHover(items, ItemSlot.Context.CraftingMaterial, i);
+						}
+					}
+					x += 52 + 2;
+					if (x >= maxX) {
+						x = baseX;
+						y += 52 + 2;
+						if (y >= maxY) {
+							cutOff = true;
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
 	public class ManipulableRectangleElement : UIElement {
-		public Rectangle area;
+		//public Rectangle area;
 		public Color color;
 		public RectangleHandles handles;
-		public Point minSize;
 		bool heldHandleStretch;
 		RectangleHandles heldHandle;
 		Vector2 heldHandleOffset;
@@ -40,34 +150,61 @@ namespace ItemSourceHelper {
 
 			Color handleHoverColor = color * 1.2f;
 			Color nonHandleHoverColor = color.MultiplyRGB(new(210, 210, 210));
+
+			/*float parentWidth = Main.screenWidth;
+			float parentHeight = Main.screenHeight;
+			if (Parent is not null) {
+				parentWidth = Parent.GetInnerDimensions().Width;
+				parentHeight = Parent.GetInnerDimensions().Height;
+			}
+			int minWidth = (int)MinWidth.GetValue(parentWidth);
+			int minHeight = (int)MinHeight.GetValue(parentHeight);*/
+
+			Rectangle area = GetDimensions().ToRectangle();
 			if (heldHandle != 0) {
 				Main.LocalPlayer.mouseInterface = true;
+				bool changed = false;
 				if (heldHandleStretch) {
 					if (heldHandle.HasFlag(RectangleHandles.Left)) {
-						int diff = area.X - (int)Main.MouseScreen.X;
-						area.X -= diff;
-						area.Width += diff;
-						if (area.Width < minSize.X) area.Width = minSize.X;
+						int diff = (int)(Left.Pixels - Main.MouseScreen.X + heldHandleOffset.X);
+						Left.Pixels -= diff;
+						Width.Pixels += diff;
+						changed = true;
+						//area.X -= diff;
+						//area.Width += diff;
+						//if (area.Width < minWidth) area.Width = minWidth;
 					} else if (heldHandle.HasFlag(RectangleHandles.Right)) {
-						area.Width = (int)Main.MouseScreen.X - area.X;
-						if (area.Width < minSize.X) area.Width = minSize.X;
+						Width.Pixels = (int)Main.MouseScreen.X + heldHandleOffset.X - area.X;
+						changed = true;
+						//area.Width = (int)Main.MouseScreen.X - area.X;
+						//if (area.Width < minWidth) area.Width = minWidth;
 					}
 					if (heldHandle.HasFlag(RectangleHandles.Top)) {
-						int diff = area.Y - (int)Main.MouseScreen.Y;
-						area.Y -= diff;
-						area.Height += diff;
-						if (area.Height < minSize.Y) area.Height = minSize.Y;
+						int diff = (int)(Top.Pixels - Main.MouseScreen.X + heldHandleOffset.Y);
+						Top.Pixels -= diff;
+						Height.Pixels += diff;
+						changed = true;
+						//int diff = area.Y - (int)Main.MouseScreen.Y;
+						//area.Y -= diff;
+						//area.Height += diff;
+						//if (area.Height < minHeight) area.Height = minHeight;
 					} else if (heldHandle.HasFlag(RectangleHandles.Bottom)) {
-						area.Height = (int)Main.MouseScreen.Y - area.Y;
-						if (area.Height < minSize.Y) area.Height = minSize.Y;
+						Height.Pixels = (int)Main.MouseScreen.Y + heldHandleOffset.Y - area.Y;
+						changed = true;
+						//area.Height = (int)Main.MouseScreen.Y - area.Y;
+						//if (area.Height < minHeight) area.Height = minHeight;
 					}
 				} else {
 					Vector2 pos = Main.MouseScreen + heldHandleOffset;
-					area.X = (int)pos.X;
-					area.Y = (int)pos.Y;
+					Left.Pixels = (int)pos.X;
+					Top.Pixels = (int)pos.Y;
 				}
 				if (!Main.mouseLeft) {
 					heldHandle = 0;
+				}
+				if (changed) {
+					Recalculate();
+					area = GetDimensions().ToRectangle();
 				}
 			}
 			foreach (var segment in UIMethods.rectangleSegments) {
@@ -80,10 +217,14 @@ namespace ItemSourceHelper {
 						Main.LocalPlayer.mouseInterface = true;
 						if (segment.Handles != 0) {
 							discolor = true;
-							if (Main.mouseLeft) {
+							if (Main.mouseLeft && Main.mouseLeftRelease) {
 								heldHandleStretch = !matches;
 								heldHandle = segment.Handles;
-								heldHandleOffset = new Vector2(area.X, area.Y) - Main.MouseScreen;
+								if (matches) {
+									heldHandleOffset = new Vector2(Left.Pixels, Top.Pixels) - Main.MouseScreen;
+								} else {
+									heldHandleOffset = bounds.TopLeft() - Main.MouseScreen + bounds.Size();
+								}
 							}
 						}
 					}
@@ -104,9 +245,86 @@ namespace ItemSourceHelper {
 			}
 		}
 	}
+	public class RoundedRectangleGridElement : UIElement {
+		public Dictionary<int, GridItem> items;
+		public int[,] mergeIDs;
+		public StyleDimension[] widths;
+		public StyleDimension[] heights;
+		protected override void DrawSelf(SpriteBatch spriteBatch) {
+			Texture2D texture = TextureAssets.InventoryBack13.Value;
+			int hCells = mergeIDs.GetLength(0);
+			int vCells = mergeIDs.GetLength(1);
+			Rectangle textureBounds = texture.Bounds;
+			int parentX = 0;
+			int parentY = 0;
+			int parentWidth = 300;
+			int parentHeight = 200;
+			int padding = 4;
+			if (Parent is not null) {
+				CalculatedStyle parent = Parent.GetInnerDimensions();
+				parentX = (int)parent.X;
+				parentY = (int)parent.Y;
+				parentWidth = (int)parent.Width - padding;
+				parentHeight = (int)parent.Height - padding;
+			}
+			Dictionary<int, (Rectangle bounds, GridItem item)> processedIDs = [];
+			float cellY = parentY + padding;
+			for (int y = 0; y < vCells; y++) {
+				float cellX = parentX + padding;
+				float height = heights[y].GetValue(parentHeight);
+				int boxY = (int)cellY;
+				cellY += height + padding;
+				if (height == 0) continue;
+				for (int x = 0; x < hCells; x++) {
+					int mergeID = mergeIDs[x, y];
+					float width = widths[x].GetValue(parentWidth);
+					int boxX = (int)cellX;
+					cellX += width + padding;
+					if (mergeID == -1 || processedIDs.ContainsKey(mergeID)) continue;
+					if (width == 0) continue;
+					int currentX = x;
+					while (ShouldMerge(currentX, y, currentX + 1, y)) {
+						width += widths[currentX].GetValue(parentWidth) + padding;
+						currentX++;
+					}
+					int currentY = y;
+					while (ShouldMerge(x, currentY, x, currentY + 1)) {
+						height += heights[currentY].GetValue(parentHeight) + padding;
+						currentY++;
+					}
+					Rectangle bounds = new(boxX, boxY, (int)width, (int)height);
+					processedIDs.Add(mergeID, (bounds, items[mergeID]));
+				}
+			}
+			RasterizerState rasterizerState = spriteBatch.GraphicsDevice.RasterizerState;
+			Rectangle scissorRectangle = spriteBatch.GraphicsDevice.ScissorRectangle;
+			foreach (var item in processedIDs.Values) {
+				//using (new UIMethods.ClippingRectangle(item.bounds, spriteBatch)) {
+					item.item.DrawSelf(item.bounds, spriteBatch);
+				//}
+			}
+		}
+		public bool ShouldMerge(int aX, int aY, int bX, int bY) {
+			if (aX < 0 || aY < 0 || bX < 0 || bY < 0) return false;
+			int hCells = mergeIDs.GetLength(0);
+			int vCells = mergeIDs.GetLength(1);
+			if (aX >= hCells || aY >= vCells || bX >= hCells || bY >= vCells) return false;
+			return mergeIDs[aX, aY] == mergeIDs[bX, bY];
+		}
+	}
+	public class GridItem {
+		public Color color;
+		public virtual void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
+			Color color = this.color;
+			if (bounds.Contains(Main.MouseScreen.ToPoint())) {
+				color *= 1.2f;
+			}
+			spriteBatch.DrawRoundedRetangle(bounds, color);
+		}
+	}
 	public static class UIMethods {
-		public static void DrawRoundedRetangle(Rectangle rectangle, Color color) {
-			Texture2D texture = TextureAssets.InventoryBack16.Value;
+		public static void DrawRoundedRetangle(this SpriteBatch spriteBatch, Rectangle rectangle, Color color) {
+			Texture2D texture = TextureAssets.InventoryBack13.Value;
 			Rectangle textureBounds = texture.Bounds;
 			foreach (var segment in rectangleSegments) {
 				Main.spriteBatch.Draw(
@@ -173,7 +391,32 @@ namespace ItemSourceHelper {
 			public static StretchLength Position = new(1, 0, 0);
 			public readonly float GetValue(float position, float size) => position * PositionFactor + size * SizeFactor + Flat;
 		}
+		public class ClippingRectangle : IDisposable {
+			readonly Rectangle scissorRectangle;
+			readonly RasterizerState rasterizerState;
+			readonly SpriteBatch spriteBatch;
+			public ClippingRectangle(Rectangle area, SpriteBatch spriteBatch) {
+				this.spriteBatch = spriteBatch;
+				scissorRectangle = spriteBatch.GraphicsDevice.ScissorRectangle;
+				rasterizerState = spriteBatch.GraphicsDevice.RasterizerState;
 
+				spriteBatch.End();
+				Rectangle adjustedClippingRectangle = Rectangle.Intersect(area, spriteBatch.GraphicsDevice.ScissorRectangle);
+				spriteBatch.GraphicsDevice.ScissorRectangle = adjustedClippingRectangle;
+				spriteBatch.GraphicsDevice.RasterizerState = OverflowHiddenRasterizerState;
+				spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.AnisotropicClamp, DepthStencilState.None, OverflowHiddenRasterizerState, null, Main.UIScaleMatrix);
+			}
+			public void Dispose() {
+				spriteBatch.End();
+				spriteBatch.GraphicsDevice.ScissorRectangle = scissorRectangle;
+				spriteBatch.GraphicsDevice.RasterizerState = rasterizerState;
+				spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.AnisotropicClamp, DepthStencilState.None, rasterizerState, null, Main.UIScaleMatrix);
+			}
+			private static readonly RasterizerState OverflowHiddenRasterizerState = new() {
+				CullMode = CullMode.None,
+				ScissorTestEnable = true
+			};
+		}
 	}
 	[Flags]
 	public enum RectangleHandles : byte {

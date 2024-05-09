@@ -34,6 +34,8 @@ namespace ItemSourceHelper {
 	public class ItemSourceHelperSystem : ModSystem {
 		public override void PostSetupRecipes() {
 			ItemSourceHelper.Instance.Sources.AddRange(ItemSourceHelper.Instance.SourceTypes.SelectMany(s => s.FillSourceList()));
+			ItemSourceHelper.Instance.BrowserWindow.Ingredience.items = ItemSourceHelper.Instance.Sources.First().GetSourceItems().ToArray();
+			ItemSourceHelper.Instance.BrowserWindow.Sources.items = ItemSourceHelper.Instance.Sources;
 		}
 		public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers) {
 			int inventoryIndex = layers.FindIndex(layer => layer.Name.Equals("Vanilla: Inventory"));
@@ -67,7 +69,7 @@ namespace ItemSourceHelper {
 	public class ShopItemSourceType : ItemSourceType {
 		public Dictionary<Type, Func<AbstractNPCShop, IEnumerable<AbstractNPCShop.Entry>>> ShopTypes { get; private set; } = new();
 		public static Dictionary<Type, Func<CustomCurrencySystem, Item, IEnumerable<Item>>> EntryPrices { get; private set; } = new();
-		public override void SetStaticDefaults() {
+		public override void Load() {
 			ShopTypes.Add(typeof(TravellingMerchantShop), shop => ((TravellingMerchantShop)shop).ActiveEntries);
 			ShopTypes.Add(typeof(NPCShop), shop => ((NPCShop)shop).Entries);
 
