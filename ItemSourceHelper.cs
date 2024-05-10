@@ -3,6 +3,8 @@ using System.Linq;
 using Terraria.ModLoader;
 using Terraria.UI;
 using ItemSourceHelper.Core;
+using System;
+using Terraria.GameInput;
 
 namespace ItemSourceHelper {
 	// Please read https://github.com/tModLoader/tModLoader/wiki/Basic-tModLoader-Modding-Guide#mod-skeleton-contents for more information about the various files in a mod.
@@ -33,6 +35,22 @@ namespace ItemSourceHelper {
 			if (inventoryIndex != -1) {
 				layers.Insert(inventoryIndex, ItemSourceHelper.Instance.BrowserWindow);
 			}
+		}
+	}
+	public class ScrollingPlayer : ModPlayer {
+		internal static IScrollableUIItem scrollable;
+		public override void Unload() {
+			scrollable = null;
+		}
+		public override void SetControls() {
+			if (scrollable is not null) {
+				if (Math.Abs(PlayerInput.ScrollWheelDelta) >= 60) {
+					scrollable.Scroll(PlayerInput.ScrollWheelDelta / -120);
+					PlayerInput.ScrollWheelDelta = 0;
+				}
+				scrollable = null;
+			}
+
 		}
 	}
 }

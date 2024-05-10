@@ -21,6 +21,7 @@ namespace ItemSourceHelper {
 		public ItemSourceListGridItem Sources { get; private set; }
 		public IngredientListGridItem Ingredience { get; private set; }
 		public ItemSourceEnumerable ActiveFilters { get; private set; }
+		public SingleSlotGridItem FilterItem { get; private set; }
 		public ItemSourceBrowser() : base($"{nameof(ItemSourceHelper)}: Browser", InterfaceScaleType.UI) {
 			MainWindow = new() {
 				Left = new(100, 0),
@@ -45,22 +46,28 @@ namespace ItemSourceHelper {
 						color = Color.Tan,
 						items = []
 					},
+					[4] = FilterItem = new SingleSlotGridItem() {
+						color = new(72, 67, 159)
+					},
 				},
 				mergeIDs = new int[3, 3] {
-					{ -1, -1, -1 },
+					{ 4, -1, -1 },
 					{ 1, 2, 3 },
 					{ 1, 2, 3 }
 				},
-				WidthWeights = new([0.25f, 1, 1]),
-				HeightWeights = new([1, 3f, 1]),
-				MinWidths = new([20, 108, 108]),
-				MinHeights = new([59, 124, 59]),
+				WidthWeights = new([1, 3, 3]),
+				HeightWeights = new([1, 3, 1]),
+				MinWidths = new([51, 124, 124]),
+				MinHeights = new([51, 132, 51]),
 			};
 			MainWindow.Initialize();
 		}
 		protected override bool DrawSelf() {
+			float inventoryScale = Main.inventoryScale;
+			Main.inventoryScale = 0.75f;
 			MainWindow.Recalculate();
 			MainWindow.Draw(Main.spriteBatch);
+			Main.inventoryScale = inventoryScale;
 			return true;
 		}
 	}
@@ -70,19 +77,18 @@ namespace ItemSourceHelper {
 		bool cutOff;
 		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
 			spriteBatch.DrawRoundedRetangle(bounds, color);
-			bounds.X += 12;
-			bounds.Y += 10;
-			bounds.Height += 10;
+			bounds.Height -= 1;
 			Texture2D actuator = TextureAssets.Actuator.Value;
 			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
-				int size = (int)(32 * 0.75f);
+				bool canHover = bounds.Contains(Main.mouseX, Main.mouseY);
+				int size = (int)(32 * Main.inventoryScale);
 				const int padding = 2;
 				int sizeWithPadding = size + padding;
 
-				int minX = bounds.X - 4;
+				int minX = bounds.X + 8;
 				int x = minX - scroll * sizeWithPadding;
 				int maxX = bounds.X + bounds.Width - size / 2;
-				int y = bounds.Y - 4;
+				int y = bounds.Y + 6;
 				int maxY = bounds.Y + bounds.Height - size / 2;
 				cutOff = false;
 				Point mousePos = Main.MouseScreen.ToPoint();
@@ -91,7 +97,7 @@ namespace ItemSourceHelper {
 				ItemSourceEnumerable activeFilters = ItemSourceHelper.Instance.BrowserWindow.ActiveFilters;
 				Rectangle button = new(x, y, size, size);
 				if (activeFilters.filters.Count != 0) {
-					if (button.Contains(mousePos)) {
+					if (canHover && button.Contains(mousePos)) {
 						spriteBatch.Draw(actuator, button, Color.Pink);
 						if (Main.mouseLeft && Main.mouseLeftRelease) {
 							activeFilters.filters.Clear();
@@ -151,23 +157,26 @@ namespace ItemSourceHelper {
 		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
 			Color color = this.color;
 			spriteBatch.DrawRoundedRetangle(bounds, color);
-			bounds.X += 12;
-			bounds.Y += 10;
+			//bounds.X += 12;
+			//bounds.Y += 10;
+			//bounds.Width -= 8;
+			bounds.Height -= 1;
 			Point mousePos = Main.MouseScreen.ToPoint();
 			if (bounds.Contains(mousePos)) this.CaptureScroll();
 			cutOff = false;
 			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
+				bool canHover = bounds.Contains(Main.mouseX, Main.mouseY);
 				Texture2D texture = TextureAssets.InventoryBack13.Value;
-				int size = (int)(52 * 0.75f);
-				const int padding = 3;
+				int size = (int)(52 * Main.inventoryScale);
+				const int padding = 2;
 				int sizeWithPadding = size + padding;
 
-				int minX = bounds.X - 4;
+				int minX = bounds.X + 8;
 				int baseX = minX;
 				int x = baseX;
 				int maxX = bounds.X + bounds.Width - size;
-				int y = bounds.Y - 4;
-				int maxY = bounds.Y + bounds.Height - size;
+				int y = bounds.Y + 6;
+				int maxY = bounds.Y + bounds.Height - size / 2;
 				int itemsPerRow = bounds.Width / sizeWithPadding;
 				Vector2 position = new();
 				Color normalColor = new(72, 67, 159);
@@ -177,7 +186,7 @@ namespace ItemSourceHelper {
 						Item item = itemSource.Item;
 						position.X = x;
 						position.Y = y;
-						bool hover = Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size;
+						bool hover = canHover && Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size;
 						UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, texture, hover ? hoverColor : normalColor);
 						if (hover) {
 							ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
@@ -211,19 +220,18 @@ namespace ItemSourceHelper {
 		bool cutOff;
 		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
 			spriteBatch.DrawRoundedRetangle(bounds, color);
-			bounds.X += 12;
-			bounds.Y += 10;
-			bounds.Height += 10;
+			bounds.Height -= 1;
 			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
-				int size = (int)(52 * 0.75f);
+				bool canHover = bounds.Contains(Main.mouseX, Main.mouseY);
+				int size = (int)(52 * Main.inventoryScale);
 				const int padding = 3;
 				int sizeWithPadding = size + padding;
 
-				int minX = bounds.X - 4;
+				int minX = bounds.X + 8;
 				int baseX = minX - scroll * sizeWithPadding;
 				int x = baseX;
 				int maxX = bounds.X +  bounds.Width - size / 2;
-				int y = bounds.Y - 4;
+				int y = bounds.Y + 6;
 				int maxY = bounds.Y + bounds.Height - size / 2;
 				cutOff = false;
 				Vector2 position = new();
@@ -232,7 +240,7 @@ namespace ItemSourceHelper {
 						position.X = x;
 						position.Y = y;
 						ItemSlot.Draw(spriteBatch, items, ItemSlot.Context.CraftingMaterial, i, position);
-						if (Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size) {
+						if (canHover && Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size) {
 							ItemSlot.MouseHover(items, ItemSlot.Context.CraftingMaterial, i);
 						}
 					}
@@ -259,6 +267,7 @@ namespace ItemSourceHelper {
 		public IEnumerator<ItemSource> GetEnumerator() {
 			for (int i = 0; i < ItemSourceHelper.Instance.Sources.Count; i++) {
 				ItemSource source = ItemSourceHelper.Instance.Sources[i];
+				if (!MatchesSlot(source)) goto cont;
 				for (int j = 0; j < filters.Count; j++) if (!filters[j].Matches(source)) goto cont;
 				yield return source;
 				cont:;
@@ -266,6 +275,40 @@ namespace ItemSourceHelper {
 		}
 		IEnumerator IEnumerable.GetEnumerator() {
 			return GetEnumerator();
+		}
+		public static bool MatchesSlot(ItemSource source) {
+			Item item = ItemSourceHelper.Instance.BrowserWindow.FilterItem.item;
+			if (item.IsAir) return true;
+			if (source.ItemType == item.type) return true;
+			foreach (Item ingredient in source.GetSourceItems()) {
+				if (ingredient.type == item.type) return true;
+			}
+			return false;
+		}
+	}
+	public class SingleSlotGridItem : GridItem {
+		public Item item;
+		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
+			item ??= new();
+			Vector2 size = new(52 * Main.inventoryScale);
+			Vector2 pos = bounds.Center() - size * 0.5f;
+			UIMethods.DrawColoredItemSlot(
+				spriteBatch,
+				ref item,
+				pos,
+				TextureAssets.InventoryBack13.Value,
+				color
+			);
+			if (UIMethods.MouseInArea(pos, size)) {
+				ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
+				if (Main.mouseLeft && Main.mouseLeftRelease) {
+					if (item.type == Main.mouseItem ?.type) {
+						item.TurnToAir();
+					} else {
+						item = Main.mouseItem?.Clone() ?? new();
+					}
+				}
+			}
 		}
 	}
 	public class WindowElement : UIElement {
@@ -546,18 +589,31 @@ namespace ItemSourceHelper {
 			a.Y = bounds.Y + (bounds.Height - a.Height) / 2;
 			return a;
 		}
+		public static bool MouseInArea(Vector2 pos, Vector2 size) {
+			return Main.mouseX >= pos.X && Main.mouseX <= pos.X + size.X && Main.mouseY >= pos.Y && Main.mouseY <= pos.Y + size.Y;
+		}
+		public static Rectangle Scale(this Rectangle rectangle) {
+			Main.UIScaleMatrix.Decompose(out Vector3 scale, out _, out _);
+			rectangle.X = (int)(rectangle.X * scale.X);
+			rectangle.Y = (int)(rectangle.Y * scale.Y);
+			rectangle.Width = (int)(rectangle.Width * scale.X);
+			rectangle.Height = (int)(rectangle.Height * scale.Y);
+			return rectangle;
+		}
 		public static void DrawColoredItemSlot(SpriteBatch spriteBatch, ref Item item, Vector2 position, Texture2D backTexture, Color slotColor, Color lightColor = default, Color textColor = default, string beforeText = null, string afterText = null) {
 			DrawColoredItemSlot(spriteBatch, [item], 0, position, backTexture, slotColor, lightColor, textColor, beforeText, afterText);
 		}
 		public static void DrawColoredItemSlot(SpriteBatch spriteBatch, Item[] items, int slot, Vector2 position, Texture2D backTexture, Color slotColor, Color lightColor = default, Color textColor = default, string beforeText = null, string afterText = null) {
-			spriteBatch.Draw(backTexture, position, null, slotColor, 0f, Vector2.Zero, 0.75f, SpriteEffects.None, 0f);
+			
+			spriteBatch.Draw(backTexture, position, null, slotColor, 0f, Vector2.Zero, Main.inventoryScale, SpriteEffects.None, 0f);
 			if (beforeText is not null) {
-				Terraria.UI.Chat.ChatManager.DrawColorCodedStringWithShadow(spriteBatch, FontAssets.ItemStack.Value, beforeText, position + new Vector2(8f, 4f) * 0.75f, textColor, 0f, Vector2.Zero, new Vector2(0.75f), -1f, 0.75f);
+				Terraria.UI.Chat.ChatManager.DrawColorCodedStringWithShadow(spriteBatch, FontAssets.ItemStack.Value, beforeText, position + new Vector2(8f, 4f) * Main.inventoryScale, textColor, 0f, Vector2.Zero, new Vector2(Main.inventoryScale), -1f, Main.inventoryScale);
 			}
 			ItemSlot.Draw(spriteBatch, items, ItemSlot.Context.ChatItem, slot, position, lightColor);
 			if (afterText is not null) {
-				Terraria.UI.Chat.ChatManager.DrawColorCodedStringWithShadow(spriteBatch, FontAssets.ItemStack.Value, afterText, position + new Vector2(8f, 4f) * 0.75f, textColor, 0f, Vector2.Zero, new Vector2(0.75f), -1f, 0.75f);
+				Terraria.UI.Chat.ChatManager.DrawColorCodedStringWithShadow(spriteBatch, FontAssets.ItemStack.Value, afterText, position + new Vector2(8f, 4f) * Main.inventoryScale, textColor, 0f, Vector2.Zero, new Vector2(Main.inventoryScale), -1f, Main.inventoryScale);
 			}
+
 		}
 		public static StretchSegment[] rectangleSegments = [
 			new(StretchLength.Position, StretchLength.Position, new(0, 0, 10), new(0, 0, 10), RectangleHandles.Top | RectangleHandles.Left),
@@ -602,7 +658,7 @@ namespace ItemSourceHelper {
 				rasterizerState = spriteBatch.GraphicsDevice.RasterizerState;
 
 				spriteBatch.End();
-				Rectangle adjustedClippingRectangle = Rectangle.Intersect(area, spriteBatch.GraphicsDevice.ScissorRectangle);
+				Rectangle adjustedClippingRectangle = Rectangle.Intersect(area.Scale(), spriteBatch.GraphicsDevice.ScissorRectangle);
 				spriteBatch.GraphicsDevice.ScissorRectangle = adjustedClippingRectangle;
 				spriteBatch.GraphicsDevice.RasterizerState = OverflowHiddenRasterizerState;
 				spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.AnisotropicClamp, DepthStencilState.None, OverflowHiddenRasterizerState, null, Main.UIScaleMatrix);
@@ -624,21 +680,6 @@ namespace ItemSourceHelper {
 	}
 	public interface IScrollableUIItem {
 		public void Scroll(int direction);
-	}
-	public class ScrollingPlayer : ModPlayer {
-		internal static IScrollableUIItem scrollable;
-		public override void Unload() {
-			scrollable = null;
-		}
-		public override void SetControls() {
-			if (scrollable is not null) {
-				if (Math.Abs(PlayerInput.ScrollWheelDelta) >= 60) {
-					scrollable.Scroll(PlayerInput.ScrollWheelDelta / -120);
-					PlayerInput.ScrollWheelDelta = 0;
-				}
-				scrollable = null;
-			}
-		}
 	}
 	[Flags]
 	public enum RectangleHandles : byte {
