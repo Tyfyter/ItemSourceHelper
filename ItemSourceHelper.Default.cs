@@ -14,6 +14,7 @@ using Terraria.ModLoader.Default;
 using Terraria.UI;
 using Tyfyter.Utils;
 using ItemSourceHelper.Core;
+using Terraria.GameContent;
 
 namespace ItemSourceHelper.Default;
 #region shop
@@ -104,3 +105,47 @@ public class CraftingItemSource(ItemSourceType sourceType, Recipe recipe) : Item
 	}
 }
 #endregion crafting
+#region filters
+public class WeaponSourceFilter : ItemSourceFilter {
+	List<ItemSourceFilter> children;
+	public override void Load() {
+		children = new(DamageClassLoader.DamageClassCount);
+		ItemSourceFilter child;
+		for (int i = 0; i < DamageClassLoader.DamageClassCount; i++) {
+			if (!ItemSourceHelper.Instance.IconicWeapons.ContainsKey(i)) continue;
+			child = new WeaponTypeSourceFilter(DamageClassLoader.GetDamageClass(i));
+			children.Add(child);
+			Mod.AddContent(child);
+		}
+		child = new OtherWeaponTypeSourceFilter();
+		children.Add(child);
+		Mod.AddContent(child);
+	}
+	protected override string FilterChannelName => "ItemType";
+	public override string Texture => "Terraria/Images/Item_" + ItemID.IronShortsword;
+	public override bool Matches(ItemSource source) => source.Item.damage > 0 && source.Item.useStyle != ItemUseStyleID.None;
+	public override IEnumerable<ItemSourceFilter> ChildFilters() => children;
+}
+[Autoload(false)]
+public class WeaponTypeSourceFilter(DamageClass damageClass) : ItemSourceFilter {
+	public override void SetStaticDefaults() {
+		int item = ItemSourceHelper.Instance.IconicWeapons[damageClass.Type];
+		Main.instance.LoadItem(item);
+		texture = TextureAssets.Item[item];
+	}
+	protected override bool IsChildFilter => true;
+	protected override string FilterChannelName => "WeaponType";
+	public override string Texture => "Terraria/Images/Item_" + ItemID.IronShortsword;
+	public override string Name => $"{base.Name}_{damageClass.FullName}";
+	public override string DisplayNameText => damageClass.DisplayName.Value;
+	public override bool Matches(ItemSource source) => source.item.CountsAsClass(damageClass);
+}
+[Autoload(false)]
+public class OtherWeaponTypeSourceFilter : ItemSourceFilter {
+	protected override bool IsChildFilter => true;
+	protected override string FilterChannelName => "WeaponType";
+	public override string Texture => "Terraria/Images/Item_" + ItemID.UnholyWater;
+	public override string Name => $"{base.Name}_Other";
+	public override bool Matches(ItemSource source) => !ItemSourceHelper.Instance.IconicWeapons.ContainsKey(source.Item.DamageType.Type);
+}
+#endregion filters

@@ -55,10 +55,10 @@ namespace ItemSourceHelper {
 					{ 1, 2, 3 },
 					{ 1, 2, 3 }
 				},
-				WidthWeights = new([1, 3, 3]),
+				WidthWeights = new([1.25f, 3, 3]),
 				HeightWeights = new([1, 3, 1]),
-				MinWidths = new([51, 124, 124]),
-				MinHeights = new([51, 132, 51]),
+				MinWidths = new([51, 132, 132]),
+				MinHeights = new([60, 132, 51]),
 			};
 			MainWindow.Initialize();
 		}
@@ -73,24 +73,30 @@ namespace ItemSourceHelper {
 	}
 	public class FilterListGridItem : GridItem, IScrollableUIItem {
 		public IEnumerable<ItemSourceFilter> filters;
-		int scroll;
-		bool cutOff;
+		ItemSourceFilter lastFilter;
+		int scrollTop;
+		bool cutOffTop;
+		int scrollBottom;
+		bool cutOffBottom;
 		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
 			spriteBatch.DrawRoundedRetangle(bounds, color);
 			bounds.Height -= 1;
 			Texture2D actuator = TextureAssets.Actuator.Value;
 			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
 				bool canHover = bounds.Contains(Main.mouseX, Main.mouseY);
+				if (canHover) {
+					this.CaptureScroll();
+				}
 				int size = (int)(32 * Main.inventoryScale);
 				const int padding = 2;
 				int sizeWithPadding = size + padding;
 
 				int minX = bounds.X + 8;
-				int x = minX - scroll * sizeWithPadding;
+				int x = minX - scrollTop * sizeWithPadding;
 				int maxX = bounds.X + bounds.Width - size / 2;
 				int y = bounds.Y + 6;
 				int maxY = bounds.Y + bounds.Height - size / 2;
-				cutOff = false;
+				cutOffTop = false;
 				Point mousePos = Main.MouseScreen.ToPoint();
 				Color color = new(0, 0, 0, 50);
 				Color hiColor = new(50, 50, 50, 0);
@@ -101,6 +107,7 @@ namespace ItemSourceHelper {
 						spriteBatch.Draw(actuator, button, Color.Pink);
 						if (Main.mouseLeft && Main.mouseLeftRelease) {
 							activeFilters.filters.Clear();
+							lastFilter = null;
 						}
 					} else {
 						spriteBatch.Draw(actuator, button, Color.Red);
@@ -109,18 +116,45 @@ namespace ItemSourceHelper {
 					minX += sizeWithPadding;
 				}
 
+				int lastFilterChannel = -1;
 				foreach (ItemSourceFilter filter in filters) {
 					if (x >= minX - size) {
+						if (lastFilterChannel != filter.FilterChannel) {
+							if (lastFilterChannel != -1) {
+								spriteBatch.Draw(
+									TextureAssets.MagicPixel.Value,
+									new Rectangle(x, y, 2, size),
+									new Color(0, 0, 0, 100)
+								);
+								x += 2 + padding;
+							}
+							lastFilterChannel = filter.FilterChannel;
+						}
 						button.X = x;
 						button.Y = y;
-						int index = activeFilters.filters.IndexOf(filter);
+						int index = activeFilters.filters.FindIndex(filter.ShouldReplace);
 						if (button.Contains(mousePos)) {
 							UIMethods.DrawRoundedRetangle(spriteBatch, button, hiColor);
+							UIMethods.TryMouseText(filter.DisplayNameText);
 							if (Main.mouseLeft && Main.mouseLeftRelease) {
 								if (index == -1) {
 									activeFilters.filters.Add(filter);
-								} else {
+									lastFilter = filter;
+								} else if (filter.Type == activeFilters.filters[index].Type) {
+									if (lastFilter == filter) lastFilter = null;
 									activeFilters.filters.RemoveAt(index);
+									foreach (ItemSourceFilter child in filter.ChildFilters()) activeFilters.filters.Remove(child);
+									index = -1;
+								} else {
+									foreach (ItemSourceFilter child in activeFilters.filters[index].ChildFilters()) activeFilters.filters.Remove(child);
+									activeFilters.filters[index] = filter;
+									if (lastFilter == filter) lastFilter = null;
+									if (filter.ChildFilters().Any()) lastFilter = filter;
+								}
+							} else if (Main.mouseRight && Main.mouseRightRelease) {
+								if (index != -1 && filter.Type == activeFilters.filters[index].Type) {
+									lastFilter = null;
+									if (filter.ChildFilters().Any()) lastFilter = filter;
 								}
 							}
 						} else {
@@ -128,7 +162,7 @@ namespace ItemSourceHelper {
 						}
 						Texture2D texture = filter.TextureAsset.Value;
 						spriteBatch.Draw(texture, texture.Size().RectWithinCentered(button, 8), Color.White);
-						if (index != -1) {
+						if (index != -1 && filter.Type == activeFilters.filters[index].Type) {
 							Rectangle corner = button;
 							int halfWidth = corner.Width / 2;
 							corner.X += halfWidth;
@@ -139,15 +173,55 @@ namespace ItemSourceHelper {
 					}
 					x += sizeWithPadding;
 					if (x >= maxX) {
-						cutOff = true;
+						cutOffTop = true;
+					}
+				}
+				if (lastFilter is not null) {
+					x = minX - scrollBottom * sizeWithPadding;
+					y += sizeWithPadding;
+					foreach (ItemSourceFilter filter in lastFilter.ChildFilters()) {
+						if (x >= minX - size) {
+							button.X = x;
+							button.Y = y;
+							int index = activeFilters.filters.FindIndex(filter.ShouldReplace);
+							if (button.Contains(mousePos)) {
+								UIMethods.DrawRoundedRetangle(spriteBatch, button, hiColor);
+								UIMethods.TryMouseText(filter.DisplayNameText);
+								if (Main.mouseLeft && Main.mouseLeftRelease) {
+									if (index == -1) {
+										activeFilters.filters.Add(filter);
+									} else if (filter.Type == activeFilters.filters[index].Type) {
+										activeFilters.filters.RemoveAt(index);
+										index = -1;
+									} else {
+										activeFilters.filters[index] = filter;
+									}
+								}
+							} else {
+								UIMethods.DrawRoundedRetangle(spriteBatch, button, color);
+							}
+							Texture2D texture = filter.TextureAsset.Value;
+							spriteBatch.Draw(texture, texture.Size().RectWithinCentered(button, 8), Color.White);
+							if (index != -1 && filter.Type == activeFilters.filters[index].Type) {
+								Rectangle corner = button;
+								int halfWidth = corner.Width / 2;
+								corner.X += halfWidth;
+								corner.Width -= halfWidth;
+								corner.Height /= 2;
+								spriteBatch.Draw(actuator, corner, Color.Green);
+							}
+						}
+						x += sizeWithPadding;
+						if (x >= maxX) {
+							cutOffBottom = true;
+						}
 					}
 				}
 			}
 		}
 		public void Scroll(int direction) {
-			if (!cutOff && direction > 0) return;
-			if (scroll <= 0 && direction < 0) return;
-			scroll += direction;
+			if (cutOffTop && direction > 0 || scrollTop > 0 && direction < 0) scrollTop += direction;
+			if (cutOffBottom && direction > 0 || scrollBottom > 0 && direction < 0) scrollBottom += direction;
 		}
 	}
 	public class ItemSourceListGridItem : GridItem, IScrollableUIItem {
@@ -181,8 +255,22 @@ namespace ItemSourceHelper {
 				Vector2 position = new();
 				Color normalColor = new(72, 67, 159);
 				Color hoverColor = Color.CornflowerBlue;
+				bool hadAnyItems = items.Any();
+				bool displayedAnyItems = false;
+				int overscrollFixerTries = 0;
+				retry:
 				foreach (ItemSource itemSource in items.Skip(itemsPerRow * scroll)) {
+					if (x >= maxX - padding) {
+						x = baseX;
+						y += sizeWithPadding;
+						if (y >= maxY - padding) {
+							cutOff = true;
+							break;
+						}
+					}
+					hadAnyItems = true;
 					if (x >= minX - size) {
+						displayedAnyItems = true;
 						Item item = itemSource.Item;
 						position.X = x;
 						position.Y = y;
@@ -196,14 +284,10 @@ namespace ItemSourceHelper {
 						}
 					}
 					x += sizeWithPadding;
-					if (x >= maxX - padding) {
-						x = baseX;
-						y += sizeWithPadding;
-						if (y >= maxY - padding) {
-							cutOff = true;
-							break;
-						}
-					}
+				}
+				if (hadAnyItems && !displayedAnyItems && ++overscrollFixerTries < 100) {
+					scroll--;
+					goto retry;
 				}
 			}
 		}
@@ -599,6 +683,12 @@ namespace ItemSourceHelper {
 			rectangle.Width = (int)(rectangle.Width * scale.X);
 			rectangle.Height = (int)(rectangle.Height * scale.Y);
 			return rectangle;
+		}
+		public static void TryMouseText(string text, string tooltip = null) {
+			if (!Main.mouseText) {
+				Main.instance.MouseTextHackZoom(text, tooltip);
+				Main.mouseText = true;
+			}
 		}
 		public static void DrawColoredItemSlot(SpriteBatch spriteBatch, ref Item item, Vector2 position, Texture2D backTexture, Color slotColor, Color lightColor = default, Color textColor = default, string beforeText = null, string afterText = null) {
 			DrawColoredItemSlot(spriteBatch, [item], 0, position, backTexture, slotColor, lightColor, textColor, beforeText, afterText);

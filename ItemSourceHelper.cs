@@ -5,6 +5,8 @@ using Terraria.UI;
 using ItemSourceHelper.Core;
 using System;
 using Terraria.GameInput;
+using Microsoft.Build.Tasks;
+using Terraria.ID;
 
 namespace ItemSourceHelper {
 	// Please read https://github.com/tModLoader/tModLoader/wiki/Basic-tModLoader-Modding-Guide#mod-skeleton-contents for more information about the various files in a mod.
@@ -13,22 +15,55 @@ namespace ItemSourceHelper {
 		public List<ItemSource> Sources { get; private set; }
 		public List<ItemSourceType> SourceTypes { get; private set; }
 		public List<ItemSourceFilter> Filters { get; private set; }
+		public int ChildFilterCount { get; internal set; }
 		public ItemSourceBrowser BrowserWindow { get; private set; }
+		public Dictionary<int, int> IconicWeapons { get; private set; }
 		public ItemSourceHelper() {
 			Instance = this;
 			Sources = [];
 			SourceTypes = [];
 			Filters = [];
+			IconicWeapons = new() {
+				[DamageClass.Melee.Type] = ItemID.NightsEdge,
+				[DamageClass.Ranged.Type] = ItemID.Minishark,
+				[DamageClass.Magic.Type] = ItemID.WaterBolt,
+				[DamageClass.Summon.Type] = ItemID.SlimeStaff,
+			};
 			BrowserWindow = new();
+			ChildFilterCount = 1;
+		}
+		public override object Call(params object[] args) {
+			string switchOn;
+			try {
+				switchOn = ((string)args[0]).ToUpper();
+			} catch (Exception e) {
+				Logger.Error($"Error while trying to process arg 0 {(args[0] is string ? ", provided value must be a string" : "")}:", e);
+				throw;
+			}
+			switch (switchOn) {
+				case "ADDICONICWEAPON":
+				IconicWeapons.Add((int)args[1], (int)args[2]);
+				break;
+			}
+			return null;
 		}
 		public override void Unload() {
 			Instance = null;
+		}
+	}
+	file class FilterComparer : IComparer<ItemSourceFilter> {
+		public int Compare(ItemSourceFilter x, ItemSourceFilter y) {
+			int xChannel = x.FilterChannel, yChannel = y.FilterChannel;
+			if (xChannel == -1) xChannel = int.MaxValue;
+			if (yChannel == -1) yChannel = int.MaxValue;
+			return Comparer<int>.Default.Compare(xChannel, yChannel);
 		}
 	}
 	public class ItemSourceHelperSystem : ModSystem {
 		public override void PostSetupRecipes() {
 			ItemSourceHelper.Instance.Sources.AddRange(ItemSourceHelper.Instance.SourceTypes.SelectMany(s => s.FillSourceList()));
 			ItemSourceHelper.Instance.BrowserWindow.Ingredience.items = ItemSourceHelper.Instance.Sources.First().GetSourceItems().ToArray();
+			ItemSourceHelper.Instance.Filters.Sort(new FilterComparer());
 		}
 		public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers) {
 			int inventoryIndex = layers.FindIndex(layer => layer.Name.Equals("Vanilla: Inventory"));

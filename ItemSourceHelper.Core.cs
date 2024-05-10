@@ -30,31 +30,70 @@ public abstract class ItemSourceType : ModTexturedType, ILocalizedModType {
 		ItemSourceHelper.Instance.SourceTypes.Add(this);
 		Mod.AddContent(new SourceTypeFilter(this));
 	}
+	public sealed override void SetupContent() {
+		SetStaticDefaults();
+	}
 }
 [Autoload(false)]
 public class SourceTypeFilter(ItemSourceType sourceType) : ItemSourceFilter {
 	public ItemSourceType SourceType => sourceType;
-	public override string Name => "SourceTypeFilter_" + SourceType.Name;
+	public override string Name => "SourceTypeFilter_" + SourceType.FullName;
 	public override string Texture => SourceType.Texture;
+	protected override string FilterChannelName => "SourceType";
 	public override bool Matches(ItemSource source) => source.SourceType == SourceType;
 }
 public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType {
 	public string LocalizationCategory => "ItemSourceFilter";
 	public virtual LocalizedText DisplayName => this.GetLocalization("DisplayName");
+	public virtual string DisplayNameText => DisplayName.Value;
 	public int Type { get; private set; }
-	public Asset<Texture2D> TextureAsset { get; protected set; }
+	public int FilterChannel { get; private set; }
+	protected virtual string FilterChannelName => null;
+	protected virtual bool IsChildFilter => false;
+	protected Asset<Texture2D> texture;
+	public virtual Asset<Texture2D> TextureAsset => texture;
+	public sealed override void SetupContent() {
+		SetStaticDefaults();
+	}
 	public ItemSourceFilter() {
 		if (ModContent.RequestIfExists<Texture2D>(Texture, out var asset)) {
-			TextureAsset = asset;
+			texture = asset;
 		} else {
-			TextureAsset = Asset<Texture2D>.Empty;
+			texture = Asset<Texture2D>.Empty;
 		}
 	}
 	protected override void Register() {
 		ModTypeLookup<ItemSourceFilter>.Register(this);
-		Type = ItemSourceHelper.Instance.Filters.Count;
-		ItemSourceHelper.Instance.Filters.Add(this);
+		if (IsChildFilter) {
+			Type = -(++ItemSourceHelper.Instance.ChildFilterCount);
+		} else {
+			Type = ItemSourceHelper.Instance.Filters.Count;
+			ItemSourceHelper.Instance.Filters.Add(this);
+		}
+		if (FilterChannelName != null) {
+			FilterChannel = FilterChannels.GetChannel(FilterChannelName);
+		} else {
+			FilterChannel = -1;
+		}
 	}
 	public abstract bool Matches(ItemSource source);
 	public virtual IEnumerable<ItemSourceFilter> ChildFilters() => [];
+	public bool ShouldReplace(ItemSourceFilter other) => FilterChannel == 0 ? other.Type == Type : other.FilterChannel == FilterChannel;
+}
+public class FilterChannels : ILoadable {
+	static List<string> channels = [];
+	public static int GetChannel(string name) {
+		int index = channels.IndexOf(name);
+		if (index != -1) return index + 1;
+		channels.Add(name);
+		return channels.Count;
+	}
+	public FilterChannels() {
+		channels = [];
+	}
+	public void Load(Mod mod) { }
+	public void Unload() {
+		channels = null;
+	}
+
 }
