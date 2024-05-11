@@ -34,7 +34,7 @@ namespace ItemSourceHelper {
 			Filters = [];
 			IconicWeapons = new() {
 				[DamageClass.Melee.Type] = ItemID.NightsEdge,
-				[DamageClass.Ranged.Type] = ItemID.Minishark,
+				[DamageClass.Ranged.Type] = ItemID.Handgun,
 				[DamageClass.Magic.Type] = ItemID.WaterBolt,
 				[DamageClass.Summon.Type] = ItemID.SlimeStaff,
 			};

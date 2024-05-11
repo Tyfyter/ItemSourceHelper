@@ -1,4 +1,10 @@
-ItemSourceFilter.SourceTypeFilter_ItemSourceHelper/CraftingItemSourceType.DisplayName: Crafting
+ItemSourceFilter: {
+	SourceTypeFilter_ItemSourceHelper/CraftingItemSourceType.DisplayName: Crafting
+	SourceTypeFilter_ItemSourceHelper/ShimmerItemSourceType.DisplayName: Shimmer
+	SourceTypeFilter_ItemSourceHelper/ShopItemSourceType.DisplayName: NPC Shops
+	WeaponSourceFilter.DisplayName: Weapons
+	OtherWeaponTypeSourceFilter.DisplayName: Other
+}
 
 Keybinds: {
 	"Open Browser To Hovered Item.DisplayName": Open Browser To Hovered Item

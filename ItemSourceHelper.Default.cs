@@ -144,6 +144,9 @@ public class ShimmerItemSource(ItemSourceType sourceType, int resultType, int in
 public class WeaponSourceFilter : ItemSourceFilter {
 	List<ItemSourceFilter> children;
 	public override void Load() {
+		if (ModLoader.HasMod("ThoriumMod")) {
+			ItemSourceHelper.Instance.IconicWeapons[ModContent.Find<DamageClass>("ThoriumMod", "BardDamage").Type] = ModContent.Find<ModItem>("ThoriumMod", "ChronoOcarina").Type;
+		}
 		children = new(DamageClassLoader.DamageClassCount);
 		ItemSourceFilter child;
 		for (int i = 0; i < DamageClassLoader.DamageClassCount; i++) {
@@ -179,7 +182,11 @@ public class OtherWeaponTypeSourceFilter : ItemSourceFilter {
 	protected override bool IsChildFilter => true;
 	protected override string FilterChannelName => "WeaponType";
 	public override string Texture => "Terraria/Images/Item_" + ItemID.UnholyWater;
-	public override string Name => $"{base.Name}_Other";
-	public override bool Matches(ItemSource source) => !ItemSourceHelper.Instance.IconicWeapons.ContainsKey(source.Item.DamageType.Type);
+	public override bool Matches(ItemSource source) {
+		foreach (int type in ItemSourceHelper.Instance.IconicWeapons.Keys) {
+			if (source.Item.CountsAsClass(DamageClassLoader.GetDamageClass(type))) return false;
+		}
+		return true;
+	}
 }
 #endregion filters

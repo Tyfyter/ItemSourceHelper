@@ -97,6 +97,7 @@ namespace ItemSourceHelper {
 			spriteBatch.DrawRoundedRetangle(bounds, color);
 			bounds.Height -= 1;
 			Texture2D actuator = TextureAssets.Actuator.Value;
+			bool shouldResetScroll = false;
 			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
 				bool canHover = bounds.Contains(Main.mouseX, Main.mouseY);
 				if (canHover) {
@@ -156,6 +157,7 @@ namespace ItemSourceHelper {
 								if (index == -1) {
 									activeFilters.filters.Add(filter);
 									if (filter.ChildFilters().Any()) lastFilter = filter;
+									shouldResetScroll = true;
 								} else if (filter.Type == activeFilters.filters[index].Type) {
 									if (lastFilter == filter) lastFilter = null;
 									activeFilters.filters.RemoveAt(index);
@@ -171,6 +173,7 @@ namespace ItemSourceHelper {
 								if (index != -1 && filter.Type == activeFilters.filters[index].Type) {
 									lastFilter = null;
 									if (filter.ChildFilters().Any()) lastFilter = filter;
+									shouldResetScroll = true;
 								}
 							}
 						} else {
@@ -206,11 +209,13 @@ namespace ItemSourceHelper {
 								if (Main.mouseLeft && Main.mouseLeftRelease) {
 									if (index == -1) {
 										activeFilters.filters.Add(filter);
+										shouldResetScroll = true;
 									} else if (filter.Type == activeFilters.filters[index].Type) {
 										activeFilters.filters.RemoveAt(index);
 										index = -1;
 									} else {
 										activeFilters.filters[index] = filter;
+										shouldResetScroll = true;
 									}
 								}
 							} else {
@@ -234,6 +239,7 @@ namespace ItemSourceHelper {
 					}
 				}
 			}
+			if (shouldResetScroll) ItemSourceHelper.Instance.BrowserWindow.Sources.scroll = 0;
 		}
 		public void Scroll(int direction) {
 			if (cutOffTop && direction > 0 || scrollTop > 0 && direction < 0) scrollTop += direction;
@@ -247,7 +253,7 @@ namespace ItemSourceHelper {
 	}
 	public class ItemSourceListGridItem : GridItem, IScrollableUIItem {
 		public IEnumerable<ItemSource> items;
-		int scroll;
+		public int scroll;
 		bool cutOff = false;
 		int lastItemsPerRow = -1;
 		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
