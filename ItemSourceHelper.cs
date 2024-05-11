@@ -9,6 +9,10 @@ using Microsoft.Build.Tasks;
 using Terraria.ID;
 using Microsoft.Xna.Framework.Input;
 using Terraria;
+using Terraria.Audio;
+using Terraria.GameContent.UI.States;
+using System.Reflection;
+using Terraria.GameContent.UI.Elements;
 
 namespace ItemSourceHelper {
 	public class ItemSourceHelper : Mod {
@@ -22,6 +26,7 @@ namespace ItemSourceHelper {
 		public static ModKeybind OpenToItemHotkey { get; private set; }
 		public static ModKeybind OpenMenuHotkey { get; private set; }
 		public static ModKeybind OpenBestiaryHotkey { get; private set; }
+		internal static UISearchBar BestiarySearchBar;
 		public ItemSourceHelper() {
 			Instance = this;
 			Sources = [];
@@ -39,7 +44,7 @@ namespace ItemSourceHelper {
 		public override void Load() {
 			OpenToItemHotkey = KeybindLoader.RegisterKeybind(this, "Open Browser To Hovered Item", nameof(Keys.OemOpenBrackets));
 			OpenMenuHotkey = KeybindLoader.RegisterKeybind(this, "Open Browser", nameof(Keys.OemCloseBrackets));
-			OpenBestiaryHotkey = KeybindLoader.RegisterKeybind(this, "Open Bestiary To Hovered Item", nameof(Keys.OemPipe));
+			if (ModLoader.HasMod("GlobalLootViewer")) OpenBestiaryHotkey = KeybindLoader.RegisterKeybind(this, "Open Bestiary To Hovered Item", nameof(Keys.OemPipe));
 		}
 		public override object Call(params object[] args) {
 			string switchOn;
@@ -78,6 +83,7 @@ namespace ItemSourceHelper {
 			ItemSourceHelper.Instance.Sources.AddRange(ItemSourceHelper.Instance.SourceTypes.SelectMany(s => s.FillSourceList()));
 			ItemSourceHelper.Instance.BrowserWindow.Ingredience.items = ItemSourceHelper.Instance.Sources.First().GetSourceItems().ToArray();
 			ItemSourceHelper.Instance.Filters.Sort(new FilterComparer());
+			ItemSourceHelper.BestiarySearchBar = (UISearchBar)Main.BestiaryUI.Descendants().First(c => c is UISearchBar);
 		}
 		public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers) {
 			if (!isActive) {
@@ -109,6 +115,18 @@ namespace ItemSourceHelper {
 					ItemSourceBrowser browserWindow = ItemSourceHelper.Instance.BrowserWindow;
 					browserWindow.Reset();
 					browserWindow.FilterItem.item = Main.HoverItem.Clone();
+					return;
+				}
+			}
+			if (ItemSourceHelper.OpenBestiaryHotkey.JustPressed) {
+				if (Main.HoverItem?.IsAir == false) {
+					Main.player[Main.myPlayer].SetTalkNPC(-1);
+					Main.npcChatCornerItem = 0;
+					Main.npcChatText = "";
+					SoundEngine.PlaySound(SoundID.MenuTick);
+					IngameFancyUI.OpenUIState(Main.BestiaryUI);
+					Main.BestiaryUI.OnOpenPage();
+					ItemSourceHelper.BestiarySearchBar.SetContents("$" + Main.HoverItem.type);
 					return;
 				}
 			}
