@@ -1,3 +1,4 @@
 displayName = Item Source Helper
 author = Moonlight Glint
 version = 0.1
+ModSide = Client

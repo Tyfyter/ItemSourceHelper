@@ -32,6 +32,15 @@ public class ShopItemSourceType : ItemSourceType {
 			return [new Item(value.Key, i.shopCustomPrice.Value / value.Value)];
 		});
 	}
+	public override void PostSetupRecipes() {
+		childFilters = [];
+		foreach (AbstractNPCShop shop in NPCShopDatabase.AllShops) {
+			if (!ShopTypes.ContainsKey(shop.GetType())) continue;
+			ItemSourceFilter child = new ShopTypeSourceFilter(shop);
+			childFilters.Add(child);
+			child.LateRegister();
+		}
+	}
 	public override void Unload() {
 		EntryPrices = null;
 	}
@@ -41,18 +50,15 @@ public class ShopItemSourceType : ItemSourceType {
 				ItemSourceHelper.Instance.Logger.Warn($"Shop type {shop.GetType()} is not handled, items from it will not show up");
 				return [];
 			}
-			return func(shop).Select(entry => new ShopItemSource(this, entry));
+			return func(shop).Select(entry => new ShopItemSource(this, entry, shop));
 		});
 	}
+	List<ItemSourceFilter> childFilters = [];
+	public override IEnumerable<ItemSourceFilter> ChildFilters() => childFilters;
 }
-public class ShopItemSource(ItemSourceType sourceType, AbstractNPCShop.Entry entry) : ItemSource(sourceType, entry.Item.type) {
-	public IEnumerable<Condition> Conditions => entry.Conditions;
-	public override IEnumerable<TooltipLine> GetExtraTooltipLines() {
-		int i = -1;
-		foreach (var condition in Conditions) {
-			yield return new TooltipLine(ItemSourceHelper.Instance, $"Condition{++i}", condition.Description.Value);
-		}
-	}
+public class ShopItemSource(ItemSourceType sourceType, AbstractNPCShop.Entry entry, AbstractNPCShop shop) : ItemSource(sourceType, entry.Item.type) {
+	public AbstractNPCShop Shop => shop;
+	public override IEnumerable<Condition> GetConditions() => entry.Conditions;
 	public override IEnumerable<Item> GetSourceItems() {
 		if (entry.Item.shopSpecialCurrency != -1 && CustomCurrencyManager.TryGetCurrencySystem(entry.Item.shopSpecialCurrency, out CustomCurrencySystem customCurrency)) {
 			if (ShopItemSourceType.EntryPrices.TryGetValue(customCurrency.GetType(), out var func)) {
@@ -74,6 +80,25 @@ public class ShopItemSource(ItemSourceType sourceType, AbstractNPCShop.Entry ent
 		if (price % 100 > 0) yield return new Item(ItemID.CopperCoin, price % 100);
 	}
 }
+[Autoload(false)]
+public class ShopTypeSourceFilter(AbstractNPCShop shop) : ItemSourceFilter {
+	AbstractNPCShop Shop => shop;
+	public override void SetStaticDefaults() {
+		Main.instance.LoadNPC(Shop.NpcType);
+		int index = NPC.TypeToDefaultHeadIndex(Shop.NpcType);
+		if (index != -1) texture = TextureAssets.NpcHead[index];
+	}
+	protected override bool IsChildFilter => true;
+	protected override string FilterChannelName => "ShopType";
+	public override string Name => $"{base.Name}_{shop.FullName}";
+	public override LocalizedText DisplayName => Language.GetOrRegister($"{Lang.GetNPCName(Shop.NpcType).Key.Replace(".DisplayName", "")}.ShopName.{Shop.Name}", () => {
+		if (Shop.Name == "Shop") {
+			return Lang.GetNPCNameValue(Shop.NpcType);
+		}
+		return $"{Lang.GetNPCNameValue(Shop.NpcType)}: {Shop.Name}";
+	});
+	public override bool Matches(ItemSource source) => source is ShopItemSource shopSource && shopSource.Shop.NpcType == Shop.NpcType && shopSource.Shop.Name == Shop.Name;
+}
 #endregion shop
 #region crafting
 public class CraftingItemSourceType : ItemSourceType {
@@ -86,25 +111,35 @@ public class CraftingItemSourceType : ItemSourceType {
 		FakeRecipeConditions = null;
 	}
 	public override IEnumerable<ItemSource> FillSourceList() {
-        for (int i = 0; i < Main.recipe.Length; i++) {
+		for (int i = 0; i < Main.recipe.Length; i++) {
 			Recipe recipe = Main.recipe[i];
 			if (!recipe.Disabled && !recipe.Conditions.Any(FakeRecipeConditions.Contains)) yield return new CraftingItemSource(this, recipe);
-        }
+		}
 	}
 }
 public class CraftingItemSource(ItemSourceType sourceType, Recipe recipe) : ItemSource(sourceType, recipe.createItem.type) {
-	public IEnumerable<Condition> Conditions => recipe.Conditions;
-	public override IEnumerable<TooltipLine> GetExtraTooltipLines() {
-		int i = -1;
-		foreach (var condition in Conditions) {
-			yield return new TooltipLine(ItemSourceHelper.Instance, $"Condition{++i}", condition.Description.Value);
-		}
-	}
+	public override IEnumerable<Condition> GetConditions() => recipe.Conditions;
 	public override IEnumerable<Item> GetSourceItems() {
 		return recipe.requiredItem;
 	}
 }
 #endregion crafting
+#region shimmer
+public class ShimmerItemSourceType : ItemSourceType {
+	public override string Texture => "Terraria/Images/Item_" + ItemID.ShimmerBlock;
+	public override IEnumerable<ItemSource> FillSourceList() {
+		for (int i = 0; i < ItemID.Sets.ShimmerTransformToItem.Length; i++) {
+			int result = ItemID.Sets.ShimmerTransformToItem[i];
+			if (result != -1) yield return new ShimmerItemSource(this, result, i);
+		}
+	}
+}
+public class ShimmerItemSource(ItemSourceType sourceType, int resultType, int ingredientType) : ItemSource(sourceType, resultType) {
+	public override IEnumerable<Item> GetSourceItems() {
+		yield return ContentSamples.ItemsByType[ingredientType];
+	}
+}
+#endregion shimmer
 #region filters
 public class WeaponSourceFilter : ItemSourceFilter {
 	List<ItemSourceFilter> children;
@@ -135,7 +170,6 @@ public class WeaponTypeSourceFilter(DamageClass damageClass) : ItemSourceFilter 
 	}
 	protected override bool IsChildFilter => true;
 	protected override string FilterChannelName => "WeaponType";
-	public override string Texture => "Terraria/Images/Item_" + ItemID.IronShortsword;
 	public override string Name => $"{base.Name}_{damageClass.FullName}";
 	public override string DisplayNameText => damageClass.DisplayName.Value;
 	public override bool Matches(ItemSource source) => source.item.CountsAsClass(damageClass);

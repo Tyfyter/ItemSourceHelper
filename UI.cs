@@ -1,9 +1,13 @@
 ﻿using ItemSourceHelper.Core;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using ReLogic.Graphics;
+using ReLogic.OS;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -12,6 +16,7 @@ using Terraria.GameContent;
 using Terraria.GameInput;
 using Terraria.Graphics.Effects;
 using Terraria.ID;
+using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.UI;
 
@@ -22,6 +27,8 @@ namespace ItemSourceHelper {
 		public IngredientListGridItem Ingredience { get; private set; }
 		public ItemSourceEnumerable ActiveFilters { get; private set; }
 		public SingleSlotGridItem FilterItem { get; private set; }
+		public ConditionsGridItem ConditionsItem { get; private set; }
+		public SearchGridItem SearchItem { get; private set; }
 		public ItemSourceBrowser() : base($"{nameof(ItemSourceHelper)}: Browser", InterfaceScaleType.UI) {
 			MainWindow = new() {
 				Left = new(100, 0),
@@ -49,16 +56,20 @@ namespace ItemSourceHelper {
 					[4] = FilterItem = new SingleSlotGridItem() {
 						color = new(72, 67, 159)
 					},
+					[5] = ConditionsItem = new ConditionsGridItem(),
+					[6] = SearchItem = new SearchGridItem() {
+						color = Color.White
+					},
 				},
-				mergeIDs = new int[3, 3] {
-					{ 4, -1, -1 },
-					{ 1, 2, 3 },
-					{ 1, 2, 3 }
+				mergeIDs = new int[3, 6] {
+					{ 6, 4, 4, 2, 3, 5 },
+					{ 6, 1, 1, 2, 3, 5 },
+					{ 6, 1, 1, 2, 3, 5 }
 				},
-				WidthWeights = new([1.25f, 3, 3]),
-				HeightWeights = new([1, 3, 1]),
-				MinWidths = new([51, 132, 132]),
-				MinHeights = new([60, 132, 51]),
+				WidthWeights = new([0.74f, 3, 3]),
+				HeightWeights = new([0.59f, 0.59f, 0.59f, 3, 1, 0.59f]),
+				MinWidths = new([43, 180, 180]),
+				MinHeights = new([30, 30, 30, 132, 51, 30]),
 			};
 			MainWindow.Initialize();
 		}
@@ -69,6 +80,10 @@ namespace ItemSourceHelper {
 			MainWindow.Draw(Main.spriteBatch);
 			Main.inventoryScale = inventoryScale;
 			return true;
+		}
+		public void Reset() {
+			MainWindow.ResetItems();
+			ActiveFilters.filters.Clear();
 		}
 	}
 	public class FilterListGridItem : GridItem, IScrollableUIItem {
@@ -92,7 +107,8 @@ namespace ItemSourceHelper {
 				int sizeWithPadding = size + padding;
 
 				int minX = bounds.X + 8;
-				int x = minX - scrollTop * sizeWithPadding;
+				int baseX = minX;
+				int x = baseX - scrollTop * sizeWithPadding;
 				int maxX = bounds.X + bounds.Width - size / 2;
 				int y = bounds.Y + 6;
 				int maxY = bounds.Y + bounds.Height - size / 2;
@@ -139,7 +155,7 @@ namespace ItemSourceHelper {
 							if (Main.mouseLeft && Main.mouseLeftRelease) {
 								if (index == -1) {
 									activeFilters.filters.Add(filter);
-									lastFilter = filter;
+									if (filter.ChildFilters().Any()) lastFilter = filter;
 								} else if (filter.Type == activeFilters.filters[index].Type) {
 									if (lastFilter == filter) lastFilter = null;
 									activeFilters.filters.RemoveAt(index);
@@ -177,10 +193,10 @@ namespace ItemSourceHelper {
 					}
 				}
 				if (lastFilter is not null) {
-					x = minX - scrollBottom * sizeWithPadding;
+					x = baseX - scrollBottom * sizeWithPadding;
 					y += sizeWithPadding;
 					foreach (ItemSourceFilter filter in lastFilter.ChildFilters()) {
-						if (x >= minX - size) {
+						if (x >= baseX - size) {
 							button.X = x;
 							button.Y = y;
 							int index = activeFilters.filters.FindIndex(filter.ShouldReplace);
@@ -223,11 +239,17 @@ namespace ItemSourceHelper {
 			if (cutOffTop && direction > 0 || scrollTop > 0 && direction < 0) scrollTop += direction;
 			if (cutOffBottom && direction > 0 || scrollBottom > 0 && direction < 0) scrollBottom += direction;
 		}
+		public override void Reset() {
+			scrollTop = 0;
+			scrollBottom = 0;
+			lastFilter = null;
+		}
 	}
 	public class ItemSourceListGridItem : GridItem, IScrollableUIItem {
 		public IEnumerable<ItemSource> items;
 		int scroll;
 		bool cutOff = false;
+		int lastItemsPerRow = -1;
 		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
 			Color color = this.color;
 			spriteBatch.DrawRoundedRetangle(bounds, color);
@@ -251,7 +273,13 @@ namespace ItemSourceHelper {
 				int maxX = bounds.X + bounds.Width - size;
 				int y = bounds.Y + 6;
 				int maxY = bounds.Y + bounds.Height - size / 2;
-				int itemsPerRow = bounds.Width / sizeWithPadding;
+				int itemsPerRow = (int)(((maxX - padding) - minX - 1) / (float)sizeWithPadding) + 1;
+				if (lastItemsPerRow != -1 && itemsPerRow != lastItemsPerRow) {
+					int oldSkips = lastItemsPerRow * scroll;
+					int newSkips = itemsPerRow * scroll;
+					float ratio = oldSkips / (float)newSkips;
+					scroll = (int)Math.Round(ratio * scroll);
+				}
 				Vector2 position = new();
 				Color normalColor = new(72, 67, 159);
 				Color hoverColor = Color.CornflowerBlue;
@@ -280,6 +308,9 @@ namespace ItemSourceHelper {
 							ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
 							if (Main.mouseLeft && Main.mouseLeftRelease) {
 								ItemSourceHelper.Instance.BrowserWindow.Ingredience.items = itemSource.GetSourceItems().ToArray();
+								ConditionsGridItem conditionsItem = ItemSourceHelper.Instance.BrowserWindow.ConditionsItem;
+								conditionsItem.conditiont = itemSource.GetExtraConditionText();
+								conditionsItem.conditions = itemSource.GetConditions();
 							}
 						}
 					}
@@ -289,6 +320,7 @@ namespace ItemSourceHelper {
 					scroll--;
 					goto retry;
 				}
+				lastItemsPerRow = itemsPerRow;
 			}
 		}
 
@@ -296,6 +328,10 @@ namespace ItemSourceHelper {
 			if (!cutOff && direction > 0) return;
 			if (scroll <= 0 && direction < 0) return;
 			scroll += direction;
+		}
+		public override void Reset() {
+			scroll = 0;
+			lastItemsPerRow = -1;
 		}
 	}
 	public class IngredientListGridItem : GridItem, IScrollableUIItem {
@@ -344,6 +380,10 @@ namespace ItemSourceHelper {
 			if (!cutOff && direction > 0) return;
 			if (scroll <= 0 && direction < 0) return;
 			scroll += direction;
+		}
+		public override void Reset() {
+			items = [];
+			scroll = 0;
 		}
 	}
 	public class ItemSourceEnumerable : IEnumerable<ItemSource> {
@@ -394,6 +434,210 @@ namespace ItemSourceHelper {
 				}
 			}
 		}
+		public override void Reset() {
+			item.TurnToAir();
+		}
+	}
+	public class SearchGridItem : GridItem {
+		public bool focused = false;
+		public int cursorIndex = 0;
+		public StringBuilder text = new();
+		string lastSearch = "";
+		void Copy(bool cut = false) {
+			Platform.Get<IClipboard>().Value = text.ToString();
+			if (cut) Clear();
+		}
+		void Paste() {
+			string clipboard = Platform.Get<IClipboard>().Value;
+			text.Insert(cursorIndex, clipboard);
+			cursorIndex += clipboard.Length;
+		}
+		void Clear() {
+			text.Clear();
+			cursorIndex = 0;
+		}
+		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
+			DynamicSpriteFont font = FontAssets.MouseText.Value;
+			const float scale = 1.25f;
+			bounds.Y += 4;
+			bounds.Height -= 4;
+			string helpText = "?";
+			Vector2 helpSize = font.MeasureString(helpText) * scale;
+			Vector2 helpPos = bounds.TopRight() - new Vector2(helpSize.X + 4, 0);
+			Color helpColor = Color.Black;
+			if (UIMethods.MouseInArea(helpPos, helpSize)) {
+				UIMethods.TryMouseText("helptextsayswhat?");
+			} else {
+				helpColor *= 0.7f;
+			}
+			spriteBatch.DrawString(
+				font,
+				helpText,
+				helpPos,
+				helpColor,
+				0,
+				new(0, 0),
+				scale,
+				0,
+			0);
+			bounds.Width -= (int)helpSize.X + 8;
+			Color color = this.color;
+			if (!focused) {
+				if (bounds.Contains(Main.mouseX, Main.mouseY)) {
+					if (Main.mouseLeft && Main.mouseLeftRelease) {
+						focused = true;
+						cursorIndex = text.Length;
+					}
+				} else {
+					color *= 0.8f;
+				}
+			}
+			spriteBatch.DrawRoundedRetangle(bounds, color);
+			if (focused) {
+				Main.CurrentInputTextTakerOverride = this;
+				Main.chatRelease = false;
+				PlayerInput.WritingText = true;
+				Main.instance.HandleIME();
+				string input = Main.GetInputText(" ", allowMultiLine: true);
+				if (Main.inputText.PressingControl() || Main.inputText.PressingAlt()) {
+					if (UIMethods.JustPressed(Keys.Z)) Clear();
+					else if (UIMethods.JustPressed(Keys.X)) Copy(cut: true);
+					else if (UIMethods.JustPressed(Keys.C)) Copy();
+					else if (UIMethods.JustPressed(Keys.V)) Paste();
+					else if (UIMethods.JustPressed(Keys.Left)) {
+						if (cursorIndex <= 0) goto specialControls;
+						cursorIndex--;
+						while (cursorIndex > 0 && text[cursorIndex - 1] != ' ') {
+							cursorIndex--;
+						}
+					} else if (UIMethods.JustPressed(Keys.Right)) {
+						if (cursorIndex >= text.Length) goto specialControls;
+						cursorIndex++;
+						while (cursorIndex < text.Length && text[cursorIndex] != ' ') {
+							cursorIndex++;
+						}
+					}
+					goto specialControls;
+				}
+				if (Main.inputText.PressingShift()) {
+					if (UIMethods.JustPressed(Keys.Delete)) {
+						Copy(cut: true);
+						goto specialControls;
+					} else if (UIMethods.JustPressed(Keys.Insert)) {
+						Paste();
+						goto specialControls;
+					}
+				}
+				if (input.Length == 0 && cursorIndex > 0) {
+					text.Remove(--cursorIndex, 1);
+				} else if (input.Length == 2) {
+					text.Insert(cursorIndex++, input[1]);
+				} else if (UIMethods.JustPressed(Keys.Delete)) {
+					if (cursorIndex < text.Length) text.Remove(cursorIndex, 1);
+				}
+				if (UIMethods.JustPressed(Keys.Left)) {
+					if (cursorIndex > 0) cursorIndex--;
+				} else if (UIMethods.JustPressed(Keys.Right)) {
+					if (cursorIndex < text.Length) cursorIndex++;
+				}
+				if (UIMethods.JustPressed(Keys.Enter)) {
+					lastSearch = text.ToString();
+					focused = false;
+				} else if (Main.inputTextEscape) {
+					Clear();
+					text.Append(lastSearch);
+					focused = false;
+				}
+			}
+			specialControls:
+			Vector2 offset = new(4, 2);
+			if (focused && Main.timeForVisualEffects % 40 < 20) {
+				spriteBatch.DrawString(
+					font,
+					"|",
+					bounds.TopLeft() + font.MeasureString(text.ToString()[..cursorIndex]) * Vector2.UnitX * scale + offset * Vector2.UnitY,
+					Color.Black,
+					0,
+					new(0, 0),
+					scale,
+					0,
+				0);
+			}
+			spriteBatch.DrawString(
+				font,
+				text,
+				bounds.TopLeft() + offset,
+				Color.Black,
+				0,
+				new(0, 0),
+				scale,
+				0,
+			0);
+		}
+		public override void Reset() {
+			Clear();
+			cursorIndex = 0;
+			lastSearch = "";
+			focused = false;
+		}
+	}
+	public class ConditionsGridItem : GridItem {
+		public LocalizedText conditiont;
+		public IEnumerable<Condition> conditions = [];
+		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
+			DynamicSpriteFont font = FontAssets.MouseText.Value;
+			string commaText = ", ";
+			float commaWidth = font.MeasureString(commaText).X * 0.75f;
+			bool comma = false;
+			Vector2 pos = bounds.TopLeft();
+			if (conditiont is not null) {
+				string currentText = conditiont.Value;
+				spriteBatch.DrawString(
+					font,
+					currentText,
+					pos,
+					Color.White,
+					0,
+					new(0, 0f),
+					0.75f,
+					0,
+				0);
+				pos.X += font.MeasureString(currentText).X * 0.75f;
+				comma = true;
+			}
+			foreach (Condition condition in conditions) {
+				if (comma) {
+					spriteBatch.DrawString(
+						font,
+						commaText,
+						pos,
+						Color.White,
+						0,
+						new(0, 0f),
+						0.75f,
+						0,
+					0);
+					pos.X += commaWidth;
+				}
+				comma = true;
+				string currentText = condition.Description.Value;
+				spriteBatch.DrawString(
+					font,
+					currentText,
+					pos,
+					Color.White,
+					0,
+					new(0, 0f),
+					0.75f,
+					0,
+				0);
+				pos.X += font.MeasureString(currentText).X * 0.75f;
+			}
+		}
+		public override void Reset() {
+			conditiont = null;
+			conditions = [];
+		}
 	}
 	public class WindowElement : UIElement {
 		#region resize
@@ -442,18 +686,18 @@ namespace ItemSourceHelper {
 				bool changed = false;
 				if (heldHandleStretch) {
 					if (heldHandle.HasFlag(RectangleHandles.Left)) {
-						int diff = (int)(Left.Pixels - Main.MouseScreen.X + heldHandleOffset.X);
-						Left.Pixels -= diff;
-						Width.Pixels += diff;
+						Vector2 pos = Main.MouseScreen + heldHandleOffset;
+						Width.Pixels += Left.Pixels - (int)pos.X;
+						Left.Pixels = (int)pos.X;
 						changed = true;
 					} else if (heldHandle.HasFlag(RectangleHandles.Right)) {
 						Width.Pixels = (int)Main.MouseScreen.X + heldHandleOffset.X - area.X;
 						changed = true;
 					}
 					if (heldHandle.HasFlag(RectangleHandles.Top)) {
-						int diff = (int)(Top.Pixels - Main.MouseScreen.X + heldHandleOffset.Y);
-						Top.Pixels -= diff;
-						Height.Pixels += diff;
+						Vector2 pos = Main.MouseScreen + heldHandleOffset;
+						Height.Pixels += Top.Pixels - (int)pos.Y;
+						Top.Pixels = (int)pos.Y;
 						changed = true;
 					} else if (heldHandle.HasFlag(RectangleHandles.Bottom)) {
 						Height.Pixels = (int)Main.MouseScreen.Y + heldHandleOffset.Y - area.Y;
@@ -525,6 +769,11 @@ namespace ItemSourceHelper {
 		public ObservableArray<float> HeightWeights;
 		public ObservableArray<float> MinWidths;
 		public ObservableArray<float> MinHeights;
+		public void ResetItems() {
+			foreach (GridItem item in items.Values) {
+				item.Reset();
+			}
+		}
 		public override void Update(GameTime gameTime) {
 			CheckSizes();
 		}
@@ -545,7 +794,7 @@ namespace ItemSourceHelper {
 				MinWidths.ConsumeChange();
 				calculatedMinWidth = 0;
 				for (int i = 0; i < WidthWeights.Length; i++) {
-					float value = MinWidths[i] * (totalWidthWeight / WidthWeights[i]);
+					float value = (MinWidths[i] + 2) * (totalWidthWeight / WidthWeights[i]);
 					if (calculatedMinWidth < value) calculatedMinWidth = value;
 				}
 				anyChanged = true;
@@ -555,7 +804,7 @@ namespace ItemSourceHelper {
 				MinHeights.ConsumeChange();
 				calculatedMinHeight = 0;
 				for (int i = 0; i < HeightWeights.Length; i++) {
-					float value = MinHeights[i] * (totalHeightWeight / HeightWeights[i]);
+					float value = (MinHeights[i] + 2) * (totalHeightWeight / HeightWeights[i]);
 					if (calculatedMinHeight < value) calculatedMinHeight = value;
 				}
 				anyChanged = true;
@@ -566,7 +815,7 @@ namespace ItemSourceHelper {
 			int hCells = mergeIDs.GetLength(0);
 			int vCells = mergeIDs.GetLength(1);
 			CalculatedStyle style = GetInnerDimensions();
-			int padding = 4;
+			int padding = 2;
 			int baseX = (int)style.X;
 			int baseY = (int)style.Y;
 			Dictionary<int, (Rectangle bounds, GridItem item)> processedIDs = [];
@@ -586,13 +835,14 @@ namespace ItemSourceHelper {
 					if (width == 0) continue;
 					int currentX = x;
 					while (ShouldMerge(currentX, y, currentX + 1, y)) {
-						width += widths[currentX] + padding;
 						currentX++;
+						width += widths[currentX] + padding;
 					}
+					height = heights[y];
 					int currentY = y;
 					while (ShouldMerge(x, currentY, x, currentY + 1)) {
-						height += heights[currentY] + padding;
 						currentY++;
+						height += heights[currentY] + padding;
 					}
 					Rectangle bounds = new(boxX, boxY, (int)width, (int)height);
 					processedIDs.Add(mergeID, (bounds, items[mergeID]));
@@ -636,6 +886,7 @@ namespace ItemSourceHelper {
 			}
 			spriteBatch.DrawRoundedRetangle(bounds, color);
 		}
+		public virtual void Reset() { }
 	}
 	public static class UIMethods {
 		public static void DrawRoundedRetangle(this SpriteBatch spriteBatch, Rectangle rectangle, Color color) {
@@ -690,6 +941,8 @@ namespace ItemSourceHelper {
 				Main.mouseText = true;
 			}
 		}
+		public static bool PressingAlt(this KeyboardState state) => state.IsKeyDown(Keys.LeftAlt) || state.IsKeyDown(Keys.RightAlt);
+		public static bool JustPressed(Keys key) => Main.inputText.IsKeyDown(key) && !Main.oldInputText.IsKeyDown(key);
 		public static void DrawColoredItemSlot(SpriteBatch spriteBatch, ref Item item, Vector2 position, Texture2D backTexture, Color slotColor, Color lightColor = default, Color textColor = default, string beforeText = null, string afterText = null) {
 			DrawColoredItemSlot(spriteBatch, [item], 0, position, backTexture, slotColor, lightColor, textColor, beforeText, afterText);
 		}

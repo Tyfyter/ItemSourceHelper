@@ -7,9 +7,10 @@ using System;
 using Terraria.GameInput;
 using Microsoft.Build.Tasks;
 using Terraria.ID;
+using Microsoft.Xna.Framework.Input;
+using Terraria;
 
 namespace ItemSourceHelper {
-	// Please read https://github.com/tModLoader/tModLoader/wiki/Basic-tModLoader-Modding-Guide#mod-skeleton-contents for more information about the various files in a mod.
 	public class ItemSourceHelper : Mod {
 		public static ItemSourceHelper Instance { get; private set; }
 		public List<ItemSource> Sources { get; private set; }
@@ -18,6 +19,9 @@ namespace ItemSourceHelper {
 		public int ChildFilterCount { get; internal set; }
 		public ItemSourceBrowser BrowserWindow { get; private set; }
 		public Dictionary<int, int> IconicWeapons { get; private set; }
+		public static ModKeybind OpenToItemHotkey { get; private set; }
+		public static ModKeybind OpenMenuHotkey { get; private set; }
+		public static ModKeybind OpenBestiaryHotkey { get; private set; }
 		public ItemSourceHelper() {
 			Instance = this;
 			Sources = [];
@@ -31,6 +35,11 @@ namespace ItemSourceHelper {
 			};
 			BrowserWindow = new();
 			ChildFilterCount = 1;
+		}
+		public override void Load() {
+			OpenToItemHotkey = KeybindLoader.RegisterKeybind(this, "Open Browser To Hovered Item", nameof(Keys.OemOpenBrackets));
+			OpenMenuHotkey = KeybindLoader.RegisterKeybind(this, "Open Browser", nameof(Keys.OemCloseBrackets));
+			OpenBestiaryHotkey = KeybindLoader.RegisterKeybind(this, "Open Bestiary To Hovered Item", nameof(Keys.OemPipe));
 		}
 		public override object Call(params object[] args) {
 			string switchOn;
@@ -49,6 +58,8 @@ namespace ItemSourceHelper {
 		}
 		public override void Unload() {
 			Instance = null;
+			OpenToItemHotkey = null;
+			OpenMenuHotkey = null;
 		}
 	}
 	file class FilterComparer : IComparer<ItemSourceFilter> {
@@ -60,12 +71,19 @@ namespace ItemSourceHelper {
 		}
 	}
 	public class ItemSourceHelperSystem : ModSystem {
+		public static bool isActive = false;
 		public override void PostSetupRecipes() {
+			foreach (ItemSourceType sourceType in ItemSourceHelper.Instance.SourceTypes) sourceType.PostSetupRecipes();
+
 			ItemSourceHelper.Instance.Sources.AddRange(ItemSourceHelper.Instance.SourceTypes.SelectMany(s => s.FillSourceList()));
 			ItemSourceHelper.Instance.BrowserWindow.Ingredience.items = ItemSourceHelper.Instance.Sources.First().GetSourceItems().ToArray();
 			ItemSourceHelper.Instance.Filters.Sort(new FilterComparer());
 		}
 		public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers) {
+			if (!isActive) {
+				ItemSourceHelper.Instance.BrowserWindow.SearchItem.focused = false;
+				return;
+			}
 			int inventoryIndex = layers.FindIndex(layer => layer.Name.Equals("Vanilla: Inventory"));
 			if (inventoryIndex != -1) {
 				layers.Insert(inventoryIndex, ItemSourceHelper.Instance.BrowserWindow);
@@ -85,7 +103,18 @@ namespace ItemSourceHelper {
 				}
 				scrollable = null;
 			}
-
+			if (ItemSourceHelper.OpenToItemHotkey.JustPressed) {
+				if (Main.HoverItem?.IsAir == false) {
+					ItemSourceHelperSystem.isActive = true;
+					ItemSourceBrowser browserWindow = ItemSourceHelper.Instance.BrowserWindow;
+					browserWindow.Reset();
+					browserWindow.FilterItem.item = Main.HoverItem.Clone();
+					return;
+				}
+			}
+			if (ItemSourceHelper.OpenMenuHotkey.JustPressed) {
+				ItemSourceHelperSystem.isActive = !ItemSourceHelperSystem.isActive;
+			}
 		}
 	}
 }

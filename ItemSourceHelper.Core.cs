@@ -12,9 +12,10 @@ public abstract class ItemSource(ItemSourceType sourceType, int itemType) {
 	public int ItemType => itemType;
 	public Item item;
 	public Item Item => item ??= ContentSamples.ItemsByType[ItemType];
-	public virtual IEnumerable<TooltipLine> GetExtraTooltipLines() {
+	public virtual IEnumerable<Condition> GetConditions() {
 		yield break;
 	}
+	public virtual LocalizedText GetExtraConditionText() => null;
 	public virtual IEnumerable<Item> GetSourceItems() {
 		yield break;
 	}
@@ -33,6 +34,8 @@ public abstract class ItemSourceType : ModTexturedType, ILocalizedModType {
 	public sealed override void SetupContent() {
 		SetStaticDefaults();
 	}
+	public virtual void PostSetupRecipes() { }
+	public virtual IEnumerable<ItemSourceFilter> ChildFilters() => [];
 }
 [Autoload(false)]
 public class SourceTypeFilter(ItemSourceType sourceType) : ItemSourceFilter {
@@ -40,6 +43,7 @@ public class SourceTypeFilter(ItemSourceType sourceType) : ItemSourceFilter {
 	public override string Name => "SourceTypeFilter_" + SourceType.FullName;
 	public override string Texture => SourceType.Texture;
 	protected override string FilterChannelName => "SourceType";
+	public override IEnumerable<ItemSourceFilter> ChildFilters() => SourceType.ChildFilters();
 	public override bool Matches(ItemSource source) => source.SourceType == SourceType;
 }
 public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType {
@@ -61,6 +65,10 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType {
 		} else {
 			texture = Asset<Texture2D>.Empty;
 		}
+	}
+	public void LateRegister() {
+		Register();
+		SetupContent();
 	}
 	protected override void Register() {
 		ModTypeLookup<ItemSourceFilter>.Register(this);

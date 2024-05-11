@@ -1,1 +1,7 @@
-ItemSourceFilter.SourceTypeFilter_ItemSourceHelper/CraftingItemSourceType.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.SourceTypeFilter_ItemSourceHelper/CraftingItemSourceType.DisplayName
+ItemSourceFilter.SourceTypeFilter_ItemSourceHelper/CraftingItemSourceType.DisplayName: Crafting
+
+Keybinds: {
+	"Open Browser To Hovered Item.DisplayName": Open Browser To Hovered Item
+	"Open Browser.DisplayName": Open Browser
+	"Open Bestiary To Hovered Item.DisplayName": Open  Bestiary  To  Hovered  Item
+}
