@@ -15,6 +15,8 @@ using Terraria.UI;
 using Tyfyter.Utils;
 using ItemSourceHelper.Core;
 using Terraria.GameContent;
+using Terraria.Map;
+using System.Collections.Immutable;
 
 namespace ItemSourceHelper.Default;
 #region shop
@@ -79,6 +81,7 @@ public class ShopItemSource(ItemSourceType sourceType, AbstractNPCShop.Entry ent
 		if ((price / 100) % 100 > 0) yield return new Item(ItemID.SilverCoin, (price / 100) % 100);
 		if (price % 100 > 0) yield return new Item(ItemID.CopperCoin, price % 100);
 	}
+	public override LocalizedText GetExtraConditionText() => Language.GetText(ShopTypeSourceFilter.GetNameKey(Shop));
 }
 [Autoload(false)]
 public class ShopTypeSourceFilter(AbstractNPCShop shop) : ItemSourceFilter {
@@ -91,7 +94,8 @@ public class ShopTypeSourceFilter(AbstractNPCShop shop) : ItemSourceFilter {
 	protected override bool IsChildFilter => true;
 	protected override string FilterChannelName => "ShopType";
 	public override string Name => $"{base.Name}_{shop.FullName}";
-	public override LocalizedText DisplayName => Language.GetOrRegister($"{Lang.GetNPCName(Shop.NpcType).Key.Replace(".DisplayName", "")}.ShopName.{Shop.Name}", () => {
+	public static string GetNameKey(AbstractNPCShop shop) => $"{Lang.GetNPCName(shop.NpcType).Key.Replace(".DisplayName", "")}.ShopName.{shop.Name}";
+	public override LocalizedText DisplayName => Language.GetOrRegister(GetNameKey(Shop), () => {
 		if (Shop.Name == "Shop") {
 			return Lang.GetNPCNameValue(Shop.NpcType);
 		}
@@ -103,25 +107,64 @@ public class ShopTypeSourceFilter(AbstractNPCShop shop) : ItemSourceFilter {
 #region crafting
 public class CraftingItemSourceType : ItemSourceType {
 	public override string Texture => "Terraria/Images/Item_" + ItemID.WorkBench;
-	public static HashSet<Condition> FakeRecipeConditions { get; private set; } = new();
-	public override void Load() {
-
-	}
+	public static HashSet<Condition> FakeRecipeConditions { get; private set; } = [];
 	public override void Unload() {
 		FakeRecipeConditions = null;
 	}
 	public override IEnumerable<ItemSource> FillSourceList() {
+		Dictionary<int, ItemSourceFilter> stations = [];
 		for (int i = 0; i < Main.recipe.Length; i++) {
 			Recipe recipe = Main.recipe[i];
-			if (!recipe.Disabled && !recipe.Conditions.Any(FakeRecipeConditions.Contains)) yield return new CraftingItemSource(this, recipe);
+			if (!recipe.Disabled && !recipe.createItem.IsAir && !recipe.Conditions.Any(FakeRecipeConditions.Contains)) {
+				for (int j = 0; j < recipe.requiredTile.Count; j++) {
+					int tileType = recipe.requiredTile[j];
+					if (!stations.ContainsKey(tileType)) {
+						ItemSourceFilter child = new CraftingStationSourceFilter(tileType);
+						stations.Add(tileType, child);
+						child.LateRegister();
+					}
+				}
+				yield return new CraftingItemSource(this, recipe);
+			}
 		}
+		childFilters = stations.ToImmutableSortedDictionary().Values.ToList();
 	}
+	List<ItemSourceFilter> childFilters = [];
+	public override IEnumerable<ItemSourceFilter> ChildFilters() => childFilters;
 }
 public class CraftingItemSource(ItemSourceType sourceType, Recipe recipe) : ItemSource(sourceType, recipe.createItem.type) {
-	public override IEnumerable<Condition> GetConditions() => recipe.Conditions;
-	public override IEnumerable<Item> GetSourceItems() {
-		return recipe.requiredItem;
+	public Recipe Recipe => recipe;
+	public override IEnumerable<Condition> GetConditions() => Recipe.Conditions;
+	public override IEnumerable<Item> GetSourceItems() => Recipe.requiredItem;
+}
+[Autoload(false)]
+public class CraftingStationSourceFilter(int tileType) : ItemSourceFilter {
+	string nameKey;
+	string internalName;
+	string InternalName => internalName ??= TileID.Search.GetName(TileType);
+	public int TileType => tileType;
+	public override void SetStaticDefaults() {
+		int itemType = TileLoader.GetItemDropFromTypeAndStyle(TileType, 0);
+		if (Lang._mapLegendCache.FromType(TileType) is not LocalizedText text) {
+			if (itemType != 0) {
+				text = Lang.GetItemName(itemType);
+			} else {
+				nameKey = InternalName;
+				goto noLocalization;
+			}
+		}
+		nameKey = text.Key;
+		noLocalization:
+		if (itemType != 0) {
+			Main.instance.LoadItem(itemType);
+			texture = TextureAssets.Item[itemType];
+		}
 	}
+	protected override bool IsChildFilter => true;
+	protected override string FilterChannelName => "CraftingStaion";
+	public override string Name => $"{base.Name}_{InternalName}";
+	public override LocalizedText DisplayName => Language.GetOrRegister(nameKey);
+	public override bool Matches(ItemSource source) => source is CraftingItemSource craftingSource && craftingSource.Recipe.requiredTile.Contains(TileType);
 }
 #endregion crafting
 #region shimmer
@@ -141,31 +184,32 @@ public class ShimmerItemSource(ItemSourceType sourceType, int resultType, int in
 }
 #endregion shimmer
 #region filters
-public class WeaponSourceFilter : ItemSourceFilter {
-	List<ItemSourceFilter> children;
+public class WeaponFilter : ItemFilter {
+	List<ItemFilter> children;
 	public override void Load() {
 		if (ModLoader.HasMod("ThoriumMod")) {
 			ItemSourceHelper.Instance.IconicWeapons[ModContent.Find<DamageClass>("ThoriumMod", "BardDamage").Type] = ModContent.Find<ModItem>("ThoriumMod", "ChronoOcarina").Type;
 		}
-		children = new(DamageClassLoader.DamageClassCount);
-		ItemSourceFilter child;
+		children = new(DamageClassLoader.DamageClassCount + 1);
+		ItemFilter child;
 		for (int i = 0; i < DamageClassLoader.DamageClassCount; i++) {
 			if (!ItemSourceHelper.Instance.IconicWeapons.ContainsKey(i)) continue;
-			child = new WeaponTypeSourceFilter(DamageClassLoader.GetDamageClass(i));
+			child = new WeaponTypeFilter(DamageClassLoader.GetDamageClass(i));
 			children.Add(child);
 			Mod.AddContent(child);
 		}
-		child = new OtherWeaponTypeSourceFilter();
+		child = new OtherWeaponTypeFilter();
 		children.Add(child);
 		Mod.AddContent(child);
+		children.TrimExcess();
 	}
 	protected override string FilterChannelName => "ItemType";
 	public override string Texture => "Terraria/Images/Item_" + ItemID.IronShortsword;
-	public override bool Matches(ItemSource source) => source.Item.damage > 0 && source.Item.useStyle != ItemUseStyleID.None;
-	public override IEnumerable<ItemSourceFilter> ChildFilters() => children;
+	public override bool Matches(Item item) => item.damage > 0 && item.useStyle != ItemUseStyleID.None && item.createTile == -1;
+	public override IEnumerable<ItemFilter> ChildItemFilters() => children;
 }
 [Autoload(false)]
-public class WeaponTypeSourceFilter(DamageClass damageClass) : ItemSourceFilter {
+public class WeaponTypeFilter(DamageClass damageClass) : ItemFilter {
 	public override void SetStaticDefaults() {
 		int item = ItemSourceHelper.Instance.IconicWeapons[damageClass.Type];
 		Main.instance.LoadItem(item);
@@ -175,18 +219,66 @@ public class WeaponTypeSourceFilter(DamageClass damageClass) : ItemSourceFilter 
 	protected override string FilterChannelName => "WeaponType";
 	public override string Name => $"{base.Name}_{damageClass.FullName}";
 	public override string DisplayNameText => damageClass.DisplayName.Value;
-	public override bool Matches(ItemSource source) => source.item.CountsAsClass(damageClass);
+	public override bool Matches(Item item) => item.CountsAsClass(damageClass);
 }
 [Autoload(false)]
-public class OtherWeaponTypeSourceFilter : ItemSourceFilter {
+public class OtherWeaponTypeFilter : ItemFilter {
 	protected override bool IsChildFilter => true;
 	protected override string FilterChannelName => "WeaponType";
 	public override string Texture => "Terraria/Images/Item_" + ItemID.UnholyWater;
-	public override bool Matches(ItemSource source) {
+	public override bool Matches(Item item) {
 		foreach (int type in ItemSourceHelper.Instance.IconicWeapons.Keys) {
-			if (source.Item.CountsAsClass(DamageClassLoader.GetDamageClass(type))) return false;
+			if (item.CountsAsClass(DamageClassLoader.GetDamageClass(type))) return false;
 		}
 		return true;
 	}
+}
+public class AccessoryFilter : ItemFilter {
+	protected override string FilterChannelName => "ItemType";
+	public override float SortPriority => 2f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.BandofRegeneration;
+	public override bool Matches(Item item) => item.accessory;
+}
+public class ModdedFilter : ItemFilter {
+	List<ItemFilter> children;
+	public override void SetStaticDefaults() {
+		children = new(ModLoader.Mods.Length + 1);
+		ItemFilter child;
+		foreach (Mod mod in ModLoader.Mods) {
+			if (!mod.GetContent<ModItem>().Any()) continue;
+			child = new ModFilter(mod);
+			children.Add(child);
+			child.LateRegister();
+		}
+		child = new VanillaFilter();
+		children.Add(child);
+		child.LateRegister();
+		children.TrimExcess();
+	}
+	public override float SortPriority => 99f;
+	public override bool Matches(Item item) => item.ModItem?.Mod != null || item.StatsModifiedBy.Count != 0;
+	public override IEnumerable<ItemFilter> ChildItemFilters() => children;
+}
+[Autoload(false)]
+public class ModFilter(Mod mod) : ItemFilter {
+	public Mod FilterMod => mod;
+	public override string Name => $"{base.Name}_{mod.Name}";
+	protected override bool IsChildFilter => true;
+	public override string DisplayNameText => FilterMod.DisplayName;
+	public override void SetStaticDefaults() {
+		if (!ModContent.RequestIfExists($"{FilterMod.Name}/icon_small", out texture)) {
+			texture = Asset<Texture2D>.Empty;
+		}
+	}
+	public override bool Matches(Item item) => item.ModItem?.Mod == mod;
+}
+[Autoload(false)]
+public class VanillaFilter : ItemFilter {
+	public override float SortPriority => 0f;
+	protected override bool IsChildFilter => true;
+	public override void SetStaticDefaults() {
+		texture = ModContent.Request<Texture2D>("Terraria/Images/UI/WorldCreation/IconDifficultyNormal");
+	}
+	public override bool Matches(Item item) => item.ModItem == null && item.StatsModifiedBy.Count != 0;
 }
 #endregion filters

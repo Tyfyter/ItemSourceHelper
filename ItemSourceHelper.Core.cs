@@ -10,7 +10,7 @@ namespace ItemSourceHelper.Core;
 public abstract class ItemSource(ItemSourceType sourceType, int itemType) {
 	public ItemSourceType SourceType => sourceType;
 	public int ItemType => itemType;
-	public Item item;
+	Item item;
 	public Item Item => item ??= ContentSamples.ItemsByType[ItemType];
 	public virtual IEnumerable<Condition> GetConditions() {
 		yield break;
@@ -30,6 +30,7 @@ public abstract class ItemSourceType : ModTexturedType, ILocalizedModType {
 		Type = ItemSourceHelper.Instance.SourceTypes.Count;
 		ItemSourceHelper.Instance.SourceTypes.Add(this);
 		Mod.AddContent(new SourceTypeFilter(this));
+		_ = DisplayName.Value;
 	}
 	public sealed override void SetupContent() {
 		SetStaticDefaults();
@@ -43,12 +44,13 @@ public class SourceTypeFilter(ItemSourceType sourceType) : ItemSourceFilter {
 	public override string Name => "SourceTypeFilter_" + SourceType.FullName;
 	public override string Texture => SourceType.Texture;
 	protected override string FilterChannelName => "SourceType";
+	public override LocalizedText DisplayName => SourceType.DisplayName;
 	public override IEnumerable<ItemSourceFilter> ChildFilters() => SourceType.ChildFilters();
 	public override bool Matches(ItemSource source) => source.SourceType == SourceType;
 }
 public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType {
 	public string LocalizationCategory => "ItemSourceFilter";
-	public virtual LocalizedText DisplayName => this.GetLocalization("DisplayName");
+	public virtual LocalizedText DisplayName => Mod is null ? ItemSourceHelper.GetLocalization(this) : this.GetLocalization("DisplayName");
 	public virtual string DisplayNameText => DisplayName.Value;
 	public int Type { get; private set; }
 	public int FilterChannel { get; private set; }
@@ -56,15 +58,15 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType {
 	protected virtual bool IsChildFilter => false;
 	protected Asset<Texture2D> texture;
 	public virtual Asset<Texture2D> TextureAsset => texture;
+	public virtual float SortPriority => 1f;
 	public sealed override void SetupContent() {
-		SetStaticDefaults();
-	}
-	public ItemSourceFilter() {
-		if (ModContent.RequestIfExists<Texture2D>(Texture, out var asset)) {
-			texture = asset;
+		if (FilterChannelName != null) {
+			FilterChannel = FilterChannels.GetChannel(FilterChannelName);
 		} else {
-			texture = Asset<Texture2D>.Empty;
+			FilterChannel = -1;
 		}
+		SetStaticDefaults();
+		_ = DisplayName;
 	}
 	public void LateRegister() {
 		Register();
@@ -78,15 +80,21 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType {
 			Type = ItemSourceHelper.Instance.Filters.Count;
 			ItemSourceHelper.Instance.Filters.Add(this);
 		}
-		if (FilterChannelName != null) {
-			FilterChannel = FilterChannels.GetChannel(FilterChannelName);
+		if (ModContent.RequestIfExists<Texture2D>(Texture, out var asset)) {
+			texture = asset;
 		} else {
-			FilterChannel = -1;
+			texture = Asset<Texture2D>.Empty;
 		}
 	}
 	public abstract bool Matches(ItemSource source);
 	public virtual IEnumerable<ItemSourceFilter> ChildFilters() => [];
 	public bool ShouldReplace(ItemSourceFilter other) => FilterChannel == 0 ? other.Type == Type : other.FilterChannel == FilterChannel;
+}
+public abstract class ItemFilter : ItemSourceFilter {
+	public override sealed bool Matches(ItemSource source) => Matches(source.Item);
+	public abstract bool Matches(Item item);
+	public override sealed IEnumerable<ItemSourceFilter> ChildFilters() => ChildItemFilters();
+	public virtual IEnumerable<ItemFilter> ChildItemFilters() => [];
 }
 public class FilterChannels : ILoadable {
 	static List<string> channels = [];

@@ -13,6 +13,7 @@ using Terraria.Audio;
 using Terraria.GameContent.UI.States;
 using System.Reflection;
 using Terraria.GameContent.UI.Elements;
+using Terraria.Localization;
 
 namespace ItemSourceHelper {
 	public class ItemSourceHelper : Mod {
@@ -23,6 +24,7 @@ namespace ItemSourceHelper {
 		public int ChildFilterCount { get; internal set; }
 		public ItemSourceBrowser BrowserWindow { get; private set; }
 		public Dictionary<int, int> IconicWeapons { get; private set; }
+		public List<string> PreOrderedFilterChannels { get; private set; }
 		public static ModKeybind OpenToItemHotkey { get; private set; }
 		public static ModKeybind OpenMenuHotkey { get; private set; }
 		public static ModKeybind OpenBestiaryHotkey { get; private set; }
@@ -38,6 +40,10 @@ namespace ItemSourceHelper {
 				[DamageClass.Magic.Type] = ItemID.WaterBolt,
 				[DamageClass.Summon.Type] = ItemID.SlimeStaff,
 			};
+			PreOrderedFilterChannels = [
+				"SourceType",
+				"ItemType"
+			];
 			BrowserWindow = new();
 			ChildFilterCount = 1;
 		}
@@ -45,6 +51,15 @@ namespace ItemSourceHelper {
 			OpenToItemHotkey = KeybindLoader.RegisterKeybind(this, "Open Browser To Hovered Item", nameof(Keys.OemOpenBrackets));
 			OpenMenuHotkey = KeybindLoader.RegisterKeybind(this, "Open Browser", nameof(Keys.OemCloseBrackets));
 			if (ModLoader.HasMod("GlobalLootViewer")) OpenBestiaryHotkey = KeybindLoader.RegisterKeybind(this, "Open Bestiary To Hovered Item", nameof(Keys.OemPipe));
+			MonoModHooks.Add(
+				typeof(ModContent).GetMethod("ResizeArrays", BindingFlags.NonPublic | BindingFlags.Static),
+				(Action<bool> orig, bool unloading) => {
+					orig(unloading);
+					if (!unloading) {
+						Data.ResizeArrays();
+					}
+				}
+			);
 		}
 		public override object Call(params object[] args) {
 			string switchOn;
@@ -62,17 +77,30 @@ namespace ItemSourceHelper {
 			return null;
 		}
 		public override void Unload() {
+			Data.Unload();
 			Instance = null;
 			OpenToItemHotkey = null;
 			OpenMenuHotkey = null;
 		}
+		public static LocalizedText GetLocalization(ILocalizedModType self, string suffix = "DisplayName", Func<string> makeDefaultValue = null) =>
+			Language.GetOrRegister(Instance.GetLocalizationKey($"{self.LocalizationCategory}.{self.Name}.{suffix}"), makeDefaultValue);
 	}
 	file class FilterComparer : IComparer<ItemSourceFilter> {
 		public int Compare(ItemSourceFilter x, ItemSourceFilter y) {
 			int xChannel = x.FilterChannel, yChannel = y.FilterChannel;
 			if (xChannel == -1) xChannel = int.MaxValue;
 			if (yChannel == -1) yChannel = int.MaxValue;
-			return Comparer<int>.Default.Compare(xChannel, yChannel);
+			int channelComp = Comparer<int>.Default.Compare(xChannel, yChannel);
+			if (channelComp != 0) return channelComp;
+			return Comparer<float>.Default.Compare(x.SortPriority, y.SortPriority);
+		}
+	}
+	file class SourceComparer : IComparer<ItemSource> {
+		public int Compare(ItemSource x, ItemSource y) {
+			int xType = x.SourceType.Type, yType = y.SourceType.Type;
+			int channelComp = Comparer<int>.Default.Compare(xType, yType);
+			if (channelComp != 0) return channelComp;
+			return Comparer<float>.Default.Compare(x.ItemType, y.ItemType);
 		}
 	}
 	public class ItemSourceHelperSystem : ModSystem {
@@ -82,8 +110,9 @@ namespace ItemSourceHelper {
 
 			ItemSourceHelper.Instance.Sources.AddRange(ItemSourceHelper.Instance.SourceTypes.SelectMany(s => s.FillSourceList()));
 			ItemSourceHelper.Instance.BrowserWindow.Ingredience.items = ItemSourceHelper.Instance.Sources.First().GetSourceItems().ToArray();
-			ItemSourceHelper.Instance.Filters.Sort(new FilterComparer());
 			ItemSourceHelper.BestiarySearchBar = (UISearchBar)Main.BestiaryUI.Descendants().First(c => c is UISearchBar);
+			ItemSourceHelper.Instance.Sources.Sort(new SourceComparer());
+			ItemSourceHelper.Instance.Filters.Sort(new FilterComparer());
 		}
 		public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers) {
 			if (!isActive) {
@@ -92,7 +121,7 @@ namespace ItemSourceHelper {
 			}
 			int inventoryIndex = layers.FindIndex(layer => layer.Name.Equals("Vanilla: Inventory"));
 			if (inventoryIndex != -1) {
-				layers.Insert(inventoryIndex, ItemSourceHelper.Instance.BrowserWindow);
+				layers.Insert(inventoryIndex + 1, ItemSourceHelper.Instance.BrowserWindow);
 			}
 		}
 	}

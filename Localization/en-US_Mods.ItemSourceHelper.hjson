@@ -1,13 +1,33 @@
 ItemSourceFilter: {
-	SourceTypeFilter_ItemSourceHelper/CraftingItemSourceType.DisplayName: Crafting
-	SourceTypeFilter_ItemSourceHelper/ShimmerItemSourceType.DisplayName: Shimmer
-	SourceTypeFilter_ItemSourceHelper/ShopItemSourceType.DisplayName: NPC Shops
-	WeaponSourceFilter.DisplayName: Weapons
-	OtherWeaponTypeSourceFilter.DisplayName: Other
+	WeaponFilter.DisplayName: Weapons
+	OtherWeaponTypeFilter.DisplayName: Other
+	AccessoryFilter.DisplayName: Accessories
+	ModdedFilter.DisplayName: Modded Items
+	WeaponTypeFilter_Terraria/MeleeDamageClass.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.WeaponTypeFilter_Terraria/MeleeDamageClass.DisplayName
+	WeaponTypeFilter_Terraria/RangedDamageClass.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.WeaponTypeFilter_Terraria/RangedDamageClass.DisplayName
+	WeaponTypeFilter_Terraria/MagicDamageClass.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.WeaponTypeFilter_Terraria/MagicDamageClass.DisplayName
+	WeaponTypeFilter_Terraria/SummonDamageClass.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.WeaponTypeFilter_Terraria/SummonDamageClass.DisplayName
+	WeaponTypeFilter_ThoriumMod/BardDamage.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.WeaponTypeFilter_ThoriumMod/BardDamage.DisplayName
+	ModFilter_ModLoader.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.ModFilter_ModLoader.DisplayName
+	ModFilter_AltLibrary.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.ModFilter_AltLibrary.DisplayName
+	ModFilter_chadsfurniport.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.ModFilter_chadsfurniport.DisplayName
+	ModFilter_ChevreauVanity.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.ModFilter_ChevreauVanity.DisplayName
+	ModFilter_ThoriumMod.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.ModFilter_ThoriumMod.DisplayName
+	ModFilter_Origins.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.ModFilter_Origins.DisplayName
+	ModFilter_EpikV2.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.ModFilter_EpikV2.DisplayName
+	ModFilter_JourneyTrend.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.ModFilter_JourneyTrend.DisplayName
+	ModFilter_ModdedWaterfalls.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.ModFilter_ModdedWaterfalls.DisplayName
+	VanillaFilter.DisplayName: Vanilla items modified by mods
 }
 
 Keybinds: {
 	"Open Browser To Hovered Item.DisplayName": Open Browser To Hovered Item
 	"Open Browser.DisplayName": Open Browser
 	"Open Bestiary To Hovered Item.DisplayName": Open  Bestiary  To  Hovered  Item
+}
+
+ItemSourceType: {
+	CraftingItemSourceType.DisplayName: Crafting
+	ShimmerItemSourceType.DisplayName: Shimmer
+	ShopItemSourceType.DisplayName: NPC Shops
 }

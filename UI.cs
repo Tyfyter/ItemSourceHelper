@@ -61,15 +61,15 @@ namespace ItemSourceHelper {
 						color = Color.White
 					},
 				},
-				mergeIDs = new int[3, 6] {
-					{ 6, 4, 4, 2, 3, 5 },
-					{ 6, 1, 1, 2, 3, 5 },
-					{ 6, 1, 1, 2, 3, 5 }
+				mergeIDs = new int[3, 7] {
+					{ 6, -1, 4, 4, 2, 3, 5 },
+					{ 6, 1, 1, 1, 2, 3, 5 },
+					{ 6, 1, 1, 1, 2, 3, 5 }
 				},
 				WidthWeights = new([0.74f, 3, 3]),
-				HeightWeights = new([0.59f, 0.59f, 0.59f, 3, 1, 0.59f]),
+				HeightWeights = new([0.59f, 0.4f, 0.4f, 0.4f, 3, 1, 0.59f]),
 				MinWidths = new([43, 180, 180]),
-				MinHeights = new([30, 30, 30, 132, 51, 30]),
+				MinHeights = new([30, 20, 20, 20, 132, 51, 30]),
 			};
 			MainWindow.Initialize();
 		}
@@ -114,6 +114,7 @@ namespace ItemSourceHelper {
 				int y = bounds.Y + 6;
 				int maxY = bounds.Y + bounds.Height - size / 2;
 				cutOffTop = false;
+				cutOffBottom = false;
 				Point mousePos = Main.MouseScreen.ToPoint();
 				Color color = new(0, 0, 0, 50);
 				Color hiColor = new(50, 50, 50, 0);
@@ -489,13 +490,19 @@ namespace ItemSourceHelper {
 			bounds.Width -= (int)helpSize.X + 8;
 			Color color = this.color;
 			if (!focused) {
-				if (bounds.Contains(Main.mouseX, Main.mouseY)) {
+				if (bounds.Contains(Main.mouseX, Main.mouseY) && !PlayerInput.IgnoreMouseInterface) {
 					if (Main.mouseLeft && Main.mouseLeftRelease) {
 						focused = true;
 						cursorIndex = text.Length;
 					}
 				} else {
 					color *= 0.8f;
+				}
+			} else {
+				if (!bounds.Contains(Main.mouseX, Main.mouseY)) {
+					if (Main.mouseLeft && Main.mouseLeftRelease) {
+						focused = false;
+					}
 				}
 			}
 			spriteBatch.DrawRoundedRetangle(bounds, color);
@@ -687,6 +694,7 @@ namespace ItemSourceHelper {
 			Color nonHandleHoverColor = color.MultiplyRGB(new(210, 210, 210));
 
 			Rectangle area = GetOuterDimensions().ToRectangle();
+			Point mousePos = Main.MouseScreen.ToPoint();
 			if (heldHandle != 0) {
 				Main.LocalPlayer.mouseInterface = true;
 				bool changed = false;
@@ -729,7 +737,7 @@ namespace ItemSourceHelper {
 				Color partColor = color;
 				bool discolor = false;
 				if (heldHandle == 0) {
-					if (bounds.Contains(Main.MouseScreen.ToPoint())) {
+					if (bounds.Contains(mousePos)) {
 						Main.LocalPlayer.mouseInterface = true;
 						if (segment.Handles != 0) {
 							discolor = true;
