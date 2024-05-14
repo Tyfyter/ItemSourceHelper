@@ -14,6 +14,7 @@ using Terraria.GameContent.UI.States;
 using System.Reflection;
 using Terraria.GameContent.UI.Elements;
 using Terraria.Localization;
+using Terraria.ModLoader.IO;
 
 namespace ItemSourceHelper {
 	public class ItemSourceHelper : Mod {
@@ -123,6 +124,9 @@ namespace ItemSourceHelper {
 			if (inventoryIndex != -1) {
 				layers.Insert(inventoryIndex + 1, ItemSourceHelper.Instance.BrowserWindow);
 			}
+		}
+		public override void PreSaveAndQuit() {
+			ItemSourceHelperPositions.Instance.Save();
 		}
 	}
 	public class ScrollingPlayer : ModPlayer {

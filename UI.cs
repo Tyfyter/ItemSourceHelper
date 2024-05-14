@@ -23,6 +23,7 @@ using Terraria.UI;
 namespace ItemSourceHelper {
 	public class ItemSourceBrowser : GameInterfaceLayer {
 		public WindowElement MainWindow { get; private set; }
+		public FilterListGridItem FilterList { get; private set; }
 		public ItemSourceListGridItem Sources { get; private set; }
 		public IngredientListGridItem Ingredience { get; private set; }
 		public ItemSourceEnumerable ActiveFilters { get; private set; }
@@ -31,38 +32,28 @@ namespace ItemSourceHelper {
 		public SearchGridItem SearchItem { get; private set; }
 		public ItemSourceBrowser() : base($"{nameof(ItemSourceHelper)}: Browser", InterfaceScaleType.UI) {
 			MainWindow = new() {
-				Left = new(100, 0),
-				Top = new(100, 0),
-				Width = new(200, 0),
-				Height = new(150, 0),
-				color = Color.CornflowerBlue,
 				handles = RectangleHandles.Top | RectangleHandles.Left,
 				MinWidth = new(150, 0),
 				MinHeight = new(100, 0),
 				MarginTop = 4, MarginLeft = 4, MarginBottom = 4, MarginRight = 4,
 				items = new() {
-					[1] = new FilterListGridItem() {
-						color = Color.LightCoral,
+					[1] = FilterList = new FilterListGridItem() {
 						filters = ItemSourceHelper.Instance.Filters
 					},
 					[2] = Sources = new ItemSourceListGridItem() {
-						color = Color.DodgerBlue,
 						items = ActiveFilters = new ItemSourceEnumerable()
 					},
 					[3] = Ingredience = new IngredientListGridItem() {
-						color = Color.Tan,
 						items = []
 					},
-					[4] = FilterItem = new SingleSlotGridItem() {
-						color = new(72, 67, 159)
-					},
+					[4] = FilterItem = new SingleSlotGridItem(),
 					[5] = ConditionsItem = new ConditionsGridItem(),
 					[6] = SearchItem = new SearchGridItem() {
 						color = Color.White
 					},
 				},
-				mergeIDs = new int[3, 7] {
-					{ 6, -1, 4, 4, 2, 3, 5 },
+				itemIDs = new int[3, 7] {
+					{ 6, 4, 4, -1, 2, 3, 5 },
 					{ 6, 1, 1, 1, 2, 3, 5 },
 					{ 6, 1, 1, 1, 2, 3, 5 }
 				},
@@ -74,6 +65,7 @@ namespace ItemSourceHelper {
 			MainWindow.Initialize();
 		}
 		protected override bool DrawSelf() {
+			MainWindow.Update(new GameTime());
 			float inventoryScale = Main.inventoryScale;
 			Main.inventoryScale = 0.75f;
 			MainWindow.Recalculate();
@@ -286,8 +278,8 @@ namespace ItemSourceHelper {
 					scroll = (int)Math.Round(ratio * scroll);
 				}
 				Vector2 position = new();
-				Color normalColor = new(72, 67, 159);
-				Color hoverColor = Color.CornflowerBlue;
+				Color normalColor = ItemSourceHelperConfig.Instance.ItemSlotColor;
+				Color hoverColor = ItemSourceHelperConfig.Instance.HoveredItemSlotColor;
 				bool hadAnyItems = items.Any();
 				bool displayedAnyItems = false;
 				int overscrollFixerTries = 0;
@@ -471,7 +463,7 @@ namespace ItemSourceHelper {
 				ref item,
 				pos,
 				TextureAssets.InventoryBack13.Value,
-				color
+				ItemSourceHelperConfig.Instance.ItemSlotColor
 			);
 			if (UIMethods.MouseInArea(pos, size)) {
 				ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
@@ -646,6 +638,15 @@ namespace ItemSourceHelper {
 	public class ConditionsGridItem : GridItem {
 		public LocalizedText conditiont;
 		public IEnumerable<Condition> conditions = [];
+		public override void Update(WindowElement parent, Range x, Range y) {
+			if (conditiont is null && !conditions.Any()) {
+				parent.HeightWeights[y.Start] = 0.01f;
+				parent.MinHeights[y.Start] = 2;
+			} else {
+				parent.HeightWeights[y.Start] = 0.59f;
+				parent.MinHeights[y.Start] = 30;
+			}
+		}
 		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
 			DynamicSpriteFont font = FontAssets.MouseText.Value;
 			string commaText = ", ";
@@ -703,11 +704,11 @@ namespace ItemSourceHelper {
 	}
 	public class WindowElement : UIElement {
 		#region resize
-		public Color color;
 		public RectangleHandles handles;
 		bool heldHandleStretch;
 		RectangleHandles heldHandle;
 		Vector2 heldHandleOffset;
+		public Color color;
 		public override void OnInitialize() {
 			heights = new float[HeightWeights.Length];
 			widths = new float[WidthWeights.Length];
@@ -825,7 +826,7 @@ namespace ItemSourceHelper {
 		float calculatedMinWidth;
 		float calculatedMinHeight;
 		public Dictionary<int, GridItem> items;
-		public int[,] mergeIDs;
+		public int[,] itemIDs;
 		float[] widths;
 		float[] heights;
 		public ObservableArray<float> WidthWeights;
@@ -838,6 +839,27 @@ namespace ItemSourceHelper {
 			}
 		}
 		public override void Update(GameTime gameTime) {
+			int hCells = itemIDs.GetLength(0);
+			int vCells = itemIDs.GetLength(1);
+			foreach (KeyValuePair<int, GridItem> item in items) {
+				for (int y = 0; y < vCells; y++) {
+					for (int x = 0; x < hCells; x++) {
+						if (itemIDs[x, y] == item.Key) {
+							int currentX = x;
+							while (ShouldMerge(currentX, y, currentX + 1, y)) {
+								currentX++;
+							}
+							int currentY = y;
+							while (ShouldMerge(x, currentY, x, currentY + 1)) {
+								currentY++;
+							}
+							item.Value.Update(this, x..currentX, y..currentY);
+							goto cont;
+						}
+					}
+				}
+				cont:;
+			}
 			CheckSizes();
 		}
 		void CheckSizes() {
@@ -857,7 +879,8 @@ namespace ItemSourceHelper {
 				MinWidths.ConsumeChange();
 				calculatedMinWidth = 0;
 				for (int i = 0; i < WidthWeights.Length; i++) {
-					float value = (MinWidths[i] + 2) * (totalWidthWeight / WidthWeights[i]);
+					if (WidthWeights[i] == 0) continue;
+					float value = (MinWidths[i] + 2) * (WidthWeights[i] / totalWidthWeight);
 					if (calculatedMinWidth < value) calculatedMinWidth = value;
 				}
 				anyChanged = true;
@@ -867,16 +890,19 @@ namespace ItemSourceHelper {
 				MinHeights.ConsumeChange();
 				calculatedMinHeight = 0;
 				for (int i = 0; i < HeightWeights.Length; i++) {
-					float value = (MinHeights[i] + 2) * (totalHeightWeight / HeightWeights[i]);
+					if (HeightWeights[i] == 0) continue;
+					float value = (MinHeights[i] + 2) * (HeightWeights[i] / totalHeightWeight);
 					if (calculatedMinHeight < value) calculatedMinHeight = value;
 				}
 				anyChanged = true;
 			}
-			if (anyChanged) Resize();
+			if (anyChanged) {
+				Resize();
+			}
 		}
 		public void DrawCells(SpriteBatch spriteBatch) {
-			int hCells = mergeIDs.GetLength(0);
-			int vCells = mergeIDs.GetLength(1);
+			int hCells = itemIDs.GetLength(0);
+			int vCells = itemIDs.GetLength(1);
 			CalculatedStyle style = GetInnerDimensions();
 			int padding = 2;
 			int baseX = (int)style.X;
@@ -890,7 +916,7 @@ namespace ItemSourceHelper {
 				cellY += height + padding;
 				if (height == 0) continue;
 				for (int x = 0; x < hCells; x++) {
-					int mergeID = mergeIDs[x, y];
+					int mergeID = itemIDs[x, y];
 					float width = widths[x];
 					int boxX = (int)cellX;
 					cellX += width + padding;
@@ -917,14 +943,15 @@ namespace ItemSourceHelper {
 		}
 		public bool ShouldMerge(int aX, int aY, int bX, int bY) {
 			if (aX < 0 || aY < 0 || bX < 0 || bY < 0) return false;
-			int hCells = mergeIDs.GetLength(0);
-			int vCells = mergeIDs.GetLength(1);
+			int hCells = itemIDs.GetLength(0);
+			int vCells = itemIDs.GetLength(1);
 			if (aX >= hCells || aY >= vCells || bX >= hCells || bY >= vCells) return false;
-			return mergeIDs[aX, aY] == mergeIDs[bX, bY];
+			return itemIDs[aX, aY] == itemIDs[bX, bY];
 		}
 		#endregion grid
 	}
 	public class ObservableArray<T>(T[] values) {
+		private T[] Values => values;
 		public bool Changed { get; private set; } = true;
 		readonly EqualityComparer<T> comparer = EqualityComparer<T>.Default;
 		public int Length => values.Length;
@@ -942,6 +969,7 @@ namespace ItemSourceHelper {
 	}
 	public class GridItem {
 		public Color color;
+		public virtual void Update(WindowElement parent, Range x, Range y) { }
 		public virtual void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
 			Color color = this.color;
 			if (bounds.Contains(Main.MouseScreen.ToPoint())) {

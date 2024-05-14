@@ -40,4 +40,88 @@ Search.HelpText:
 	Start query with @ to search by mod name
 	Use commas to separate search queries
 	'''
-Configs.ItemSourceHelperConfig.DisplayName: Item Source Helper Config
+
+Configs: {
+	ItemSourceHelperConfig: {
+		DisplayName: Item Source Helper Config
+
+		SourceBrowserColor: {
+			Label: Source Browser Color
+			Tooltip: ""
+		}
+
+		SourceBrowserLeft: {
+			Label: Source Browser Left
+			Tooltip: ""
+		}
+
+		SourceBrowserTop: {
+			Label: Source Browser Top
+			Tooltip: ""
+		}
+
+		SourceBrowserWidth: {
+			Label: Source Browser Width
+			Tooltip: ""
+		}
+
+		SourceBrowserHeight: {
+			Label: Source Browser Height
+			Tooltip: ""
+		}
+
+		FilterListColor: {
+			Label: Filter List Color
+			Tooltip: ""
+		}
+
+		IngredientListColor: {
+			Label: Ingredient List Color
+			Tooltip: ""
+		}
+
+		SourcesListColor: {
+			Label: Sources List Color
+			Tooltip: ""
+		}
+
+		SearchBarColor: {
+			Label: Search Bar Color
+			Tooltip: ""
+		}
+
+		ItemSlotColor: {
+			Label: Item Slot Color
+			Tooltip: ""
+		}
+
+		HoveredItemSlotColor: {
+			Label: Hovered Item Slot Color
+			Tooltip: ""
+		}
+	}
+
+	ItemSourceHelperPositions: {
+		DisplayName: Item Source Helper Positions
+
+		SourceBrowserLeft: {
+			Label: Source Browser Left
+			Tooltip: ""
+		}
+
+		SourceBrowserTop: {
+			Label: Source Browser Top
+			Tooltip: ""
+		}
+
+		SourceBrowserWidth: {
+			Label: Source Browser Width
+			Tooltip: ""
+		}
+
+		SourceBrowserHeight: {
+			Label: Source Browser Height
+			Tooltip: ""
+		}
+	}
+}
