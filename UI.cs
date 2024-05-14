@@ -33,8 +33,8 @@ namespace ItemSourceHelper {
 		public ItemSourceBrowser() : base($"{nameof(ItemSourceHelper)}: Browser", InterfaceScaleType.UI) {
 			MainWindow = new() {
 				handles = RectangleHandles.Top | RectangleHandles.Left,
-				MinWidth = new(150, 0),
-				MinHeight = new(100, 0),
+				MinWidth = new(180, 0),
+				MinHeight = new(242, 0),
 				MarginTop = 4, MarginLeft = 4, MarginBottom = 4, MarginRight = 4,
 				items = new() {
 					[1] = FilterList = new FilterListGridItem() {
@@ -58,9 +58,9 @@ namespace ItemSourceHelper {
 					{ 6, 1, 1, 1, 2, 3, 5 }
 				},
 				WidthWeights = new([0.74f, 3, 3]),
-				HeightWeights = new([0.59f, 0.4f, 0.4f, 0.4f, 3, 1, 0.59f]),
+				HeightWeights = new([0.59f, 0.4f, 0.4f, 0.4f, 3, 1, 0.4f]),
 				MinWidths = new([43, 180, 180]),
-				MinHeights = new([30, 20, 20, 20, 132, 51, 30]),
+				MinHeights = new([30, 20, 20, 20, 132, 51, 20]),
 			};
 			MainWindow.Initialize();
 		}
@@ -635,16 +635,18 @@ namespace ItemSourceHelper {
 			focused = false;
 		}
 	}
-	public class ConditionsGridItem : GridItem {
+	public class ConditionsGridItem : GridItem, IScrollableUIItem {
 		public LocalizedText conditiont;
 		public IEnumerable<Condition> conditions = [];
+		float scroll = 0;
+		bool cutOff = false;
 		public override void Update(WindowElement parent, Range x, Range y) {
 			if (conditiont is null && !conditions.Any()) {
 				parent.HeightWeights[y.Start] = 0.01f;
 				parent.MinHeights[y.Start] = 2;
 			} else {
-				parent.HeightWeights[y.Start] = 0.59f;
-				parent.MinHeights[y.Start] = 30;
+				parent.HeightWeights[y.Start] = 0.4f;
+				parent.MinHeights[y.Start] = 20;
 			}
 		}
 		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
@@ -652,27 +654,21 @@ namespace ItemSourceHelper {
 			string commaText = ", ";
 			float commaWidth = font.MeasureString(commaText).X * 0.75f;
 			bool comma = false;
-			Vector2 pos = bounds.TopLeft();
-			if (conditiont is not null) {
-				string currentText = conditiont.Value;
-				spriteBatch.DrawString(
-					font,
-					currentText,
-					pos,
-					Color.White,
-					0,
-					new(0, 0f),
-					0.75f,
-					0,
-				0);
-				pos.X += font.MeasureString(currentText).X * 0.75f;
-				comma = true;
-			}
-			foreach (Condition condition in conditions) {
-				if (comma) {
+			cutOff = false;
+			if (bounds.Contains(Main.mouseX, Main.mouseY)) this.CaptureScroll();
+			int scrollFixTries = 0;
+			while (scroll < 0 && ++scrollFixTries < 40) scroll++;
+			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
+				Vector2 pos = bounds.TopLeft();
+				float lastWidth = 0;
+				float leftSide = pos.X;
+				int rightSide = bounds.Right;
+				pos.X -= scroll;
+				if (conditiont is not null) {
+					string currentText = conditiont.Value;
 					spriteBatch.DrawString(
 						font,
-						commaText,
+						currentText,
 						pos,
 						Color.White,
 						0,
@@ -680,26 +676,55 @@ namespace ItemSourceHelper {
 						0.75f,
 						0,
 					0);
-					pos.X += commaWidth;
+					lastWidth = font.MeasureString(currentText).X * 0.75f;
+					pos.X += lastWidth;
+					comma = true;
 				}
-				comma = true;
-				string currentText = condition.Description.Value;
-				spriteBatch.DrawString(
-					font,
-					currentText,
-					pos,
-					Color.White,
-					0,
-					new(0, 0f),
-					0.75f,
-					0,
-				0);
-				pos.X += font.MeasureString(currentText).X * 0.75f;
+				foreach (Condition condition in conditions) {
+					if (comma) {
+						spriteBatch.DrawString(
+							font,
+							commaText,
+							pos,
+							Color.White,
+							0,
+							new(0, 0f),
+							0.75f,
+							0,
+						0);
+						pos.X += commaWidth;
+					}
+					comma = true;
+					string currentText = condition.Description.Value;
+					spriteBatch.DrawString(
+						font,
+						currentText,
+						pos,
+						Color.White,
+						0,
+						new(0, 0f),
+						0.75f,
+						0,
+					0);
+					lastWidth = font.MeasureString(currentText).X * 0.75f;
+					pos.X += lastWidth;
+					if (pos.X > rightSide) {
+						cutOff = true;
+					}
+				}
+				while (pos.X < rightSide - 20 && ++scrollFixTries < 40) {
+					pos.X--;
+					scroll--;
+				}
 			}
+		}
+		public void Scroll(int direction) {
+			if (cutOff && direction > 0 || scroll > 0 && direction < 0) scroll += direction * 20;
 		}
 		public override void Reset() {
 			conditiont = null;
 			conditions = [];
+			scroll = 0;
 		}
 	}
 	public class WindowElement : UIElement {
