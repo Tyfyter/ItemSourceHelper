@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework.Graphics;
+﻿using ItemSourceHelper.Default;
+using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using System.Collections.Generic;
 using Terraria;
@@ -72,7 +73,7 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType {
 		Register();
 		SetupContent();
 	}
-	protected override void Register() {
+	protected sealed override void Register() {
 		ModTypeLookup<ItemSourceFilter>.Register(this);
 		if (IsChildFilter) {
 			Type = -(++ItemSourceHelper.Instance.ChildFilterCount);
@@ -88,7 +89,7 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType {
 	}
 	public abstract bool Matches(ItemSource source);
 	public virtual IEnumerable<ItemSourceFilter> ChildFilters() => [];
-	public bool ShouldReplace(ItemSourceFilter other) => FilterChannel == 0 ? other.Type == Type : other.FilterChannel == FilterChannel;
+	public bool ShouldReplace(ItemSourceFilter other) => FilterChannel == -1 ? other.Type == Type : other.FilterChannel == FilterChannel;
 }
 public abstract class ItemFilter : ItemSourceFilter {
 	public override sealed bool Matches(ItemSource source) => Matches(source.Item);
@@ -112,4 +113,35 @@ public class FilterChannels : ILoadable {
 		channels = null;
 	}
 
+}
+public class SearchProviderLoader : ILoadable {
+	static Dictionary<string, SearchProvider> providersByOpener = [];
+	public void Load(Mod mod) {}
+	public void Unload() {
+		providersByOpener = null;
+	}
+	public static void RegisterSearchProvider(SearchProvider searchProvider) {
+		providersByOpener.Add(searchProvider.Opener, searchProvider);
+	}
+	public static SearchFilter Parse(string text) {
+		int consumed = 0;
+		do {
+			consumed++;
+			if (providersByOpener.TryGetValue(text[..consumed], out SearchProvider searchProvider)) return searchProvider.GetSearchFilter(text[consumed..]);
+		} while (consumed < text.Length);
+		return new LiteralSearchFilter(text);
+	}
+}
+public abstract class SearchProvider : ModType {
+	public abstract string Opener { get; }
+	public abstract SearchFilter GetSearchFilter(string filterText);
+	protected sealed override void Register() {
+		ModTypeLookup<SearchProvider>.Register(this);
+		SearchProviderLoader.RegisterSearchProvider(this);
+	}
+}
+[Autoload(false)]
+public abstract class SearchFilter : ItemFilter {
+	protected override bool IsChildFilter => true;
+	public override string DisplayNameText => null;
 }

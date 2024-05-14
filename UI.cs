@@ -83,7 +83,7 @@ namespace ItemSourceHelper {
 		}
 		public void Reset() {
 			MainWindow.ResetItems();
-			ActiveFilters.filters.Clear();
+			ActiveFilters.ClearSelectedFilters();
 		}
 	}
 	public class FilterListGridItem : GridItem, IScrollableUIItem {
@@ -120,11 +120,11 @@ namespace ItemSourceHelper {
 				Color hiColor = new(50, 50, 50, 0);
 				ItemSourceEnumerable activeFilters = ItemSourceHelper.Instance.BrowserWindow.ActiveFilters;
 				Rectangle button = new(x, y, size, size);
-				if (activeFilters.filters.Count != 0) {
+				if (activeFilters.FilterCount != 0) {
 					if (canHover && button.Contains(mousePos)) {
 						spriteBatch.Draw(actuator, button, Color.Pink);
 						if (Main.mouseLeft && Main.mouseLeftRelease) {
-							activeFilters.filters.Clear();
+							activeFilters.ClearSelectedFilters();
 							lastFilter = null;
 						}
 					} else {
@@ -150,28 +150,26 @@ namespace ItemSourceHelper {
 						}
 						button.X = x;
 						button.Y = y;
-						int index = activeFilters.filters.FindIndex(filter.ShouldReplace);
+						int index = activeFilters.FindFilterIndex(filter.ShouldReplace);
 						if (button.Contains(mousePos)) {
 							UIMethods.DrawRoundedRetangle(spriteBatch, button, hiColor);
 							UIMethods.TryMouseText(filter.DisplayNameText);
 							if (Main.mouseLeft && Main.mouseLeftRelease) {
 								if (index == -1) {
-									activeFilters.filters.Add(filter);
+									activeFilters.AddSelectedFilter(filter);
 									if (filter.ChildFilters().Any()) lastFilter = filter;
 									shouldResetScroll = true;
-								} else if (filter.Type == activeFilters.filters[index].Type) {
+								} else if (filter.Type == activeFilters.GetFilter(index).Type) {
+									activeFilters.RemoveSelectedFilter(index);
 									if (lastFilter == filter) lastFilter = null;
-									activeFilters.filters.RemoveAt(index);
-									foreach (ItemSourceFilter child in filter.ChildFilters()) activeFilters.filters.Remove(child);
 									index = -1;
 								} else {
-									foreach (ItemSourceFilter child in activeFilters.filters[index].ChildFilters()) activeFilters.filters.Remove(child);
-									activeFilters.filters[index] = filter;
+									activeFilters.RemoveSelectedFilter(index, filter);
 									if (lastFilter == filter) lastFilter = null;
 									if (filter.ChildFilters().Any()) lastFilter = filter;
 								}
 							} else if (Main.mouseRight && Main.mouseRightRelease) {
-								if (index != -1 && filter.Type == activeFilters.filters[index].Type) {
+								if (index != -1 && filter.Type == activeFilters.GetFilter(index).Type) {
 									lastFilter = null;
 									if (filter.ChildFilters().Any()) lastFilter = filter;
 									shouldResetScroll = true;
@@ -182,7 +180,7 @@ namespace ItemSourceHelper {
 						}
 						Texture2D texture = filter.TextureAsset.Value;
 						spriteBatch.Draw(texture, texture.Size().RectWithinCentered(button, 8), Color.White);
-						if (index != -1 && filter.Type == activeFilters.filters[index].Type) {
+						if (index != -1 && filter.Type == activeFilters.GetFilter(index).Type) {
 							Rectangle corner = button;
 							int halfWidth = corner.Width / 2;
 							corner.X += halfWidth;
@@ -203,19 +201,19 @@ namespace ItemSourceHelper {
 						if (x >= baseX - size) {
 							button.X = x;
 							button.Y = y;
-							int index = activeFilters.filters.FindIndex(filter.ShouldReplace);
+							int index = activeFilters.FindFilterIndex(filter.ShouldReplace);
 							if (button.Contains(mousePos)) {
 								UIMethods.DrawRoundedRetangle(spriteBatch, button, hiColor);
 								UIMethods.TryMouseText(filter.DisplayNameText);
 								if (Main.mouseLeft && Main.mouseLeftRelease) {
 									if (index == -1) {
-										activeFilters.filters.Add(filter);
+										activeFilters.AddSelectedFilter(filter);
 										shouldResetScroll = true;
-									} else if (filter.Type == activeFilters.filters[index].Type) {
-										activeFilters.filters.RemoveAt(index);
+									} else if (filter.Type == activeFilters.GetFilter(index).Type) {
+										activeFilters.RemoveSelectedFilter(index);
 										index = -1;
 									} else {
-										activeFilters.filters[index] = filter;
+										activeFilters.RemoveSelectedFilter(index, filter);
 										shouldResetScroll = true;
 									}
 								}
@@ -224,7 +222,7 @@ namespace ItemSourceHelper {
 							}
 							Texture2D texture = filter.TextureAsset.Value;
 							spriteBatch.Draw(texture, texture.Size().RectWithinCentered(button, 8), Color.White);
-							if (index != -1 && filter.Type == activeFilters.filters[index].Type) {
+							if (index != -1 && filter.Type == activeFilters.GetFilter(index).Type) {
 								Rectangle corner = button;
 								int halfWidth = corner.Width / 2;
 								corner.X += halfWidth;
@@ -394,28 +392,65 @@ namespace ItemSourceHelper {
 		}
 	}
 	public class ItemSourceEnumerable : IEnumerable<ItemSource> {
-		public List<ItemSourceFilter> filters = [];
+		List<ItemSourceFilter> filters = [];
+		List<ItemSourceFilter> searchFilter = [];
+		Item filterItem;
 		public IEnumerator<ItemSource> GetEnumerator() {
 			for (int i = 0; i < ItemSourceHelper.Instance.Sources.Count; i++) {
 				ItemSource source = ItemSourceHelper.Instance.Sources[i];
 				if (!MatchesSlot(source)) goto cont;
+				for (int j = 0; j < searchFilter.Count; j++) if (!searchFilter[j].Matches(source)) goto cont;
 				for (int j = 0; j < filters.Count; j++) if (!filters[j].Matches(source)) goto cont;
 				yield return source;
 				cont:;
 			}
 		}
-		IEnumerator IEnumerable.GetEnumerator() {
-			return GetEnumerator();
+		public void SetSearchFilters(IEnumerable<ItemSourceFilter> filters) => searchFilter = filters.ToList();
+		#region selected filters
+		public IEnumerable<ItemSourceFilter> SelectedFilters => filters;
+		public int FilterCount => filters.Count;
+		public int FindFilterIndex(Predicate<ItemSourceFilter> match) => filters.FindIndex(match);
+		public ItemSourceFilter GetFilter(int index) => filters[index];
+		public void ClearSelectedFilters() {
+			filters.Clear();
+			//cache.Clear();
 		}
-		public static bool MatchesSlot(ItemSource source) {
-			Item item = ItemSourceHelper.Instance.BrowserWindow.FilterItem.item;
-			if (item.IsAir) return true;
-			if (source.ItemType == item.type) return true;
+		public void AddSelectedFilter(ItemSourceFilter newFilter) {
+			filters.Add(newFilter);
+			//cache.RemoveAll(newFilter.DoesntMatch);
+		}
+		public void RemoveFrom(IEnumerable<ItemSourceFilter> targets) {
+			filters.RemoveAll(targets.Contains);
+			//cache.Clear();
+		}
+		public void RemoveSelectedFilter(int index, ItemSourceFilter replacement = null) {
+			RemoveFrom(filters[index].ChildFilters());
+			if (replacement is null) {
+				filters.RemoveAt(index);
+			} else {
+				filters[index] = replacement;
+			}
+			//cache.Clear();
+		}
+		#endregion selected filters
+		public void SetFilterItem(Item item) {
+			if (filterItem?.IsAir == false) {
+				//cache.Clear();
+			} else {
+				//cache.RemoveAll(DoesntMatchSlot);
+			}
+			filterItem = item.Clone();
+		}
+		public bool DoesntMatchSlot(ItemSource source) => !MatchesSlot(source);
+		public bool MatchesSlot(ItemSource source) {
+			if (filterItem?.IsAir != false) return true;
+			if (source.ItemType == filterItem.type) return true;
 			foreach (Item ingredient in source.GetSourceItems()) {
-				if (ingredient.type == item.type) return true;
+				if (ingredient.type == filterItem.type) return true;
 			}
 			return false;
 		}
+		IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 	}
 	public class SingleSlotGridItem : GridItem {
 		public Item item;
@@ -433,11 +468,12 @@ namespace ItemSourceHelper {
 			if (UIMethods.MouseInArea(pos, size)) {
 				ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
 				if (Main.mouseLeft && Main.mouseLeftRelease) {
-					if (item.type == Main.mouseItem ?.type) {
+					if (item.type == Main.mouseItem?.type) {
 						item.TurnToAir();
 					} else {
 						item = Main.mouseItem?.Clone() ?? new();
 					}
+					ItemSourceHelper.Instance.BrowserWindow.ActiveFilters.SetFilterItem(item);
 				}
 			}
 		}
@@ -450,6 +486,10 @@ namespace ItemSourceHelper {
 		public int cursorIndex = 0;
 		public StringBuilder text = new();
 		string lastSearch = "";
+		public void SetSearch(string search) {
+			lastSearch = search;
+			ItemSourceHelper.Instance.BrowserWindow.ActiveFilters.SetSearchFilters(search.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(SearchProviderLoader.Parse));
+		}
 		void Copy(bool cut = false) {
 			Platform.Get<IClipboard>().Value = text.ToString();
 			if (cut) Clear();
@@ -473,7 +513,7 @@ namespace ItemSourceHelper {
 			Vector2 helpPos = bounds.TopRight() - new Vector2(helpSize.X + 4, 0);
 			Color helpColor = Color.Black;
 			if (UIMethods.MouseInArea(helpPos, helpSize)) {
-				UIMethods.TryMouseText("helptextsayswhat?");
+				UIMethods.TryMouseText(Language.GetOrRegister($"Mods.{nameof(ItemSourceHelper)}.Search.HelpText").Value);
 			} else {
 				helpColor *= 0.7f;
 			}
@@ -541,6 +581,12 @@ namespace ItemSourceHelper {
 						goto specialControls;
 					}
 				}
+				if (UIMethods.JustPressed(Keys.Left)) {
+					if (cursorIndex > 0) cursorIndex--;
+				} else if (UIMethods.JustPressed(Keys.Right)) {
+					if (cursorIndex < text.Length) cursorIndex++;
+				}
+
 				if (input.Length == 0 && cursorIndex > 0) {
 					text.Remove(--cursorIndex, 1);
 				} else if (input.Length == 2) {
@@ -548,13 +594,8 @@ namespace ItemSourceHelper {
 				} else if (UIMethods.JustPressed(Keys.Delete)) {
 					if (cursorIndex < text.Length) text.Remove(cursorIndex, 1);
 				}
-				if (UIMethods.JustPressed(Keys.Left)) {
-					if (cursorIndex > 0) cursorIndex--;
-				} else if (UIMethods.JustPressed(Keys.Right)) {
-					if (cursorIndex < text.Length) cursorIndex++;
-				}
 				if (UIMethods.JustPressed(Keys.Enter)) {
-					lastSearch = text.ToString();
+					SetSearch(text.ToString());
 					focused = false;
 				} else if (Main.inputTextEscape) {
 					Clear();
@@ -568,7 +609,7 @@ namespace ItemSourceHelper {
 				spriteBatch.DrawString(
 					font,
 					"|",
-					bounds.TopLeft() + font.MeasureString(text.ToString()[..cursorIndex]) * Vector2.UnitX * scale + offset * Vector2.UnitY,
+					bounds.TopLeft() + font.MeasureString(text.ToString()[..cursorIndex]) * Vector2.UnitX * scale + offset * new Vector2(0.5f, 1),
 					Color.Black,
 					0,
 					new(0, 0),
@@ -903,6 +944,7 @@ namespace ItemSourceHelper {
 		public virtual void Reset() { }
 	}
 	public static class UIMethods {
+		public static bool DoesntMatch(this ItemSourceFilter self, ItemSource source) => !self.Matches(source);
 		public static void DrawRoundedRetangle(this SpriteBatch spriteBatch, Rectangle rectangle, Color color) {
 			Texture2D texture = TextureAssets.InventoryBack13.Value;
 			Rectangle textureBounds = texture.Bounds;

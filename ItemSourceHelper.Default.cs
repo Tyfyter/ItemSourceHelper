@@ -265,6 +265,7 @@ public class ModFilter(Mod mod) : ItemFilter {
 	public override string Name => $"{base.Name}_{mod.Name}";
 	protected override bool IsChildFilter => true;
 	public override string DisplayNameText => FilterMod.DisplayName;
+	protected override string FilterChannelName => "ModName";
 	public override void SetStaticDefaults() {
 		if (!ModContent.RequestIfExists($"{FilterMod.Name}/icon_small", out texture)) {
 			texture = Asset<Texture2D>.Empty;
@@ -276,9 +277,52 @@ public class ModFilter(Mod mod) : ItemFilter {
 public class VanillaFilter : ItemFilter {
 	public override float SortPriority => 0f;
 	protected override bool IsChildFilter => true;
+	protected override string FilterChannelName => "ModName";
 	public override void SetStaticDefaults() {
 		texture = ModContent.Request<Texture2D>("Terraria/Images/UI/WorldCreation/IconDifficultyNormal");
 	}
 	public override bool Matches(Item item) => item.ModItem == null && item.StatsModifiedBy.Count != 0;
 }
 #endregion filters
+#region search types
+public class LiteralSearchFilter(string text) : SearchFilter {
+	public override bool Matches(Item item) {
+		if (item.Name.Contains(text, StringComparison.InvariantCultureIgnoreCase)) return true;
+		for (int i = 0; i < item.ToolTip.Lines; i++) {
+			if (item.ToolTip.GetLine(i).Contains(text, StringComparison.InvariantCultureIgnoreCase)) return true;
+		}
+		return false;
+	}
+}
+public class ModNameSearchProvider : SearchProvider {
+	public override string Opener => "@";
+	public override SearchFilter GetSearchFilter(string filterText) => new ModNameSearchFilter(filterText);
+}
+public class ModNameSearchFilter(string text) : SearchFilter {
+	public override bool Matches(Item item) {
+		if (item.ModItem?.Mod is null) return false;
+		return item.ModItem.Mod.DisplayNameClean.Contains(text, StringComparison.InvariantCultureIgnoreCase) || item.ModItem.Mod.Name.Contains(text, StringComparison.InvariantCultureIgnoreCase);
+	}
+}
+public class ItemNameSearchProvider : SearchProvider {
+	public override string Opener => "^";
+	public override SearchFilter GetSearchFilter(string filterText) => new ItemNameSearchFilter(filterText);
+}
+public class ItemNameSearchFilter(string text) : SearchFilter {
+	public override bool Matches(Item item) {
+		return item.Name.Contains(text, StringComparison.InvariantCultureIgnoreCase);
+	}
+}
+public class ItemTooltipSearchProvider : SearchProvider {
+	public override string Opener => "#";
+	public override SearchFilter GetSearchFilter(string filterText) => new ItemTooltipSearchFilter(filterText);
+}
+public class ItemTooltipSearchFilter(string text) : SearchFilter {
+	public override bool Matches(Item item) {
+		for (int i = 0; i < item.ToolTip.Lines; i++) {
+			if (item.ToolTip.GetLine(i).Contains(text, StringComparison.InvariantCultureIgnoreCase)) return true;
+		}
+		return false;
+	}
+}
+#endregion search types

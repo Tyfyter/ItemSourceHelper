@@ -23,7 +23,7 @@ ItemSourceFilter: {
 Keybinds: {
 	"Open Browser To Hovered Item.DisplayName": Open Browser To Hovered Item
 	"Open Browser.DisplayName": Open Browser
-	"Open Bestiary To Hovered Item.DisplayName": Open  Bestiary  To  Hovered  Item
+	"Open Bestiary To Hovered Item.DisplayName": Open Bestiary To Hovered Item
 }
 
 ItemSourceType: {
@@ -31,3 +31,12 @@ ItemSourceType: {
 	ShimmerItemSourceType.DisplayName: Shimmer
 	ShopItemSourceType.DisplayName: NPC Shops
 }
+
+Search.HelpText:
+	'''
+	Searches in item names and tooltips by default
+	Start query with ^ to only search in names
+	Start query with # to only search in tooltips
+	Start query with @ to search by mod name
+	Use commas to separate search queries
+	'''
