@@ -40,3 +40,4 @@ Search.HelpText:
 	Start query with @ to search by mod name
 	Use commas to separate search queries
 	'''
+Configs.ItemSourceHelperConfig.DisplayName: Item Source Helper Config

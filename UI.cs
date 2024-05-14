@@ -394,13 +394,21 @@ namespace ItemSourceHelper {
 	public class ItemSourceEnumerable : IEnumerable<ItemSource> {
 		List<ItemSourceFilter> filters = [];
 		List<ItemSourceFilter> searchFilter = [];
+		List<(ItemSource, int)> cache = [];
 		Item filterItem;
 		public IEnumerator<ItemSource> GetEnumerator() {
-			for (int i = 0; i < ItemSourceHelper.Instance.Sources.Count; i++) {
+			int i = 0;
+			for (int j = 0; j < cache.Count; j++) {
+				(ItemSource source, int index) = cache[j];
+				i = index + 1;
+				yield return source;
+			}
+			for (; i < ItemSourceHelper.Instance.Sources.Count; i++) {
 				ItemSource source = ItemSourceHelper.Instance.Sources[i];
 				if (!MatchesSlot(source)) goto cont;
 				for (int j = 0; j < searchFilter.Count; j++) if (!searchFilter[j].Matches(source)) goto cont;
 				for (int j = 0; j < filters.Count; j++) if (!filters[j].Matches(source)) goto cont;
+				cache.Add((source, i));
 				yield return source;
 				cont:;
 			}
@@ -413,15 +421,15 @@ namespace ItemSourceHelper {
 		public ItemSourceFilter GetFilter(int index) => filters[index];
 		public void ClearSelectedFilters() {
 			filters.Clear();
-			//cache.Clear();
+			cache.Clear();
 		}
 		public void AddSelectedFilter(ItemSourceFilter newFilter) {
 			filters.Add(newFilter);
-			//cache.RemoveAll(newFilter.DoesntMatch);
+			cache.RemoveAll(newFilter.DoesntMatch);
 		}
 		public void RemoveFrom(IEnumerable<ItemSourceFilter> targets) {
 			filters.RemoveAll(targets.Contains);
-			//cache.Clear();
+			cache.Clear();
 		}
 		public void RemoveSelectedFilter(int index, ItemSourceFilter replacement = null) {
 			RemoveFrom(filters[index].ChildFilters());
@@ -430,18 +438,18 @@ namespace ItemSourceHelper {
 			} else {
 				filters[index] = replacement;
 			}
-			//cache.Clear();
+			cache.Clear();
 		}
 		#endregion selected filters
 		public void SetFilterItem(Item item) {
 			if (filterItem?.IsAir == false) {
-				//cache.Clear();
+				cache.Clear();
 			} else {
-				//cache.RemoveAll(DoesntMatchSlot);
+				cache.RemoveAll(DoesntMatchSlot);
 			}
 			filterItem = item.Clone();
 		}
-		public bool DoesntMatchSlot(ItemSource source) => !MatchesSlot(source);
+		bool DoesntMatchSlot((ItemSource source, int index) data) => !MatchesSlot(data.source);
 		public bool MatchesSlot(ItemSource source) {
 			if (filterItem?.IsAir != false) return true;
 			if (source.ItemType == filterItem.type) return true;
@@ -945,6 +953,7 @@ namespace ItemSourceHelper {
 	}
 	public static class UIMethods {
 		public static bool DoesntMatch(this ItemSourceFilter self, ItemSource source) => !self.Matches(source);
+		internal static bool DoesntMatch(this ItemSourceFilter self, (ItemSource source, int index) data) => !self.Matches(data.source);
 		public static void DrawRoundedRetangle(this SpriteBatch spriteBatch, Rectangle rectangle, Color color) {
 			Texture2D texture = TextureAssets.InventoryBack13.Value;
 			Rectangle textureBounds = texture.Bounds;
