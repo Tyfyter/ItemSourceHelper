@@ -57,10 +57,10 @@ namespace ItemSourceHelper {
 					{ 6, 1, 1, 1, 2, 3, 5 },
 					{ 6, 1, 1, 1, 2, 3, 5 }
 				},
-				WidthWeights = new([0.74f, 3, 3]),
-				HeightWeights = new([0.59f, 0.4f, 0.4f, 0.4f, 3, 1, 0.4f]),
+				WidthWeights = new([0f, 3, 3]),
+				HeightWeights = new([0f, 0f, 0f, 0f, 3f, 0f, 0f]),
 				MinWidths = new([43, 180, 180]),
-				MinHeights = new([30, 20, 20, 20, 132, 51, 20]),
+				MinHeights = new([31, 21, 22, 21, 132, 53, 21]),
 			};
 			MainWindow.Initialize();
 		}
@@ -161,9 +161,11 @@ namespace ItemSourceHelper {
 									if (filter.ChildFilters().Any()) lastFilter = filter;
 								}
 							} else if (Main.mouseRight && Main.mouseRightRelease) {
-								if (index != -1 && filter.Type == activeFilters.GetFilter(index).Type) {
+								if (filter == lastFilter) {
 									lastFilter = null;
-									if (filter.ChildFilters().Any()) lastFilter = filter;
+									shouldResetScroll = true;
+								} else if (activeFilters.FilterSelected(filter)) {
+									lastFilter = filter;
 									shouldResetScroll = true;
 								}
 							}
@@ -186,9 +188,37 @@ namespace ItemSourceHelper {
 						cutOffTop = true;
 					}
 				}
+				x = baseX - scrollBottom * sizeWithPadding;
+				y += sizeWithPadding;
+				foreach (SourceSorter sorter in ItemSourceHelper.Instance.SourceSorters) {
+					if (x >= baseX - size) {
+						button.X = x;
+						button.Y = y;
+						bool selected = activeFilters.IsSelectedSortMethod(sorter);
+						if (button.Contains(mousePos)) {
+							UIMethods.DrawRoundedRetangle(spriteBatch, button, hiColor);
+							UIMethods.TryMouseText(sorter.DisplayName.Value);
+							if (Main.mouseLeft && Main.mouseLeftRelease) {
+								if (!selected) activeFilters.SetSortMethod(sorter);
+							}
+						} else {
+							UIMethods.DrawRoundedRetangle(spriteBatch, button, selected ? hiColor : color);
+						}
+						Texture2D texture = sorter.TextureAsset.Value;
+						spriteBatch.Draw(texture, texture.Size().RectWithinCentered(button, 8), Color.White);
+					}
+					x += sizeWithPadding;
+					if (x >= maxX) {
+						cutOffBottom = true;
+					}
+				}
 				if (lastFilter is not null) {
-					x = baseX - scrollBottom * sizeWithPadding;
-					y += sizeWithPadding;
+					spriteBatch.Draw(
+						TextureAssets.MagicPixel.Value,
+						new Rectangle(x, y, 2, size),
+						new Color(0, 0, 0, 100)
+					);
+					x += 2 + padding;
 					foreach (ItemSourceFilter filter in lastFilter.ChildFilters()) {
 						if (x >= baseX - size) {
 							button.X = x;
@@ -305,9 +335,7 @@ namespace ItemSourceHelper {
 							ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
 							if (Main.mouseLeft && Main.mouseLeftRelease) {
 								ItemSourceHelper.Instance.BrowserWindow.Ingredience.items = itemSource.GetSourceItems().ToArray();
-								ConditionsGridItem conditionsItem = ItemSourceHelper.Instance.BrowserWindow.ConditionsItem;
-								conditionsItem.conditiont = itemSource.GetExtraConditionText();
-								conditionsItem.conditions = itemSource.GetConditions();
+								ItemSourceHelper.Instance.BrowserWindow.ConditionsItem.SetConditionsFrom(itemSource);
 							}
 						}
 					}
@@ -384,6 +412,8 @@ namespace ItemSourceHelper {
 		}
 	}
 	public class ItemSourceEnumerable : IEnumerable<ItemSource> {
+		SourceSorter sourceSourceSource;
+		List<ItemSource> sourceSource;
 		List<ItemSourceFilter> filters = [];
 		List<ItemSourceFilter> searchFilter = [];
 		List<(ItemSource, int)> cache = [];
@@ -395,8 +425,8 @@ namespace ItemSourceHelper {
 				i = index + 1;
 				yield return source;
 			}
-			for (; i < ItemSourceHelper.Instance.Sources.Count; i++) {
-				ItemSource source = ItemSourceHelper.Instance.Sources[i];
+			for (; i < sourceSource.Count; i++) {
+				ItemSource source = sourceSource[i];
 				if (!MatchesSlot(source)) goto cont;
 				for (int j = 0; j < searchFilter.Count; j++) if (!searchFilter[j].Matches(source)) goto cont;
 				for (int j = 0; j < filters.Count; j++) if (!filters[j].Matches(source)) goto cont;
@@ -406,6 +436,16 @@ namespace ItemSourceHelper {
 			}
 		}
 		public void SetSearchFilters(IEnumerable<ItemSourceFilter> filters) => searchFilter = filters.ToList();
+		public void SetSortMethod(SourceSorter sortMethod) {
+			SetBackingList(sortMethod.SortedSources);
+			sourceSourceSource = sortMethod;
+		}
+		public void SetBackingList(List<ItemSource> sources) {
+			sourceSourceSource = null;
+			sourceSource = sources;
+			cache.Clear();
+		}
+		public bool IsSelectedSortMethod(SourceSorter sortMethod) => sourceSourceSource == sortMethod;
 		#region selected filters
 		public IEnumerable<ItemSourceFilter> SelectedFilters => filters;
 		public int FilterCount => filters.Count;
@@ -432,6 +472,7 @@ namespace ItemSourceHelper {
 			}
 			cache.Clear();
 		}
+		public bool FilterSelected(ItemSourceFilter target) => filters.Contains(target);
 		#endregion selected filters
 		public void SetFilterItem(Item item) {
 			if (filterItem?.IsAir == false) {
@@ -636,16 +677,24 @@ namespace ItemSourceHelper {
 		}
 	}
 	public class ConditionsGridItem : GridItem, IScrollableUIItem {
-		public LocalizedText conditiont;
+		public IEnumerable<LocalizedText> conditionts = [];
 		public IEnumerable<Condition> conditions = [];
 		float scroll = 0;
 		bool cutOff = false;
+		public void SetConditionsFrom(ItemSource itemSource) => SetConditions(itemSource.GetConditions(), itemSource.GetExtraConditionText());
+		public void SetConditions(IEnumerable<Condition> conditions, IEnumerable<LocalizedText> conditionts = null) {
+			this.conditions = conditions ?? [];
+			this.conditionts = conditionts ?? [];
+			scroll = 0;
+		}
 		public override void Update(WindowElement parent, Range x, Range y) {
-			if (conditiont is null && !conditions.Any()) {
-				parent.HeightWeights[y.Start] = 0.01f;
-				parent.MinHeights[y.Start] = 2;
+			if (!conditionts.Any() && !conditions.Any()) {
+				parent.HeightWeights[y.Start] = 0f;
+				parent.Height.Pixels -= parent.MinHeights[y.Start] - 10;
+				parent.MinHeights[y.Start] = 10;
 			} else {
-				parent.HeightWeights[y.Start] = 0.4f;
+				parent.HeightWeights[y.Start] = 0f;
+				parent.Height.Pixels -= parent.MinHeights[y.Start] - 20;
 				parent.MinHeights[y.Start] = 20;
 			}
 		}
@@ -664,23 +713,7 @@ namespace ItemSourceHelper {
 				float leftSide = pos.X;
 				int rightSide = bounds.Right;
 				pos.X -= scroll;
-				if (conditiont is not null) {
-					string currentText = conditiont.Value;
-					spriteBatch.DrawString(
-						font,
-						currentText,
-						pos,
-						Color.White,
-						0,
-						new(0, 0f),
-						0.75f,
-						0,
-					0);
-					lastWidth = font.MeasureString(currentText).X * 0.75f;
-					pos.X += lastWidth;
-					comma = true;
-				}
-				foreach (Condition condition in conditions) {
+				void DrawText(string text, Color color) {
 					if (comma) {
 						spriteBatch.DrawString(
 							font,
@@ -695,26 +728,27 @@ namespace ItemSourceHelper {
 						pos.X += commaWidth;
 					}
 					comma = true;
-					string currentText = condition.Description.Value;
 					spriteBatch.DrawString(
 						font,
-						currentText,
+						text,
 						pos,
-						Color.White,
+						color,
 						0,
 						new(0, 0f),
 						0.75f,
 						0,
 					0);
-					lastWidth = font.MeasureString(currentText).X * 0.75f;
+					lastWidth = font.MeasureString(text).X * 0.75f;
 					pos.X += lastWidth;
 					if (pos.X > rightSide) {
 						cutOff = true;
 					}
 				}
-				while (pos.X < rightSide - 20 && ++scrollFixTries < 40) {
-					pos.X--;
-					scroll--;
+				foreach (LocalizedText conditiont in conditionts) {
+					DrawText(conditiont.Value, Color.White);
+				}
+				foreach (Condition condition in conditions) {
+					DrawText(condition.Description.Value, Color.White);
 				}
 			}
 		}
@@ -722,7 +756,7 @@ namespace ItemSourceHelper {
 			if (cutOff && direction > 0 || scroll > 0 && direction < 0) scroll += direction * 20;
 		}
 		public override void Reset() {
-			conditiont = null;
+			conditionts = null;
 			conditions = [];
 			scroll = 0;
 		}
@@ -744,20 +778,20 @@ namespace ItemSourceHelper {
 			float margins = MarginLeft + MarginRight;
 			float minSize = Math.Max(calculatedMinWidth, MinWidth.Pixels) + margins;
 			if (Width.Pixels < minSize) Width.Pixels = minSize;
-			float innerWidth = Width.Pixels - margins;
+			float flexWidth = Width.Pixels - margins - unweightedWidth;
 
 			margins = MarginTop + MarginBottom;
 			minSize = Math.Max(calculatedMinHeight, MinHeight.Pixels) + margins;
 			if (Height.Pixels < minSize) Height.Pixels = minSize;
-			float innerHeight = Height.Pixels - margins;
+			float flexHeight = Height.Pixels - margins - unweightedHeight;
 
 			for (int i = 0; i < WidthWeights.Length; i++) {
-				float width = WidthWeights[i] * (innerWidth / totalWidthWeight);
-				widths[i] = width;
+				float width = WidthWeights[i] * (flexWidth / totalWidthWeight);
+				widths[i] = MinWidths[i] + width;
 			}
 			for (int i = 0; i < HeightWeights.Length; i++) {
-				float height = HeightWeights[i] * (innerHeight / totalHeightWeight);
-				heights[i] = height;
+				float height = HeightWeights[i] * (flexHeight / totalHeightWeight);
+				heights[i] = MinHeights[i] + height;
 			}
 		}
 		protected override void DrawSelf(SpriteBatch spriteBatch) {
@@ -854,6 +888,8 @@ namespace ItemSourceHelper {
 		public int[,] itemIDs;
 		float[] widths;
 		float[] heights;
+		float unweightedWidth;
+		float unweightedHeight;
 		public ObservableArray<float> WidthWeights;
 		public ObservableArray<float> HeightWeights;
 		public ObservableArray<float> MinWidths;
@@ -903,22 +939,26 @@ namespace ItemSourceHelper {
 				WidthWeights.ConsumeChange();
 				MinWidths.ConsumeChange();
 				calculatedMinWidth = 0;
+				unweightedWidth = 0;
 				for (int i = 0; i < WidthWeights.Length; i++) {
-					if (WidthWeights[i] == 0) continue;
+					unweightedWidth += MinWidths[i];
 					float value = (MinWidths[i] + 2) * (WidthWeights[i] / totalWidthWeight);
 					if (calculatedMinWidth < value) calculatedMinWidth = value;
 				}
+				if (calculatedMinWidth < unweightedWidth) calculatedMinWidth = unweightedWidth;
 				anyChanged = true;
 			}
 			if (HeightWeights.Changed || MinHeights.Changed) {
 				HeightWeights.ConsumeChange();
 				MinHeights.ConsumeChange();
 				calculatedMinHeight = 0;
+				unweightedHeight = 0;
 				for (int i = 0; i < HeightWeights.Length; i++) {
-					if (HeightWeights[i] == 0) continue;
+					unweightedHeight += MinHeights[i];
 					float value = (MinHeights[i] + 2) * (HeightWeights[i] / totalHeightWeight);
 					if (calculatedMinHeight < value) calculatedMinHeight = value;
 				}
+				if (calculatedMinHeight < unweightedHeight) calculatedMinHeight = unweightedHeight;
 				anyChanged = true;
 			}
 			if (anyChanged) {

@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using System.Collections.Generic;
+using System.Linq;
 using Terraria;
 using Terraria.ID;
 using Terraria.Localization;
@@ -16,7 +17,7 @@ public abstract class ItemSource(ItemSourceType sourceType, int itemType) {
 	public virtual IEnumerable<Condition> GetConditions() {
 		yield break;
 	}
-	public virtual LocalizedText GetExtraConditionText() => null;
+	public virtual IEnumerable<LocalizedText> GetExtraConditionText() => null;
 	public virtual IEnumerable<Item> GetSourceItems() {
 		yield break;
 	}
@@ -67,7 +68,7 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType {
 			FilterChannel = -1;
 		}
 		SetStaticDefaults();
-		_ = DisplayName;
+		_ = DisplayNameText;
 	}
 	public void LateRegister() {
 		Register();
@@ -81,9 +82,7 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType {
 			Type = ItemSourceHelper.Instance.Filters.Count;
 			ItemSourceHelper.Instance.Filters.Add(this);
 		}
-		if (ModContent.RequestIfExists<Texture2D>(Texture, out var asset)) {
-			texture = asset;
-		} else {
+		if (!ModContent.RequestIfExists(Texture, out texture)) {
 			texture = Asset<Texture2D>.Empty;
 		}
 	}
@@ -144,4 +143,26 @@ public abstract class SearchProvider : ModType {
 public abstract class SearchFilter : ItemFilter {
 	protected override bool IsChildFilter => true;
 	public override string DisplayNameText => null;
+}
+public abstract class SourceSorter : ModTexturedType, ILocalizedModType, IComparer<ItemSource> {
+	public string LocalizationCategory => "SourceSorter";
+	public virtual LocalizedText DisplayName => this.GetLocalization("DisplayName");
+	public int Type { get; private set; }
+	protected Asset<Texture2D> texture;
+	public virtual Asset<Texture2D> TextureAsset => texture;
+	protected override void Register() {
+		ModTypeLookup<SourceSorter>.Register(this);
+		Type = ItemSourceHelper.Instance.SourceSorters.Count;
+		ItemSourceHelper.Instance.SourceSorters.Add(this);
+		if (!ModContent.RequestIfExists(Texture, out texture)) {
+			texture = Asset<Texture2D>.Empty;
+		}
+		_ = DisplayName.Value;
+	}
+	public sealed override void SetupContent() {
+		SetStaticDefaults();
+	}
+	internal void SortSources() => SortedSources = ItemSourceHelper.Instance.Sources.Order(this).ToList();
+	public List<ItemSource> SortedSources { get; private set; }
+	public abstract int Compare(ItemSource x, ItemSource y);
 }

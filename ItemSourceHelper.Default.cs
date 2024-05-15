@@ -81,7 +81,7 @@ public class ShopItemSource(ItemSourceType sourceType, AbstractNPCShop.Entry ent
 		if ((price / 100) % 100 > 0) yield return new Item(ItemID.SilverCoin, (price / 100) % 100);
 		if (price % 100 > 0) yield return new Item(ItemID.CopperCoin, price % 100);
 	}
-	public override LocalizedText GetExtraConditionText() => Language.GetText(ShopTypeSourceFilter.GetNameKey(Shop));
+	public override IEnumerable<LocalizedText> GetExtraConditionText() => [Language.GetText(ShopTypeSourceFilter.GetNameKey(Shop))];
 }
 [Autoload(false)]
 public class ShopTypeSourceFilter(AbstractNPCShop shop) : ItemSourceFilter {
@@ -136,6 +136,18 @@ public class CraftingItemSource(ItemSourceType sourceType, Recipe recipe) : Item
 	public Recipe Recipe => recipe;
 	public override IEnumerable<Condition> GetConditions() => Recipe.Conditions;
 	public override IEnumerable<Item> GetSourceItems() => Recipe.requiredItem;
+	public override IEnumerable<LocalizedText> GetExtraConditionText() {
+		for (int i = 0; i < recipe.requiredTile.Count; i++) {
+			int tileType = recipe.requiredTile[i];
+			if (tileType == -1) continue;
+			yield return Lang._mapLegendCache[MapHelper.TileToLookup(tileType, Recipe.GetRequiredTileStyle(tileType))];
+		}
+		//if (recipe.needWater) yield return Lang.inter[53];
+		//if (recipe.needHoney) yield return Lang.inter[58];
+		//if (recipe.needLava) yield return Lang.inter[56];
+		//if (recipe.needSnowBiome) yield return Lang.inter[123];
+		//if (recipe.needGraveyardBiome) yield return Lang.inter[124];
+	}
 }
 [Autoload(false)]
 public class CraftingStationSourceFilter(int tileType) : ItemSourceFilter {
@@ -326,3 +338,43 @@ public class ItemTooltipSearchFilter(string text) : SearchFilter {
 	}
 }
 #endregion search types
+#region sorting methods
+public class DefaultSourceSorter : SourceSorter {
+	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.TallyCounter];
+	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.TallyCounter);
+	public override int Compare(ItemSource x, ItemSource y) => BasicComparison(x, y);
+	public static int BasicComparison(ItemSource x, ItemSource y) {
+		int idComp = Comparer<float>.Default.Compare(x.ItemType, y.ItemType);
+		if (idComp != 0) return idComp;
+		return Comparer<int>.Default.Compare(x.SourceType.Type, y.SourceType.Type);
+	}
+}
+public class ValueSourceSorter : SourceSorter {
+	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.GoldCoin];
+	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.GoldCoin);
+	public override int Compare(ItemSource x, ItemSource y) {
+		int valueComp = Comparer<float>.Default.Compare(x.Item.value, y.Item.value);
+		if (valueComp != 0) return valueComp;
+		return DefaultSourceSorter.BasicComparison(x, y);
+	}
+}
+public class RaritySourceSorter : SourceSorter {
+	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.MetalDetector];
+	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.MetalDetector);
+	public override int Compare(ItemSource x, ItemSource y) {
+		int rarityComp = Comparer<float>.Default.Compare(x.Item.rare, y.Item.rare);
+		if (rarityComp != 0) return rarityComp;
+		int valueComp = Comparer<float>.Default.Compare(x.Item.value, y.Item.value);
+		if (valueComp != 0) return valueComp;
+		return DefaultSourceSorter.BasicComparison(x, y);
+	}
+}
+/*public class DamageSourceSorter : SourceSorter {
+	public override Asset<Texture2D> TextureAsset => TextureAssets.Coin[2];
+	public override int Compare(ItemSource x, ItemSource y) {
+		int damageComp = Comparer<float>.Default.Compare(x.Item.damage, y.Item.damage);
+		if (damageComp != 0) return damageComp;
+		return DefaultSourceSorter.BasicComparison(x, y);
+	}
+}*/
+#endregion sorting methods

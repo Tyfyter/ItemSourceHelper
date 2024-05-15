@@ -19,13 +19,14 @@ using Terraria.ModLoader.IO;
 namespace ItemSourceHelper {
 	public class ItemSourceHelper : Mod {
 		public static ItemSourceHelper Instance { get; private set; }
-		public List<ItemSource> Sources { get; private set; }
+		internal List<ItemSource> Sources { get; private set; }
 		public List<ItemSourceType> SourceTypes { get; private set; }
 		public List<ItemSourceFilter> Filters { get; private set; }
 		public int ChildFilterCount { get; internal set; }
 		public ItemSourceBrowser BrowserWindow { get; private set; }
 		public Dictionary<int, int> IconicWeapons { get; private set; }
 		public List<string> PreOrderedFilterChannels { get; private set; }
+		public List<SourceSorter> SourceSorters { get; private set; }
 		public static ModKeybind OpenToItemHotkey { get; private set; }
 		public static ModKeybind OpenMenuHotkey { get; private set; }
 		public static ModKeybind OpenBestiaryHotkey { get; private set; }
@@ -33,6 +34,7 @@ namespace ItemSourceHelper {
 		public ItemSourceHelper() {
 			Instance = this;
 			Sources = [];
+			SourceSorters = [];
 			SourceTypes = [];
 			Filters = [];
 			IconicWeapons = new() {
@@ -96,14 +98,6 @@ namespace ItemSourceHelper {
 			return Comparer<float>.Default.Compare(x.SortPriority, y.SortPriority);
 		}
 	}
-	file class SourceComparer : IComparer<ItemSource> {
-		public int Compare(ItemSource x, ItemSource y) {
-			int xType = x.SourceType.Type, yType = y.SourceType.Type;
-			int channelComp = Comparer<int>.Default.Compare(xType, yType);
-			if (channelComp != 0) return channelComp;
-			return Comparer<float>.Default.Compare(x.ItemType, y.ItemType);
-		}
-	}
 	public class ItemSourceHelperSystem : ModSystem {
 		public static bool isActive = false;
 		public override void PostSetupRecipes() {
@@ -112,7 +106,10 @@ namespace ItemSourceHelper {
 			ItemSourceHelper.Instance.Sources.AddRange(ItemSourceHelper.Instance.SourceTypes.SelectMany(s => s.FillSourceList()));
 			ItemSourceHelper.Instance.BrowserWindow.Ingredience.items = ItemSourceHelper.Instance.Sources.First().GetSourceItems().ToArray();
 			ItemSourceHelper.BestiarySearchBar = (UISearchBar)Main.BestiaryUI.Descendants().First(c => c is UISearchBar);
-			ItemSourceHelper.Instance.Sources.Sort(new SourceComparer());
+			foreach (SourceSorter sorter in ItemSourceHelper.Instance.SourceSorters) {
+				sorter.SortSources();
+			}
+			ItemSourceHelper.Instance.BrowserWindow.ActiveFilters.SetSortMethod(ItemSourceHelper.Instance.SourceSorters[0]);
 			ItemSourceHelper.Instance.Filters.Sort(new FilterComparer());
 		}
 		public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers) {
