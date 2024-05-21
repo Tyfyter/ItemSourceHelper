@@ -295,6 +295,11 @@ public class VanillaFilter : ItemFilter {
 	}
 	public override bool Matches(Item item) => item.ModItem == null && item.StatsModifiedBy.Count != 0;
 }
+public class MaterialFilter : ItemFilter {
+	public override float SortPriority => 98f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.Topaz;
+	public override bool Matches(Item item) => item.material;
+}
 #endregion filters
 #region search types
 public class LiteralSearchFilter(string text) : SearchFilter {
@@ -339,42 +344,48 @@ public class ItemTooltipSearchFilter(string text) : SearchFilter {
 }
 #endregion search types
 #region sorting methods
-public class DefaultSourceSorter : SourceSorter {
+public class DefaultItemSorter : ItemSorter {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.TallyCounter];
 	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.TallyCounter);
-	public override int Compare(ItemSource x, ItemSource y) => BasicComparison(x, y);
-	public static int BasicComparison(ItemSource x, ItemSource y) {
-		int idComp = Comparer<float>.Default.Compare(x.ItemType, y.ItemType);
-		if (idComp != 0) return idComp;
-		return Comparer<int>.Default.Compare(x.SourceType.Type, y.SourceType.Type);
+	public override float SortPriority => 0;
+	public override int Compare(ItemSource x, ItemSource y) {
+		return base.Compare(x, y);
+	}
+	public override int Compare(Item x, Item y) => BasicComparison(x, y);
+	public static int BasicComparison(Item x, Item y) {
+		return Comparer<float>.Default.Compare(x.type, y.type);
 	}
 }
-public class ValueSourceSorter : SourceSorter {
+public class ValueItemSorter : ItemSorter {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.GoldCoin];
 	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.GoldCoin);
-	public override int Compare(ItemSource x, ItemSource y) {
-		int valueComp = Comparer<float>.Default.Compare(x.Item.value, y.Item.value);
+	public override float SortPriority => 1;
+	public override int Compare(Item x, Item y) {
+		int valueComp = Comparer<float>.Default.Compare(x.value, y.value);
 		if (valueComp != 0) return valueComp;
-		return DefaultSourceSorter.BasicComparison(x, y);
+		return DefaultItemSorter.BasicComparison(x, y);
 	}
 }
-public class RaritySourceSorter : SourceSorter {
+public class RarityItemSorter : ItemSorter {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.MetalDetector];
 	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.MetalDetector);
-	public override int Compare(ItemSource x, ItemSource y) {
-		int rarityComp = Comparer<float>.Default.Compare(x.Item.rare, y.Item.rare);
+	public override float SortPriority => 1;
+	public override int Compare(Item x, Item y) {
+		int rarityComp = Comparer<float>.Default.Compare(x.rare, y.rare);
 		if (rarityComp != 0) return rarityComp;
-		int valueComp = Comparer<float>.Default.Compare(x.Item.value, y.Item.value);
+		int valueComp = Comparer<float>.Default.Compare(x.value, y.value);
 		if (valueComp != 0) return valueComp;
-		return DefaultSourceSorter.BasicComparison(x, y);
+		return DefaultItemSorter.BasicComparison(x, y);
 	}
 }
-/*public class DamageSourceSorter : SourceSorter {
-	public override Asset<Texture2D> TextureAsset => TextureAssets.Coin[2];
-	public override int Compare(ItemSource x, ItemSource y) {
-		int damageComp = Comparer<float>.Default.Compare(x.Item.damage, y.Item.damage);
+public class DamageSourceSorter : ItemSorter {
+	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.DPSMeter];
+	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.DPSMeter);
+	public override float SortPriority => 2;
+	public override int Compare(Item x, Item y) {
+		int damageComp = Comparer<float>.Default.Compare(x.damage, y.damage);
 		if (damageComp != 0) return damageComp;
-		return DefaultSourceSorter.BasicComparison(x, y);
+		return DefaultItemSorter.BasicComparison(x, y);
 	}
-}*/
+}
 #endregion sorting methods

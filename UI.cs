@@ -36,7 +36,19 @@ namespace ItemSourceHelper {
 		public WindowElement ItemBrowser { get; private set; }
 		public static bool isItemBrowser = false;
 		public ItemSourceBrowser() : base($"{nameof(ItemSourceHelper)}: Browser", InterfaceScaleType.UI) {
-			SlidyThingGridItem slidyThing = new(() => ref isItemBrowser, Language.GetOrRegister("Mods.ItemSourceHelper.BrowserToggleTip"));
+			SlidyThingGridItem slidyThing = new(() => ref isItemBrowser, Language.GetOrRegister("Mods.ItemSourceHelper.BrowserToggleTip"), () => {
+				ItemSourceBrowser window = ItemSourceHelper.Instance.BrowserWindow;
+				if (isItemBrowser) {
+					//window.SourceBrowser.items[5].
+					int height = window.ConditionsItem.GetHeight();
+					window.SourceBrowser.Height -= height - 2;
+					window.ItemBrowser.Resize();
+				} else {
+					int height = window.ConditionsItem.GetHeight();
+					window.SourceBrowser.Height += height - 2;
+					window.SourceBrowser.Resize();
+				}
+			});
 			SourceBrowser = new() {
 				handles = RectangleHandles.Top | RectangleHandles.Left,
 				MinWidth = new(180, 0),
@@ -68,7 +80,7 @@ namespace ItemSourceHelper {
 				WidthWeights = new([0f, 3, 3]),
 				HeightWeights = new([0f, 0f, 0f, 0f, 3f, 0f, 0f]),
 				MinWidths = new([43, 180, 180]),
-				MinHeights = new([31, 21, 22, 21, 132, 53, 21]),
+				MinHeights = new([31, 21, 16, 21, 132, 53, 20]),
 			};
 			SourceBrowser.Initialize();
 
@@ -81,6 +93,7 @@ namespace ItemSourceHelper {
 					[1] = ItemFilterList = new() {
 						filters = ItemSourceHelper.Instance.Filters.TryCast<ItemFilter>(),
 						activeFilters = ActiveItemFilters = new(),
+						sorters = ItemSourceHelper.Instance.SourceSorters.TryCast<ItemSorter>(),
 						ResetScroll = () => ItemList.scroll = 0
 					},
 					[2] = ItemList = new() {
@@ -98,7 +111,7 @@ namespace ItemSourceHelper {
 				WidthWeights = new([0f, 3, 3]),
 				HeightWeights = new([0f, 0f, 0f, 0f, 3f, 0f, 0f]),
 				MinWidths = new([43, 180, 180]),
-				MinHeights = new([31, 21, 22, 21, 132, 53, 21]),
+				MinHeights = new([31, 21, 16, 21, 132, 53, 2]),
 			};
 			ItemBrowser.Initialize();
 		}
@@ -245,13 +258,37 @@ namespace ItemSourceHelper {
 								UIMethods.DrawRoundedRetangle(spriteBatch, button, hiColor);
 								UIMethods.TryMouseText(sorter.DisplayName.Value);
 								if (Main.mouseLeft && Main.mouseLeftRelease) {
-									if (!selected) activeFilters.SetSortMethod(sorter);
+									if (selected) {
+										activeFilters.Inverted = !activeFilters.Inverted;
+									} else {
+										activeFilters.Inverted = false;
+										activeFilters.SetSortMethod(sorter);
+									}
+									ResetScroll();
 								}
 							} else {
 								UIMethods.DrawRoundedRetangle(spriteBatch, button, selected ? hiColor : color);
 							}
 							Texture2D texture = sorter.TextureAsset.Value;
 							spriteBatch.Draw(texture, texture.Size().RectWithinCentered(button, 8), Color.White);
+							if (selected) {
+								Rectangle corner = button;
+								int halfWidth = corner.Width / 2;
+								corner.X += halfWidth;
+								corner.Width -= halfWidth;
+								corner.Height /= 2;
+								Texture2D arrows = ItemSourceHelper.SortArrows.Value;
+								spriteBatch.Draw(
+									arrows,
+									corner.Center(),
+									arrows.Frame(2, frameX: activeFilters.Inverted ? 1 : 0),
+									Color.White,
+									0,
+									new Vector2(5, 9),
+									0.85f,
+									0,
+								0);
+							}
 						}
 						x += sizeWithPadding;
 						if (x >= maxX) {
@@ -392,6 +429,7 @@ namespace ItemSourceHelper {
 								if (doubleClickTime > 0) {
 									ItemSourceHelper.Instance.BrowserWindow.FilterItem.SetItem(item);
 									ItemSourceBrowser.isItemBrowser = false;
+									break;
 								} else {
 									doubleClickTime = 15;
 									doubleClickItem = item.type;
@@ -491,25 +529,56 @@ namespace ItemSourceHelper {
 		List<IFilter<T>> searchFilter = [];
 		List<(T, int)> cache = [];
 		Item filterItem;
-		public IEnumerator<T> GetEnumerator() {
-			int i = 0;
-			for (int j = 0; j < cache.Count; j++) {
-				(T source, int index) = cache[j];
-				i = index + 1;
-				yield return source;
+		bool inverted;
+		bool reachedEnd;
+		public bool Inverted {
+			get => inverted;
+			set {
+				if (inverted != value) ClearCache();
+				inverted = value;
 			}
-			for (; i < sourceSource.Count; i++) {
-				T source = sourceSource[i];
-				if (!MatchesSlot(source)) goto cont;
-				for (int j = 0; j < searchFilter.Count; j++) if (!searchFilter[j].Matches(source)) goto cont;
-				for (int j = 0; j < filters.Count; j++) if (!filters[j].Matches(source)) goto cont;
-				cache.Add((source, i));
-				yield return source;
-				cont:;
+		}
+		public IEnumerator<T> GetEnumerator() {
+			if (Inverted) {
+				int i = sourceSource.Count - 1;
+				for (int j = 0; j < cache.Count; j++) {
+					(T source, int index) = cache[j];
+					i = index - 1;
+					yield return source;
+				}
+				if (reachedEnd) yield break;
+				for (; i > 0; i--) {
+					T source = sourceSource[i];
+					if (!MatchesSlot(source)) goto cont;
+					for (int j = 0; j < searchFilter.Count; j++) if (!searchFilter[j].Matches(source)) goto cont;
+					for (int j = 0; j < filters.Count; j++) if (!filters[j].Matches(source)) goto cont;
+					cache.Add((source, i));
+					yield return source;
+					cont:;
+				}
+				reachedEnd = true;
+			} else {
+				int i = 0;
+				for (int j = 0; j < cache.Count; j++) {
+					(T source, int index) = cache[j];
+					i = index + 1;
+					yield return source;
+				}
+				if (reachedEnd) yield break;
+				for (; i < sourceSource.Count; i++) {
+					T source = sourceSource[i];
+					if (!MatchesSlot(source)) goto cont;
+					for (int j = 0; j < searchFilter.Count; j++) if (!searchFilter[j].Matches(source)) goto cont;
+					for (int j = 0; j < filters.Count; j++) if (!filters[j].Matches(source)) goto cont;
+					cache.Add((source, i));
+					yield return source;
+					cont:;
+				}
+				reachedEnd = true;
 			}
 		}
 		public void SetSearchFilters(IEnumerable<IFilter<T>> filters) {
-			if (searchFilter.Count != 0) cache.Clear();
+			if (searchFilter.Count != 0) ClearCache();
 			searchFilter = filters.ToList();
 			if (cache.Count != 0) cache.RemoveAll(i => filters.Any(f => f.DoesntMatch(i)));
 		}
@@ -520,17 +589,21 @@ namespace ItemSourceHelper {
 		public void SetBackingList(List<T> sources) {
 			sourceSourceSource = null;
 			sourceSource = sources;
-			cache.Clear();
+			ClearCache();
 		}
 		public bool IsSelectedSortMethod(ISorter<T> sortMethod) => sourceSourceSource == sortMethod;
 		#region selected filters
+		public void ClearCache() {
+			cache.Clear();
+			reachedEnd = false;
+		}
 		public IEnumerable<IFilter<T>> SelectedFilters => filters;
 		public int FilterCount => filters.Count;
 		public int FindFilterIndex(Predicate<IFilter<T>> match) => filters.FindIndex(match);
 		public IFilter<T> GetFilter(int index) => filters[index];
 		public void ClearSelectedFilters() {
 			filters.Clear();
-			cache.Clear();
+			ClearCache();
 		}
 		public void AddSelectedFilter(IFilter<T> newFilter) {
 			filters.Add(newFilter);
@@ -538,7 +611,7 @@ namespace ItemSourceHelper {
 		}
 		public void RemoveFrom(IEnumerable<IFilter<T>> targets) {
 			filters.RemoveAll(targets.Contains);
-			cache.Clear();
+			ClearCache();
 		}
 		public void RemoveSelectedFilter(int index, IFilter<T> replacement = null) {
 			RemoveFrom(filters[index].ChildFilters());
@@ -547,13 +620,13 @@ namespace ItemSourceHelper {
 			} else {
 				filters[index] = replacement;
 			}
-			cache.Clear();
+			ClearCache();
 		}
 		public bool FilterSelected(IFilter<T> target) => filters.Contains(target);
 		#endregion selected filters
 		public void SetFilterItem(Item item) {
 			if (filterItem?.IsAir == false) {
-				cache.Clear();
+				ClearCache();
 				filterItem = item.Clone();
 			} else {
 				filterItem = item.Clone();
@@ -564,6 +637,9 @@ namespace ItemSourceHelper {
 		public bool MatchesSlot(T value) {
 			if (filterItem?.IsAir != false) return true;
 			if (value is ItemSource source) {
+				if (source.ItemType == ItemID.DayBreak) {
+
+				}
 				if (source.ItemType == filterItem.type) return true;
 				foreach (Item ingredient in source.GetSourceItems()) {
 					if (ingredient.type == filterItem.type) return true;
@@ -773,16 +849,11 @@ namespace ItemSourceHelper {
 			this.conditionts = conditionts ?? [];
 			scroll = 0;
 		}
+		public int GetHeight() => !conditionts.Any() && !conditions.Any() ? 2 : 20;
 		public override void Update(WindowElement parent, Range x, Range y) {
-			if (!conditionts.Any() && !conditions.Any()) {
-				parent.HeightWeights[y.Start] = 0f;
-				parent.Height -= parent.MinHeights[y.Start] - 10;
-				parent.MinHeights[y.Start] = 10;
-			} else {
-				parent.HeightWeights[y.Start] = 0f;
-				parent.Height -= parent.MinHeights[y.Start] - 20;
-				parent.MinHeights[y.Start] = 20;
-			}
+			int height = GetHeight();
+			parent.Height -= parent.MinHeights[y.Start] - height;
+			parent.MinHeights[y.Start] = height;
 		}
 		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
 			DynamicSpriteFont font = FontAssets.MouseText.Value;
@@ -943,7 +1014,7 @@ namespace ItemSourceHelper {
 			lastItemsPerRow = -1;
 		}
 	}
-	public class SlidyThingGridItem(SlidyThingGridItem.ValueReference valueReference, LocalizedText text) : GridItem {
+	public class SlidyThingGridItem(SlidyThingGridItem.ValueReference valueReference, LocalizedText text, Action ExtraSwitchAction = null) : GridItem {
 		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
 			const int squish = 1;
 			bounds.X += squish;
@@ -952,7 +1023,10 @@ namespace ItemSourceHelper {
 			if (bounds.Contains(Main.mouseX, Main.mouseY)) {
 				UIMethods.DrawRoundedRetangle(spriteBatch, bounds, new(0.1f, 0.1f, 0.1f, 0f));
 				UIMethods.TryMouseText(text.Value);
-				if (Main.mouseLeft && Main.mouseLeftRelease) value = !value;
+				if (Main.mouseLeft && Main.mouseLeftRelease) {
+					value = !value;
+					ExtraSwitchAction?.Invoke();
+				}
 			} else {
 				UIMethods.DrawRoundedRetangle(spriteBatch, bounds, new(0f, 0f, 0f, 0.4f));
 			}
@@ -977,7 +1051,7 @@ namespace ItemSourceHelper {
 			heights = new float[HeightWeights.Length];
 			widths = new float[WidthWeights.Length];
 		}
-		void Resize() {
+		public void Resize() {
 			float margins = MarginLeft + MarginRight;
 			float minSize = Math.Max(calculatedMinWidth, MinWidth.Pixels) + margins;
 			if (Width < minSize) Width = minSize;
@@ -1150,7 +1224,7 @@ namespace ItemSourceHelper {
 				cont:;
 			}
 		}
-		void CheckSizes() {
+		public void CheckSizes() {
 			bool anyChanged = false;
 			if (WidthWeights.Changed) {
 				totalWidthWeight = 0;

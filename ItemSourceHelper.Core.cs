@@ -163,6 +163,7 @@ public abstract class SourceSorter : ModTexturedType, ILocalizedModType, ICompar
 	public int Type { get; private set; }
 	protected Asset<Texture2D> texture;
 	public virtual Asset<Texture2D> TextureAsset => texture;
+	public virtual float SortPriority => 1f;
 	protected override void Register() {
 		ModTypeLookup<SourceSorter>.Register(this);
 		Type = ItemSourceHelper.Instance.SourceSorters.Count;
@@ -179,4 +180,15 @@ public abstract class SourceSorter : ModTexturedType, ILocalizedModType, ICompar
 	public List<ItemSource> SortedSources { get; private set; }
 	public List<ItemSource> SortedValues => SortedSources;
 	public abstract int Compare(ItemSource x, ItemSource y);
+}
+public abstract class ItemSorter : SourceSorter, IComparer<Item>, ISorter<Item> {
+	internal void SortItems() => SortedItems = ContentSamples.ItemsByType.Values.Where(i => !i.IsAir).Order(this).ToList();
+	public List<Item> SortedItems { get; private set; }
+	public new List<Item> SortedValues => SortedItems;
+	public abstract int Compare(Item x, Item y);
+	public override int Compare(ItemSource x, ItemSource y) {
+		int itemComp = Compare(x.Item, y.Item);
+		if (itemComp != 0) return itemComp;
+		return Comparer<int>.Default.Compare(x.SourceType.Type, y.SourceType.Type);
+	}
 }

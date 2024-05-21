@@ -48,12 +48,12 @@ namespace ItemSourceHelper {
 			get => ItemSourceHelper.Instance.BrowserWindow.ItemBrowser.color;
 			set => ItemSourceHelper.Instance.BrowserWindow.ItemBrowser.color = value;
 		}
-		[DefaultValue(typeof(Color), "64, 128, 64, 255")]
+		[DefaultValue(typeof(Color), "40, 128, 64, 255")]
 		public Color ItemFilterListColor {
 			get => ItemSourceHelper.Instance.BrowserWindow.ItemBrowser.items[1].color;
 			set => ItemSourceHelper.Instance.BrowserWindow.ItemBrowser.items[1].color = value;
 		}
-		[DefaultValue(typeof(Color), "60, 180, 120, 255")]
+		[DefaultValue(typeof(Color), "40, 160, 100, 255")]
 		public Color ItemsListColor {
 			get => ItemSourceHelper.Instance.BrowserWindow.ItemBrowser.items[2].color;
 			set => ItemSourceHelper.Instance.BrowserWindow.ItemBrowser.items[2].color = value;

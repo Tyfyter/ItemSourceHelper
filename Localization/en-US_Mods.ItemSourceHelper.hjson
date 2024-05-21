@@ -4,6 +4,7 @@ ItemSourceFilter: {
 	AccessoryFilter.DisplayName: Accessories
 	ModdedFilter.DisplayName: Modded Items
 	VanillaFilter.DisplayName: Vanilla items modified by mods
+	MaterialFilter.DisplayName: Materials
 }
 
 Keybinds: {
@@ -113,9 +114,10 @@ Configs: {
 }
 
 SourceSorter: {
-	DefaultSourceSorter.DisplayName: Item ID
-	RaritySourceSorter.DisplayName: Rarity
-	ValueSourceSorter.DisplayName: Value
+	DamageSourceSorter.DisplayName: Damage
+	DefaultItemSorter.DisplayName: Item ID
+	RarityItemSorter.DisplayName: Rarity
+	ValueItemSorter.DisplayName: Value
 }
 
 SourceBrowser: Source Browser

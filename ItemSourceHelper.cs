@@ -34,6 +34,7 @@ namespace ItemSourceHelper {
 		public static ModKeybind OpenBestiaryHotkey { get; private set; }
 		internal static UISearchBar BestiarySearchBar;
 		public static Asset<Texture2D> InventoryBackOutline { get; private set; }
+		public static Asset<Texture2D> SortArrows { get; private set; }
 		public ItemSourceHelper() {
 			Instance = this;
 			Sources = [];
@@ -58,6 +59,7 @@ namespace ItemSourceHelper {
 			OpenMenuHotkey = KeybindLoader.RegisterKeybind(this, "Open Browser", nameof(Keys.OemCloseBrackets));
 			if (ModLoader.HasMod("GlobalLootViewer")) OpenBestiaryHotkey = KeybindLoader.RegisterKeybind(this, "Open Bestiary To Hovered Item", nameof(Keys.OemPipe));
 			InventoryBackOutline = Assets.Request<Texture2D>("Inventory_Back_Outline");
+			SortArrows = Assets.Request<Texture2D>("Sort_Arrows");
 			MonoModHooks.Add(
 				typeof(ModContent).GetMethod("ResizeArrays", BindingFlags.NonPublic | BindingFlags.Static),
 				(Action<bool> orig, bool unloading) => {
@@ -102,6 +104,9 @@ namespace ItemSourceHelper {
 			return Comparer<float>.Default.Compare(x.SortPriority, y.SortPriority);
 		}
 	}
+	file class SorterComparer : IComparer<SourceSorter> {
+		public int Compare(SourceSorter x, SourceSorter y) => Comparer<float>.Default.Compare(x.SortPriority, y.SortPriority);
+	}
 	public class ItemSourceHelperSystem : ModSystem {
 		public static bool isActive = false;
 		public override void PostSetupRecipes() {
@@ -110,11 +115,13 @@ namespace ItemSourceHelper {
 			ItemSourceHelper.Instance.Sources.AddRange(ItemSourceHelper.Instance.SourceTypes.SelectMany(s => s.FillSourceList()));
 			ItemSourceHelper.Instance.BrowserWindow.Ingredience.items = ItemSourceHelper.Instance.Sources.First().GetSourceItems().ToArray();
 			ItemSourceHelper.BestiarySearchBar = (UISearchBar)Main.BestiaryUI.Descendants().First(c => c is UISearchBar);
+			ItemSourceHelper.Instance.SourceSorters.Sort(new SorterComparer());
 			foreach (SourceSorter sorter in ItemSourceHelper.Instance.SourceSorters) {
 				sorter.SortSources();
+				if (sorter is ItemSorter itemSorter) itemSorter.SortItems();
 			}
 			ItemSourceHelper.Instance.BrowserWindow.ActiveSourceFilters.SetSortMethod(ItemSourceHelper.Instance.SourceSorters[0]);
-			ItemSourceHelper.Instance.BrowserWindow.ActiveItemFilters.SetBackingList(ContentSamples.ItemsByType.Values.Where(i => !i.IsAir).ToList());
+			ItemSourceHelper.Instance.BrowserWindow.ActiveItemFilters.SetSortMethod(ItemSourceHelper.Instance.SourceSorters.TryCast<ItemSorter>().First());
 			ItemSourceHelper.Instance.Filters.Sort(new FilterComparer());
 		}
 		public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers) {
