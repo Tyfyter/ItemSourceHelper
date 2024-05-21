@@ -149,6 +149,8 @@ namespace ItemSourceHelper {
 			bounds.Height -= 1;
 			Texture2D actuator = TextureAssets.Actuator.Value;
 			bool shouldResetScroll = false;
+			bounds.X += 3;
+			bounds.Width -= 3;
 			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
 				bool canHover = bounds.Contains(Main.mouseX, Main.mouseY);
 				if (canHover) {
@@ -158,7 +160,7 @@ namespace ItemSourceHelper {
 				const int padding = 2;
 				int sizeWithPadding = size + padding;
 
-				int minX = bounds.X + 8;
+				int minX = bounds.X + 5;
 				int baseX = minX;
 				int x = baseX - scrollTop * sizeWithPadding;
 				int maxX = bounds.X + bounds.Width - size / 2;
@@ -201,11 +203,25 @@ namespace ItemSourceHelper {
 						button.X = x;
 						button.Y = y;
 						int index = activeFilters.FindFilterIndex(filter.ShouldReplace);
+						bool filterIsActive = activeFilters.IsFilterActive(filter);
 						if (button.Contains(mousePos)) {
 							UIMethods.DrawRoundedRetangle(spriteBatch, button, hiColor);
 							UIMethods.TryMouseText(filter.DisplayNameText);
 							if (Main.mouseLeft && Main.mouseLeftRelease) {
-								if (index == -1) {
+								bool recalculate = false;
+								if (filterIsActive) {
+									activeFilters.TryRemoveFilter(filter);
+									if (lastFilter == filter) lastFilter = null;
+									recalculate = true;
+								} else {
+									recalculate = activeFilters.TryAddFilter(filter);
+									if (filter.ChildFilters().Any()) lastFilter = filter;
+								}
+								if (recalculate) {
+									activeFilters.RemoveOrphans();
+									activeFilters.ClearCache();
+								}
+								/*if (index == -1) {
 									activeFilters.AddSelectedFilter(filter);
 									if (filter.ChildFilters().Any()) lastFilter = filter;
 									shouldResetScroll = true;
@@ -217,12 +233,12 @@ namespace ItemSourceHelper {
 									activeFilters.RemoveSelectedFilter(index, filter);
 									if (lastFilter == filter) lastFilter = null;
 									if (filter.ChildFilters().Any()) lastFilter = filter;
-								}
+								}*/
 							} else if (Main.mouseRight && Main.mouseRightRelease) {
 								if (filter == lastFilter) {
 									lastFilter = null;
 									shouldResetScroll = true;
-								} else if (activeFilters.FilterSelected(filter)) {
+								} else if (activeFilters.IsFilterActive(filter)) {
 									lastFilter = filter;
 									shouldResetScroll = true;
 								}
@@ -232,7 +248,7 @@ namespace ItemSourceHelper {
 						}
 						Texture2D texture = filter.TextureAsset.Value;
 						spriteBatch.Draw(texture, texture.Size().RectWithinCentered(button, 8), Color.White);
-						if (index != -1 && filter.Type == activeFilters.GetFilter(index).Type) {
+						if (filterIsActive) {//index != -1 && filter.Type == activeFilters.GetFilter(index).Type
 							Rectangle corner = button;
 							int halfWidth = corner.Width / 2;
 							corner.X += halfWidth;
@@ -310,11 +326,23 @@ namespace ItemSourceHelper {
 							button.X = x;
 							button.Y = y;
 							int index = activeFilters.FindFilterIndex(filter.ShouldReplace);
+							bool filterIsActive = activeFilters.IsFilterActive(filter);
 							if (button.Contains(mousePos)) {
 								UIMethods.DrawRoundedRetangle(spriteBatch, button, hiColor);
 								UIMethods.TryMouseText(filter.DisplayNameText);
 								if (Main.mouseLeft && Main.mouseLeftRelease) {
-									if (index == -1) {
+									bool recalculate = false;
+									if (filterIsActive) {
+										activeFilters.TryRemoveFilter(filter);
+										recalculate = true;
+									} else {
+										recalculate = activeFilters.TryAddFilter(filter, Main.keyState.PressingShift());
+									}
+									if (recalculate) {
+										activeFilters.RemoveOrphans();
+										activeFilters.ClearCache();
+									}
+									/*if (index == -1) {
 										activeFilters.AddSelectedFilter(filter);
 										shouldResetScroll = true;
 									} else if (filter.Type == activeFilters.GetFilter(index).Type) {
@@ -323,14 +351,14 @@ namespace ItemSourceHelper {
 									} else {
 										activeFilters.RemoveSelectedFilter(index, filter);
 										shouldResetScroll = true;
-									}
+									}*/
 								}
 							} else {
 								UIMethods.DrawRoundedRetangle(spriteBatch, button, color);
 							}
 							Texture2D texture = filter.TextureAsset.Value;
 							spriteBatch.Draw(texture, texture.Size().RectWithinCentered(button, 8), Color.White);
-							if (index != -1 && filter.Type == activeFilters.GetFilter(index).Type) {
+							if (filterIsActive) {//index != -1 && filter.Type == activeFilters.GetFilter(index).Type
 								Rectangle corner = button;
 								int halfWidth = corner.Width / 2;
 								corner.X += halfWidth;
@@ -623,6 +651,49 @@ namespace ItemSourceHelper {
 			ClearCache();
 		}
 		public bool FilterSelected(IFilter<T> target) => filters.Contains(target);
+		/// <returns>true if the cache must be cleared and/or some filters may have lost dependents</returns>
+		public bool TryAddFilter(IFilter<T> filter, bool orMerge = false) {
+			int index = filters.FindIndex(filter.ShouldReplace);
+			if (index != -1) {
+				if (orMerge) {
+					if (filters[index] is OrFilter<T> orFilter) {
+						orFilter.Add(filter);
+					} else {
+						filters[index] = new OrFilter<T>(filters[index], filter);
+					}
+				} else {
+					filters[index] = filter;
+				}
+				return true;
+			}
+			filters.Add(filter);
+			cache.RemoveAll(filter.DoesntMatch);
+			return false;
+		}
+		public void TryRemoveFilter(IFilter<T> filter) {
+			int index = filters.FindIndex(filter.ShouldReplace);
+			if (index != -1) {
+				if (filters[index] is OrFilter<T> orFilter) {
+					orFilter.Remove(filter);
+				} else {
+					filters.RemoveAt(index);
+				}
+			}
+		}
+		public bool IsFilterActive(IFilter<T> filter) {
+			int index = filters.FindIndex(filter.ShouldReplace);
+			if (index != -1) {
+				if (filters[index] is OrFilter<T> orFilter) {
+					return orFilter.Contains(filter);
+				} else {
+					return filters[index] == filter;
+				}
+			}
+			return false;
+		}
+		public void RemoveOrphans() {
+			while (filters.RemoveAll(f => f.ShouldRemove(filters)) > 0) ;
+		}
 		#endregion selected filters
 		public void SetFilterItem(Item item) {
 			if (filterItem?.IsAir == false) {

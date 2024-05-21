@@ -47,6 +47,33 @@ public interface IFilter<T> {
 	public int FilterChannel { get; }
 	public int Type { get; }
 	public Asset<Texture2D> TextureAsset { get; }
+	public bool ShouldRemove(List<IFilter<T>> filters);
+	public IFilter<T> SimplestForm => this;
+}
+public class OrFilter<T>(params IFilter<T>[] filters) : IFilter<T> {
+	public List<IFilter<T>> Filters { get; private set; } = filters.ToList();
+	public string DisplayNameText => string.Join(" | ", Filters.Select(f => f.DisplayNameText));
+	public int FilterChannel => Filters[0].FilterChannel;
+	public int Type => Filters[0].Type;
+	public Asset<Texture2D> TextureAsset => Asset<Texture2D>.Empty;
+	public IEnumerable<IFilter<T>> ChildFilters() => [];
+	public bool Matches(T source) {
+		for (int i = 0; i < Filters.Count; i++) {
+			if (Filters[i].Matches(source)) return true;
+		}
+		return false;
+	}
+	public void Add(IFilter<T> value) => Filters.Add(value);
+	public bool Contains(IFilter<T> value) => Filters.Contains(value);
+	public IFilter<T> Remove(IFilter<T> value) {
+		Filters.Remove(value);
+		return Filters.Count == 1 ? Filters[0] : this;
+	}
+	public bool ShouldRemove(List<IFilter<T>> parentList) {
+		while (Filters.RemoveAll(f => f.ShouldRemove(parentList)) > 0) ;
+		return Filters.Count == 0;
+	}
+	public IFilter<T> SimplestForm => Filters.Count == 1 ? Filters[0] : this;
 }
 [Autoload(false)]
 public class SourceTypeFilter(ItemSourceType sourceType) : ItemSourceFilter {
@@ -78,6 +105,7 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFi
 		SetStaticDefaults();
 		_ = DisplayNameText;
 	}
+	public virtual void PostSetupRecipes() { }
 	public void LateRegister() {
 		Register();
 		SetupContent();
@@ -96,6 +124,7 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFi
 	}
 	public abstract bool Matches(ItemSource source);
 	public virtual IEnumerable<IFilter<ItemSource>> ChildFilters() => [];
+	public virtual bool ShouldRemove(List<IFilter<ItemSource>> filters) => false;
 }
 public abstract class ItemFilter : ItemSourceFilter, IFilter<Item> {
 	public override sealed bool Matches(ItemSource source) => Matches(source.Item);
@@ -103,6 +132,7 @@ public abstract class ItemFilter : ItemSourceFilter, IFilter<Item> {
 	public override sealed IEnumerable<ItemSourceFilter> ChildFilters() => ChildItemFilters();
 	IEnumerable<IFilter<Item>> IFilter<Item>.ChildFilters() => ChildItemFilters();
 	public virtual IEnumerable<ItemFilter> ChildItemFilters() => [];
+	public virtual bool ShouldRemove(List<IFilter<Item>> filters) => false;
 }
 public class FilterChannels : ILoadable {
 	static List<string> channels = [];

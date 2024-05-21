@@ -232,6 +232,7 @@ public class WeaponTypeFilter(DamageClass damageClass) : ItemFilter {
 	public override string Name => $"{base.Name}_{damageClass.FullName}";
 	public override string DisplayNameText => damageClass.DisplayName.Value;
 	public override bool Matches(Item item) => item.CountsAsClass(damageClass);
+	public override bool ShouldRemove(List<IFilter<Item>> filters) => !filters.Any(f => f is WeaponFilter);
 }
 [Autoload(false)]
 public class OtherWeaponTypeFilter : ItemFilter {
@@ -244,6 +245,7 @@ public class OtherWeaponTypeFilter : ItemFilter {
 		}
 		return true;
 	}
+	public override bool ShouldRemove(List<IFilter<Item>> filters) => !filters.Any(f => f is WeaponFilter);
 }
 public class AccessoryFilter : ItemFilter {
 	protected override string FilterChannelName => "ItemType";
@@ -284,6 +286,7 @@ public class ModFilter(Mod mod) : ItemFilter {
 		}
 	}
 	public override bool Matches(Item item) => item.ModItem?.Mod == mod;
+	public override bool ShouldRemove(List<IFilter<Item>> filters) => !filters.Any(f => f is ModdedFilter);
 }
 [Autoload(false)]
 public class VanillaFilter : ItemFilter {
@@ -294,11 +297,44 @@ public class VanillaFilter : ItemFilter {
 		texture = ModContent.Request<Texture2D>("Terraria/Images/UI/WorldCreation/IconDifficultyNormal");
 	}
 	public override bool Matches(Item item) => item.ModItem == null && item.StatsModifiedBy.Count != 0;
+	public override bool ShouldRemove(List<IFilter<Item>> filters) => !filters.Any(f => f is ModdedFilter);
 }
 public class MaterialFilter : ItemFilter {
 	public override float SortPriority => 98f;
 	public override string Texture => "Terraria/Images/Item_" + ItemID.Topaz;
 	public override bool Matches(Item item) => item.material;
+}
+public class AmmoFilter : ItemFilter {
+	List<ItemFilter> children;
+	public override float SortPriority => 2f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.EndlessMusketPouch;
+	public override bool Matches(Item item) => item.ammo != AmmoID.None;
+	public override void PostSetupRecipes() {
+		children = [];
+		HashSet<int> added = [AmmoID.None];
+		for (int i = 0; i < ItemLoader.ItemCount; i++) {
+			Item item = ContentSamples.ItemsByType[i];
+			if (added.Add(item.ammo)) {
+				AmmoTypeFilter child = new(item.ammo);
+				children.Add(child);
+				child.LateRegister();
+			}
+		}
+	}
+	public override IEnumerable<ItemFilter> ChildItemFilters() => children;
+}
+[Autoload(false)]
+public class AmmoTypeFilter(int type) : ItemFilter {
+	public override string Name => $"{base.Name}_{ItemID.Search.GetName(type)}";
+	public override LocalizedText DisplayName => ItemSourceHelper.GetLocalization(this, makeDefaultValue: () => Lang.GetItemNameValue(type));
+	protected override string FilterChannelName => "AmmoType";
+	protected override bool IsChildFilter => true;
+	public override void SetStaticDefaults() {
+		Main.instance.LoadItem(type);
+		texture = TextureAssets.Item[type];
+	}
+	public override bool Matches(Item item) => item.ammo == type;
+	public override bool ShouldRemove(List<IFilter<Item>> filters) => !filters.Any(f => f is AmmoFilter);
 }
 #endregion filters
 #region search types
