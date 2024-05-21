@@ -40,6 +40,14 @@ public abstract class ItemSourceType : ModTexturedType, ILocalizedModType {
 	public virtual void PostSetupRecipes() { }
 	public virtual IEnumerable<ItemSourceFilter> ChildFilters() => [];
 }
+public interface IFilter<T> {
+	public string DisplayNameText { get; }
+	public bool Matches(T source);
+	public IEnumerable<IFilter<T>> ChildFilters();
+	public int FilterChannel { get; }
+	public int Type { get; }
+	public Asset<Texture2D> TextureAsset { get; }
+}
 [Autoload(false)]
 public class SourceTypeFilter(ItemSourceType sourceType) : ItemSourceFilter {
 	public ItemSourceType SourceType => sourceType;
@@ -50,7 +58,7 @@ public class SourceTypeFilter(ItemSourceType sourceType) : ItemSourceFilter {
 	public override IEnumerable<ItemSourceFilter> ChildFilters() => SourceType.ChildFilters();
 	public override bool Matches(ItemSource source) => source.SourceType == SourceType;
 }
-public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType {
+public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFilter<ItemSource> {
 	public string LocalizationCategory => "ItemSourceFilter";
 	public virtual LocalizedText DisplayName => Mod is null ? ItemSourceHelper.GetLocalization(this) : this.GetLocalization("DisplayName");
 	public virtual string DisplayNameText => DisplayName.Value;
@@ -87,13 +95,13 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType {
 		}
 	}
 	public abstract bool Matches(ItemSource source);
-	public virtual IEnumerable<ItemSourceFilter> ChildFilters() => [];
-	public bool ShouldReplace(ItemSourceFilter other) => FilterChannel == -1 ? other.Type == Type : other.FilterChannel == FilterChannel;
+	public virtual IEnumerable<IFilter<ItemSource>> ChildFilters() => [];
 }
-public abstract class ItemFilter : ItemSourceFilter {
+public abstract class ItemFilter : ItemSourceFilter, IFilter<Item> {
 	public override sealed bool Matches(ItemSource source) => Matches(source.Item);
 	public abstract bool Matches(Item item);
 	public override sealed IEnumerable<ItemSourceFilter> ChildFilters() => ChildItemFilters();
+	IEnumerable<IFilter<Item>> IFilter<Item>.ChildFilters() => ChildItemFilters();
 	public virtual IEnumerable<ItemFilter> ChildItemFilters() => [];
 }
 public class FilterChannels : ILoadable {
@@ -144,7 +152,12 @@ public abstract class SearchFilter : ItemFilter {
 	protected override bool IsChildFilter => true;
 	public override string DisplayNameText => null;
 }
-public abstract class SourceSorter : ModTexturedType, ILocalizedModType, IComparer<ItemSource> {
+public interface ISorter<T> {
+	public List<T> SortedValues { get; }
+	public LocalizedText DisplayName { get; }
+	public Asset<Texture2D> TextureAsset { get; }
+}
+public abstract class SourceSorter : ModTexturedType, ILocalizedModType, IComparer<ItemSource>, ISorter<ItemSource> {
 	public string LocalizationCategory => "SourceSorter";
 	public virtual LocalizedText DisplayName => this.GetLocalization("DisplayName");
 	public int Type { get; private set; }
@@ -164,5 +177,6 @@ public abstract class SourceSorter : ModTexturedType, ILocalizedModType, ICompar
 	}
 	internal void SortSources() => SortedSources = ItemSourceHelper.Instance.Sources.Order(this).ToList();
 	public List<ItemSource> SortedSources { get; private set; }
+	public List<ItemSource> SortedValues => SortedSources;
 	public abstract int Compare(ItemSource x, ItemSource y);
 }

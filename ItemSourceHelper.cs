@@ -15,6 +15,8 @@ using System.Reflection;
 using Terraria.GameContent.UI.Elements;
 using Terraria.Localization;
 using Terraria.ModLoader.IO;
+using ReLogic.Content;
+using Microsoft.Xna.Framework.Graphics;
 
 namespace ItemSourceHelper {
 	public class ItemSourceHelper : Mod {
@@ -31,6 +33,7 @@ namespace ItemSourceHelper {
 		public static ModKeybind OpenMenuHotkey { get; private set; }
 		public static ModKeybind OpenBestiaryHotkey { get; private set; }
 		internal static UISearchBar BestiarySearchBar;
+		public static Asset<Texture2D> InventoryBackOutline { get; private set; }
 		public ItemSourceHelper() {
 			Instance = this;
 			Sources = [];
@@ -54,6 +57,7 @@ namespace ItemSourceHelper {
 			OpenToItemHotkey = KeybindLoader.RegisterKeybind(this, "Open Browser To Hovered Item", nameof(Keys.OemOpenBrackets));
 			OpenMenuHotkey = KeybindLoader.RegisterKeybind(this, "Open Browser", nameof(Keys.OemCloseBrackets));
 			if (ModLoader.HasMod("GlobalLootViewer")) OpenBestiaryHotkey = KeybindLoader.RegisterKeybind(this, "Open Bestiary To Hovered Item", nameof(Keys.OemPipe));
+			InventoryBackOutline = Assets.Request<Texture2D>("Inventory_Back_Outline");
 			MonoModHooks.Add(
 				typeof(ModContent).GetMethod("ResizeArrays", BindingFlags.NonPublic | BindingFlags.Static),
 				(Action<bool> orig, bool unloading) => {
@@ -109,7 +113,8 @@ namespace ItemSourceHelper {
 			foreach (SourceSorter sorter in ItemSourceHelper.Instance.SourceSorters) {
 				sorter.SortSources();
 			}
-			ItemSourceHelper.Instance.BrowserWindow.ActiveFilters.SetSortMethod(ItemSourceHelper.Instance.SourceSorters[0]);
+			ItemSourceHelper.Instance.BrowserWindow.ActiveSourceFilters.SetSortMethod(ItemSourceHelper.Instance.SourceSorters[0]);
+			ItemSourceHelper.Instance.BrowserWindow.ActiveItemFilters.SetBackingList(ContentSamples.ItemsByType.Values.Where(i => !i.IsAir).ToList());
 			ItemSourceHelper.Instance.Filters.Sort(new FilterComparer());
 		}
 		public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers) {
@@ -142,9 +147,10 @@ namespace ItemSourceHelper {
 			if (ItemSourceHelper.OpenToItemHotkey.JustPressed) {
 				if (Main.HoverItem?.IsAir == false) {
 					ItemSourceHelperSystem.isActive = true;
+					ItemSourceBrowser.isItemBrowser = false;
 					ItemSourceBrowser browserWindow = ItemSourceHelper.Instance.BrowserWindow;
 					browserWindow.Reset();
-					browserWindow.FilterItem.item = Main.HoverItem.Clone();
+					browserWindow.FilterItem.SetItem(Main.HoverItem);
 					return;
 				}
 			}
