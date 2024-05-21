@@ -633,24 +633,6 @@ namespace ItemSourceHelper {
 			filters.Clear();
 			ClearCache();
 		}
-		public void AddSelectedFilter(IFilter<T> newFilter) {
-			filters.Add(newFilter);
-			cache.RemoveAll(newFilter.DoesntMatch);
-		}
-		public void RemoveFrom(IEnumerable<IFilter<T>> targets) {
-			filters.RemoveAll(targets.Contains);
-			ClearCache();
-		}
-		public void RemoveSelectedFilter(int index, IFilter<T> replacement = null) {
-			RemoveFrom(filters[index].ChildFilters());
-			if (replacement is null) {
-				filters.RemoveAt(index);
-			} else {
-				filters[index] = replacement;
-			}
-			ClearCache();
-		}
-		public bool FilterSelected(IFilter<T> target) => filters.Contains(target);
 		/// <returns>true if the cache must be cleared and/or some filters may have lost dependents</returns>
 		public bool TryAddFilter(IFilter<T> filter, bool orMerge = false) {
 			int index = filters.FindIndex(filter.ShouldReplace);
