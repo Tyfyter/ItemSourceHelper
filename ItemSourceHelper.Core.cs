@@ -50,6 +50,9 @@ public interface IFilter<T> {
 	public bool ShouldRemove(List<IFilter<T>> filters);
 	public IFilter<T> SimplestForm => this;
 }
+public interface ITooltipModifier {
+	public void ModifyTooltips(Item item, List<TooltipLine> tooltips);
+}
 public class OrFilter<T>(params IFilter<T>[] filters) : IFilter<T> {
 	public List<IFilter<T>> Filters { get; private set; } = filters.ToList();
 	public string DisplayNameText => string.Join(" | ", Filters.Select(f => f.DisplayNameText));

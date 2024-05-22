@@ -5,47 +5,16 @@ ItemSourceFilter: {
 	ModdedFilter.DisplayName: Modded Items
 	VanillaFilter.DisplayName: Vanilla items modified by mods
 	MaterialFilter.DisplayName: Materials
-	AmmoFilter.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.AmmoFilter.DisplayName
-	AmmoTypeFilter_CopperOre.DisplayName: Copper Ore
-	AmmoTypeFilter_Gel.DisplayName: Gel
-	AmmoTypeFilter_WoodenArrow.DisplayName: Wooden Arrow
-	AmmoTypeFilter_Sunflower.DisplayName: Sunflower
-	AmmoTypeFilter_CopperCoin.DisplayName: Copper Coin
-	AmmoTypeFilter_FallenStar.DisplayName: Fallen Star
-	AmmoTypeFilter_MusketBall.DisplayName: Musket Ball
-	AmmoTypeFilter_BottledWater.DisplayName: Bottled Water
-	AmmoTypeFilter_Cobweb.DisplayName: Cobweb
-	AmmoTypeFilter_Bomb.DisplayName: Bomb
-	AmmoTypeFilter_Grenade.DisplayName: Grenade
-	AmmoTypeFilter_SandBlock.DisplayName: Sand Block
-	AmmoTypeFilter_Seed.DisplayName: Seed
-	AmmoTypeFilter_Fireblossom.DisplayName: Fireblossom
-	AmmoTypeFilter_Ale.DisplayName: Ale
-	AmmoTypeFilter_RocketI.DisplayName: Rocket I
-	AmmoTypeFilter_GreenSolution.DisplayName: Green Solution
-	AmmoTypeFilter_Flare.DisplayName: Flare
-	AmmoTypeFilter_Snowball.DisplayName: Snowball
-	AmmoTypeFilter_StyngerBolt.DisplayName: Stynger Bolt
-	AmmoTypeFilter_CandyCorn.DisplayName: Candy Corn
-	AmmoTypeFilter_ExplosiveJackOLantern.DisplayName: Explosive Jack 'O Lantern
-	AmmoTypeFilter_Stake.DisplayName: Stake
-	AmmoTypeFilter_Nail.DisplayName: Nail
-	AmmoTypeFilter_ThoriumMod/SeethingCharge.DisplayName: Seething Charge
-	AmmoTypeFilter_ThoriumMod/StormFlare.DisplayName: Storm Flare
-	AmmoTypeFilter_ThoriumMod/SnotBall.DisplayName: Snot Ball
-	AmmoTypeFilter_ThoriumMod/Sawblade.DisplayName: Sawblade
-	AmmoTypeFilter_ThoriumMod/Pill.DisplayName: Pill
-	AmmoTypeFilter_ThoriumMod/Syringe.DisplayName: Syringe
-	AmmoTypeFilter_ThoriumMod/SteamBattery.DisplayName: Steam Battery
-	AmmoTypeFilter_ThoriumMod/LilTorpedo.DisplayName: Lil' Torpedo
-	AmmoTypeFilter_ThoriumMod/Spud.DisplayName: Spud
-	AmmoTypeFilter_ThoriumMod/Baseball.DisplayName: Baseball
-	AmmoTypeFilter_Origins/Potato.DisplayName: Potato
-	AmmoTypeFilter_Origins/Harpoon.DisplayName: Harpoon
-	AmmoTypeFilter_Origins/Resizable_Mine_One.DisplayName: Resizable Mine Mk. I
-	AmmoTypeFilter_Origins/Metal_Slug.DisplayName: Metal Slug
-	AmmoTypeFilter_Origins/Scrap.DisplayName: Scrap
-	AmmoTypeFilter_EpikV2/Orion_Boot_Charge.DisplayName: Uranium Capsule
+	AmmoFilter.DisplayName: Ammo
+	AmmoUseFilter.DisplayName: Uses Ammo
+}
+
+AmmoName: {
+	WoodenArrow.DisplayName: Arrow
+	MusketBall.DisplayName: Bullet
+	CopperOre.DisplayName: Ore
+	SandBlock.DisplayName: Sand
+	RocketI.DisplayName: Rocket
 }
 
 Keybinds: {

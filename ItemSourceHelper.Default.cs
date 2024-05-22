@@ -17,6 +17,7 @@ using ItemSourceHelper.Core;
 using Terraria.GameContent;
 using Terraria.Map;
 using System.Collections.Immutable;
+using Microsoft.Xna.Framework;
 
 namespace ItemSourceHelper.Default;
 #region shop
@@ -308,16 +309,38 @@ public class AmmoFilter : ItemFilter {
 	List<ItemFilter> children;
 	public override float SortPriority => 2f;
 	public override string Texture => "Terraria/Images/Item_" + ItemID.EndlessMusketPouch;
+	protected override string FilterChannelName => "Ammo";
 	public override bool Matches(Item item) => item.ammo != AmmoID.None;
 	public override void PostSetupRecipes() {
+		AmmoUseFilter ammoUseFilter = ModContent.GetInstance<AmmoUseFilter>();
 		children = [];
+		ammoUseFilter.children = [];
 		HashSet<int> added = [AmmoID.None];
+		Dictionary<int, int> ammoTypes = [];
+		Dictionary<int, int> ammoUseTypes = [];
 		for (int i = 0; i < ItemLoader.ItemCount; i++) {
 			Item item = ContentSamples.ItemsByType[i];
-			if (added.Add(item.ammo)) {
-				AmmoTypeFilter child = new(item.ammo);
+			if (item.ammo != AmmoID.None) {
+				ammoTypes.TryGetValue(item.ammo, out int count);
+				ammoTypes[item.ammo] = count + 1;
+			}
+			if (item.useAmmo != AmmoID.None) {
+				ammoUseTypes.TryGetValue(item.useAmmo, out int count);
+				ammoUseTypes[item.useAmmo] = count + 1;
+			}
+		}
+		foreach (var item in ammoTypes.OrderByDescending(p => p.Value)) {
+			if (item.Value > 1) {
+				AmmoTypeFilter child = new(item.Key);
 				children.Add(child);
 				child.LateRegister();
+			}
+		}
+		foreach (var item in ammoUseTypes.OrderByDescending(p => p.Value)) {
+			if (item.Value > 1) {
+				AmmoUseTypeFilter useChild = new(item.Key);
+				ammoUseFilter.children.Add(useChild);
+				useChild.LateRegister();
 			}
 		}
 	}
@@ -325,16 +348,36 @@ public class AmmoFilter : ItemFilter {
 }
 [Autoload(false)]
 public class AmmoTypeFilter(int type) : ItemFilter {
-	public override string Name => $"{base.Name}_{ItemID.Search.GetName(type)}";
-	public override LocalizedText DisplayName => ItemSourceHelper.GetLocalization(this, makeDefaultValue: () => Lang.GetItemNameValue(type));
+	public int AmmoType => type;
+	public override string Name => $"{base.Name}_{ItemID.Search.GetName(AmmoType)}";
+	public override LocalizedText DisplayName {
+		get {
+			string key = "Mods.ItemSourceHelper.AmmoName." + ItemID.Search.GetName(AmmoType);
+			if (Language.Exists(key)) return Language.GetText(key);
+			return Lang.GetItemName(AmmoType);
+		}
+	}
 	protected override string FilterChannelName => "AmmoType";
 	protected override bool IsChildFilter => true;
 	public override void SetStaticDefaults() {
-		Main.instance.LoadItem(type);
-		texture = TextureAssets.Item[type];
+		Main.instance.LoadItem(AmmoType);
+		texture = TextureAssets.Item[AmmoType];
 	}
-	public override bool Matches(Item item) => item.ammo == type;
+	public override bool Matches(Item item) => item.ammo == AmmoType;
 	public override bool ShouldRemove(List<IFilter<Item>> filters) => !filters.Any(f => f is AmmoFilter);
+}
+public class AmmoUseFilter : ItemFilter {
+	internal List<ItemFilter> children;
+	public override float SortPriority => 1f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.Clentaminator;
+	protected override string FilterChannelName => "Ammo";
+	public override bool Matches(Item item) => item.useAmmo != AmmoID.None;
+	public override IEnumerable<ItemFilter> ChildItemFilters() => children;
+}
+[Autoload(false)]
+public class AmmoUseTypeFilter(int type) : AmmoTypeFilter(type) {
+	public override bool Matches(Item item) => item.useAmmo == AmmoType;
+	public override bool ShouldRemove(List<IFilter<Item>> filters) => !filters.Any(f => f is AmmoUseFilter);
 }
 #endregion filters
 #region search types
@@ -380,19 +423,20 @@ public class ItemTooltipSearchFilter(string text) : SearchFilter {
 }
 #endregion search types
 #region sorting methods
-public class DefaultItemSorter : ItemSorter {
+public class DefaultItemSorter : ItemSorter, ITooltipModifier {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.TallyCounter];
 	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.TallyCounter);
 	public override float SortPriority => 0;
-	public override int Compare(ItemSource x, ItemSource y) {
-		return base.Compare(x, y);
-	}
 	public override int Compare(Item x, Item y) => BasicComparison(x, y);
 	public static int BasicComparison(Item x, Item y) {
 		return Comparer<float>.Default.Compare(x.type, y.type);
 	}
+	public void ModifyTooltips(Item item, List<TooltipLine> tooltips) {
+		if (!Main.keyState.PressingShift()) return;
+		tooltips.Add(new(ItemSourceHelper.Instance, "ItemID", $"Item ID {item.type}: {ItemID.Search.GetName(item.type)}"));
+	}
 }
-public class ValueItemSorter : ItemSorter {
+public class ValueItemSorter : ItemSorter, ITooltipModifier {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.GoldCoin];
 	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.GoldCoin);
 	public override float SortPriority => 1;
@@ -400,6 +444,22 @@ public class ValueItemSorter : ItemSorter {
 		int valueComp = Comparer<float>.Default.Compare(x.value, y.value);
 		if (valueComp != 0) return valueComp;
 		return DefaultItemSorter.BasicComparison(x, y);
+	}
+	public void ModifyTooltips(Item item, List<TooltipLine> tooltips) {
+		Main.LocalPlayer.GetItemExpectedPrice(item, out long price, out _);
+		if (price == 0) {
+			byte value = (byte)(120f * (Main.mouseTextColor / 255f));
+			tooltips.Add(new(ItemSourceHelper.Instance, "Price", Lang.tip[51].Value) {
+				OverrideColor = new Color(value, value, value, Main.mouseTextColor)
+			});
+		} else {
+			string value = "";
+			if ((price / 1000000) % 100 > 0) value += $"[i/s{(price / 1000000) % 100}:{ItemID.PlatinumCoin}]";
+			if ((price / 10000) % 100 > 0) value += $"[i/s{(price / 10000) % 100}:{ItemID.GoldCoin}]";
+			if ((price / 100) % 100 > 0) value += $"[i/s{(price / 100) % 100}:{ItemID.SilverCoin}]";
+			if (price % 100 > 0) value += $"[i/s{price % 100}:{ItemID.CopperCoin}]";
+			tooltips.Add(new(ItemSourceHelper.Instance, "Price", value));
+		}
 	}
 }
 public class RarityItemSorter : ItemSorter {
@@ -412,6 +472,11 @@ public class RarityItemSorter : ItemSorter {
 		int valueComp = Comparer<float>.Default.Compare(x.value, y.value);
 		if (valueComp != 0) return valueComp;
 		return DefaultItemSorter.BasicComparison(x, y);
+	}
+	public void ModifyTooltips(Item item, List<TooltipLine> tooltips) {
+		if (ItemRarityID.Search.TryGetName(item.rare, out string rarity)) {
+			tooltips.Add(new(ItemSourceHelper.Instance, "Best Pony", rarity));
+		}
 	}
 }
 public class DamageSourceSorter : ItemSorter {

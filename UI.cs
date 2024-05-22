@@ -449,6 +449,7 @@ namespace ItemSourceHelper {
 						bool hover = canHover && Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size;
 						UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, texture, hover ? hoverColor : normalColor);
 						if (hover) {
+							if (items is FilteredEnumerable<ItemSource> filteredEnum) filteredEnum.FillTooltipAdders(TooltipAdderGlobal.TooltipModifiers);
 							ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
 							if (Main.mouseLeft && Main.mouseLeftRelease) {
 								ItemSourceHelper.Instance.BrowserWindow.Ingredience.items = itemSource.GetSourceItems().ToArray();
@@ -620,6 +621,10 @@ namespace ItemSourceHelper {
 			ClearCache();
 		}
 		public bool IsSelectedSortMethod(ISorter<T> sortMethod) => sourceSourceSource == sortMethod;
+		public void FillTooltipAdders(List<ITooltipModifier> list) {
+			if (sourceSourceSource is ITooltipModifier modifier) list.Add(modifier);
+			list.AddRange(filters.TryCast<ITooltipModifier>());
+		}
 		#region selected filters
 		public void ClearCache() {
 			cache.Clear();
@@ -744,7 +749,10 @@ namespace ItemSourceHelper {
 		string lastSearch = "";
 		public void SetSearch(string search) {
 			lastSearch = search;
-			ItemSourceHelper.Instance.BrowserWindow.ActiveSourceFilters.SetSearchFilters(search.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(SearchProviderLoader.Parse));
+			ItemSourceBrowser browserWindow = ItemSourceHelper.Instance.BrowserWindow;
+			List<SearchFilter> filters = search.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(SearchProviderLoader.Parse).ToList();
+			browserWindow.ActiveSourceFilters.SetSearchFilters(filters);
+			browserWindow.ActiveItemFilters.SetSearchFilters(filters);
 		}
 		void Copy(bool cut = false) {
 			Platform.Get<IClipboard>().Value = text.ToString();
@@ -1034,6 +1042,7 @@ namespace ItemSourceHelper {
 						bool hover = canHover && Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size;
 						UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, texture, hover ? hoverColor : normalColor);
 						if (hover) {
+							if (items is FilteredEnumerable<Item> filteredEnum) filteredEnum.FillTooltipAdders(TooltipAdderGlobal.TooltipModifiers);
 							ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
 							if (Main.mouseLeft && Main.mouseLeftRelease) {
 								if (item.type != doubleClickItem) doubleClickTime = 0;

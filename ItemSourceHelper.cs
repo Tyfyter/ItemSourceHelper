@@ -180,4 +180,13 @@ namespace ItemSourceHelper {
 			}
 		}
 	}
+	public class TooltipAdderGlobal : GlobalItem {
+		public static List<ITooltipModifier> TooltipModifiers { get; private set; }
+		public override void Load() => TooltipModifiers = [];
+		public override void Unload() => TooltipModifiers = null;
+		public override void ModifyTooltips(Item item, List<TooltipLine> tooltips) {
+			for (int i = 0; i < TooltipModifiers.Count; i++) TooltipModifiers[i].ModifyTooltips(item, tooltips);
+			TooltipModifiers.Clear();
+		}
+	}
 }
