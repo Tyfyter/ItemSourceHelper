@@ -233,7 +233,7 @@ public class WeaponTypeFilter(DamageClass damageClass) : ItemFilter {
 	public override string Name => $"{base.Name}_{damageClass.FullName}";
 	public override string DisplayNameText => damageClass.DisplayName.Value;
 	public override bool Matches(Item item) => item.CountsAsClass(damageClass);
-	public override bool ShouldRemove(List<IFilter<Item>> filters) => !filters.Any(f => f is WeaponFilter);
+	public override IEnumerable<Type> FilterDependencies => [typeof(WeaponFilter)];
 }
 [Autoload(false)]
 public class OtherWeaponTypeFilter : ItemFilter {
@@ -246,13 +246,26 @@ public class OtherWeaponTypeFilter : ItemFilter {
 		}
 		return true;
 	}
-	public override bool ShouldRemove(List<IFilter<Item>> filters) => !filters.Any(f => f is WeaponFilter);
+	public override IEnumerable<Type> FilterDependencies => [typeof(WeaponFilter)];
 }
 public class AccessoryFilter : ItemFilter {
+	public List<ItemFilter> Children { get; } = [];
 	protected override string FilterChannelName => "ItemType";
 	public override float SortPriority => 2f;
 	public override string Texture => "Terraria/Images/Item_" + ItemID.BandofRegeneration;
 	public override bool Matches(Item item) => item.accessory;
+	public override IEnumerable<ItemFilter> ChildItemFilters() => Children;
+}
+public class WingFilter : ItemFilter {
+	public override void SetStaticDefaults() {
+		ModContent.GetInstance<AccessoryFilter>().Children.Add(this);
+	}
+	protected override string FilterChannelName => "AccessoryType";
+	protected override bool IsChildFilter => true;
+	public override float SortPriority => 0f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.SteampunkWings;
+	public override bool Matches(Item item) => item.wingSlot != -1;
+	public override IEnumerable<Type> FilterDependencies => [typeof(AccessoryFilter)];
 }
 public class ModdedFilter : ItemFilter {
 	List<ItemFilter> children;
@@ -287,7 +300,7 @@ public class ModFilter(Mod mod) : ItemFilter {
 		}
 	}
 	public override bool Matches(Item item) => item.ModItem?.Mod == mod;
-	public override bool ShouldRemove(List<IFilter<Item>> filters) => !filters.Any(f => f is ModdedFilter);
+	public override IEnumerable<Type> FilterDependencies => [typeof(ModdedFilter)];
 }
 [Autoload(false)]
 public class VanillaFilter : ItemFilter {
@@ -298,7 +311,7 @@ public class VanillaFilter : ItemFilter {
 		texture = ModContent.Request<Texture2D>("Terraria/Images/UI/WorldCreation/IconDifficultyNormal");
 	}
 	public override bool Matches(Item item) => item.ModItem == null && item.StatsModifiedBy.Count != 0;
-	public override bool ShouldRemove(List<IFilter<Item>> filters) => !filters.Any(f => f is ModdedFilter);
+	public override IEnumerable<Type> FilterDependencies => [typeof(ModdedFilter)];
 }
 public class MaterialFilter : ItemFilter {
 	public override float SortPriority => 98f;
@@ -364,7 +377,7 @@ public class AmmoTypeFilter(int type) : ItemFilter {
 		texture = TextureAssets.Item[AmmoType];
 	}
 	public override bool Matches(Item item) => item.ammo == AmmoType;
-	public override bool ShouldRemove(List<IFilter<Item>> filters) => !filters.Any(f => f is AmmoFilter);
+	public override IEnumerable<Type> FilterDependencies => [typeof(AmmoFilter)];
 }
 public class AmmoUseFilter : ItemFilter {
 	internal List<ItemFilter> children;
@@ -377,7 +390,7 @@ public class AmmoUseFilter : ItemFilter {
 [Autoload(false)]
 public class AmmoUseTypeFilter(int type) : AmmoTypeFilter(type) {
 	public override bool Matches(Item item) => item.useAmmo == AmmoType;
-	public override bool ShouldRemove(List<IFilter<Item>> filters) => !filters.Any(f => f is AmmoUseFilter);
+	public override IEnumerable<Type> FilterDependencies => [typeof(AmmoUseFilter)];
 }
 #endregion filters
 #region search types

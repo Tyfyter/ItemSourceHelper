@@ -7,6 +7,7 @@ ItemSourceFilter: {
 	MaterialFilter.DisplayName: Materials
 	AmmoFilter.DisplayName: Ammo
 	AmmoUseFilter.DisplayName: Uses Ammo
+	WingFilter.DisplayName: Wings
 }
 
 AmmoName: {

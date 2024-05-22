@@ -1,6 +1,7 @@
 ﻿using ItemSourceHelper.Default;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Terraria;
@@ -47,7 +48,13 @@ public interface IFilter<T> {
 	public int FilterChannel { get; }
 	public int Type { get; }
 	public Asset<Texture2D> TextureAsset { get; }
-	public bool ShouldRemove(List<IFilter<T>> filters);
+	public IEnumerable<Type> FilterDependencies => [];
+	public bool ShouldRemove(List<IFilter<T>> filters) {
+		foreach (Type dependency in FilterDependencies) {
+			if (!filters.Any(f => f.GetType() == dependency)) return true;
+		}
+		return false;
+	}
 	public IFilter<T> SimplestForm => this;
 }
 public interface ITooltipModifier {
@@ -95,6 +102,7 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFi
 	public int Type { get; private set; }
 	public int FilterChannel { get; private set; }
 	protected virtual string FilterChannelName => null;
+	public virtual IEnumerable<Type> FilterDependencies => [];
 	protected virtual bool IsChildFilter => false;
 	protected Asset<Texture2D> texture;
 	public virtual Asset<Texture2D> TextureAsset => texture;
@@ -127,7 +135,6 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFi
 	}
 	public abstract bool Matches(ItemSource source);
 	public virtual IEnumerable<IFilter<ItemSource>> ChildFilters() => [];
-	public virtual bool ShouldRemove(List<IFilter<ItemSource>> filters) => false;
 }
 public abstract class ItemFilter : ItemSourceFilter, IFilter<Item> {
 	public override sealed bool Matches(ItemSource source) => Matches(source.Item);
@@ -135,7 +142,6 @@ public abstract class ItemFilter : ItemSourceFilter, IFilter<Item> {
 	public override sealed IEnumerable<ItemSourceFilter> ChildFilters() => ChildItemFilters();
 	IEnumerable<IFilter<Item>> IFilter<Item>.ChildFilters() => ChildItemFilters();
 	public virtual IEnumerable<ItemFilter> ChildItemFilters() => [];
-	public virtual bool ShouldRemove(List<IFilter<Item>> filters) => false;
 }
 public class FilterChannels : ILoadable {
 	static List<string> channels = [];

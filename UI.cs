@@ -666,6 +666,7 @@ namespace ItemSourceHelper {
 					filters.RemoveAt(index);
 				}
 			}
+			ClearCache();
 		}
 		public bool IsFilterActive(IFilter<T> filter) {
 			int index = filters.FindIndex(filter.ShouldReplace);
@@ -868,7 +869,7 @@ namespace ItemSourceHelper {
 				}
 			}
 			specialControls:
-			Vector2 offset = new(4, 2);
+			Vector2 offset = new(8, 2);
 			if (focused && Main.timeForVisualEffects % 40 < 20) {
 				spriteBatch.DrawString(
 					font,
