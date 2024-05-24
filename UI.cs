@@ -740,6 +740,7 @@ namespace ItemSourceHelper {
 			ItemSourceHelper.Instance.BrowserWindow.ActiveSourceFilters.SetFilterItem(item);
 		}
 		public override void Reset() {
+			item ??= new();
 			item.TurnToAir();
 		}
 	}
