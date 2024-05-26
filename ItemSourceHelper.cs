@@ -163,7 +163,7 @@ namespace ItemSourceHelper {
 					return;
 				}
 			}
-			if (ItemSourceHelper.OpenBestiaryHotkey.JustPressed) {
+			if (ItemSourceHelper.OpenBestiaryHotkey?.JustPressed == true) {
 				if (Main.HoverItem?.IsAir == false) {
 					Main.player[Main.myPlayer].SetTalkNPC(-1);
 					Main.npcChatCornerItem = 0;
