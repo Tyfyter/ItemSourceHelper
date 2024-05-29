@@ -147,6 +147,7 @@ public class CraftingItemSourceType : ItemSourceType {
 		return false;
 	}
 	static void ApplyRecipeGroupName(string text, Item item, int stack) {
+		item.stack = stack;
 		if (stack > 1) {
 			item.SetNameOverride($"{text} ({stack})");
 		} else {
@@ -154,7 +155,7 @@ public class CraftingItemSourceType : ItemSourceType {
 		}
 	}
 }
-public class CraftingItemSource(ItemSourceType sourceType, Recipe recipe) : ItemSource(sourceType, recipe.createItem.type) {
+public class CraftingItemSource(ItemSourceType sourceType, Recipe recipe) : ItemSource(sourceType, recipe.createItem) {
 	public Recipe Recipe => recipe;
 	public override IEnumerable<Condition> GetConditions() => Recipe.Conditions;
 	public override IEnumerable<Item> GetSourceItems() {

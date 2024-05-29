@@ -147,8 +147,8 @@ namespace ItemSourceHelper {
 		}
 		public override void SetControls() {
 			if (scrollable is not null) {
-				if (Math.Abs(PlayerInput.ScrollWheelDelta) >= 60) {
-					scrollable.Scroll(PlayerInput.ScrollWheelDelta / -120);
+				if (Math.Abs(PlayerInput.ScrollWheelDelta) >= ItemSourceHelperConfig.Instance.ScrollSensitivity * 5) {
+					scrollable.Scroll(PlayerInput.ScrollWheelDelta / (ItemSourceHelperConfig.Instance.ScrollSensitivity * -10));
 					PlayerInput.ScrollWheelDelta = 0;
 				}
 				scrollable = null;

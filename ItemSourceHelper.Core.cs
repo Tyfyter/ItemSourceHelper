@@ -15,6 +15,9 @@ public abstract class ItemSource(ItemSourceType sourceType, int itemType) {
 	public int ItemType => itemType;
 	Item item;
 	public Item Item => item ??= ContentSamples.ItemsByType[ItemType];
+	public ItemSource(ItemSourceType sourceType, Item item) : this(sourceType, item.type) {
+		this.item = item;
+	}
 	public virtual IEnumerable<Condition> GetConditions() {
 		yield break;
 	}

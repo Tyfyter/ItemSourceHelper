@@ -97,6 +97,11 @@ Configs: {
 			Label: Source Browser Color
 			Tooltip: ""
 		}
+
+		ScrollSensitivity: {
+			Label: Scroll Sensitivity
+			Tooltip: ""
+		}
 	}
 
 	ItemSourceHelperPositions: {
