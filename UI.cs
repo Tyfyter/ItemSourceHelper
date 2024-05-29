@@ -696,12 +696,12 @@ namespace ItemSourceHelper {
 		public bool MatchesSlot(T value) {
 			if (filterItem?.IsAir != false) return true;
 			if (value is ItemSource source) {
-				if (source.ItemType == ItemID.DayBreak) {
-
-				}
 				if (source.ItemType == filterItem.type) return true;
 				foreach (Item ingredient in source.GetSourceItems()) {
 					if (ingredient.type == filterItem.type) return true;
+				}
+				foreach (HashSet<int> group in source.GetSourceGroups()) {
+					if (group.Contains(filterItem.type)) return true;
 				}
 			} else if (value is Item item) {
 				if (item.type == filterItem.type) return true;

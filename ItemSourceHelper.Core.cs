@@ -22,6 +22,9 @@ public abstract class ItemSource(ItemSourceType sourceType, int itemType) {
 	public virtual IEnumerable<Item> GetSourceItems() {
 		yield break;
 	}
+	public virtual IEnumerable<HashSet<int>> GetSourceGroups() {
+		yield break;
+	}
 }
 public abstract class ItemSourceType : ModTexturedType, ILocalizedModType {
 	public string LocalizationCategory => "ItemSourceType";

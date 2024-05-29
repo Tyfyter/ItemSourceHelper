@@ -109,8 +109,10 @@ public class ShopTypeSourceFilter(AbstractNPCShop shop) : ItemSourceFilter {
 public class CraftingItemSourceType : ItemSourceType {
 	public override string Texture => "Terraria/Images/Item_" + ItemID.WorkBench;
 	public static HashSet<Condition> FakeRecipeConditions { get; private set; } = [];
+	public static Dictionary<int, Item> CachedRecipeGroupItems { get; private set; } = [];
 	public override void Unload() {
 		FakeRecipeConditions = null;
+		CachedRecipeGroupItems = null;
 	}
 	public override IEnumerable<ItemSource> FillSourceList() {
 		Dictionary<int, ItemSourceFilter> stations = [];
@@ -132,11 +134,39 @@ public class CraftingItemSourceType : ItemSourceType {
 	}
 	List<ItemSourceFilter> childFilters = [];
 	public override IEnumerable<ItemSourceFilter> ChildFilters() => childFilters;
+	public static bool GetRecipeGroup(List<int> groups, Item requiredItem, out Item item) {
+		for (int i = 0; i < groups.Count; i++) {
+			int group = groups[i];
+			if (RecipeGroup.recipeGroups[group].ContainsItem(requiredItem.type)) {
+				if (!CachedRecipeGroupItems.TryGetValue(group, out item)) CachedRecipeGroupItems[group] = item = requiredItem.Clone();
+				ApplyRecipeGroupName(RecipeGroup.recipeGroups[group].GetText(), item, requiredItem.stack);
+				return true;
+			}
+		}
+		item = null;
+		return false;
+	}
+	static void ApplyRecipeGroupName(string text, Item item, int stack) {
+		if (stack > 1) {
+			item.SetNameOverride($"{text} ({stack})");
+		} else {
+			item.SetNameOverride(text);
+		}
+	}
 }
 public class CraftingItemSource(ItemSourceType sourceType, Recipe recipe) : ItemSource(sourceType, recipe.createItem.type) {
 	public Recipe Recipe => recipe;
 	public override IEnumerable<Condition> GetConditions() => Recipe.Conditions;
-	public override IEnumerable<Item> GetSourceItems() => Recipe.requiredItem;
+	public override IEnumerable<Item> GetSourceItems() {
+		for (int i = 0; i < Recipe.requiredItem.Count; i++) {
+			if (CraftingItemSourceType.GetRecipeGroup(Recipe.acceptedGroups, Recipe.requiredItem[i], out Item req)) {
+				yield return req;
+			} else {
+				yield return Recipe.requiredItem[i];
+			}
+		}
+	}
+	public override IEnumerable<HashSet<int>> GetSourceGroups() => Recipe.acceptedGroups.Select(g => RecipeGroup.recipeGroups[g].ValidItems);
 	public override IEnumerable<LocalizedText> GetExtraConditionText() {
 		for (int i = 0; i < recipe.requiredTile.Count; i++) {
 			int tileType = recipe.requiredTile[i];
