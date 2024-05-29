@@ -100,7 +100,11 @@ Configs: {
 
 		ScrollSensitivity: {
 			Label: Scroll Sensitivity
-			Tooltip: ""
+			Tooltip:
+				'''
+				Controls how much the browser scrolls when you use the scroll wheel
+				Higher numbers will make scrolling less sensitive
+				'''
 		}
 	}
 

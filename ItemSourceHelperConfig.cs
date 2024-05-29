@@ -14,7 +14,7 @@ namespace ItemSourceHelper {
 	public class ItemSourceHelperConfig : ModConfig {
 		public override ConfigScope Mode => ConfigScope.ClientSide;
 		public static ItemSourceHelperConfig Instance;
-		[DefaultValue(12), Range(1, 18)]
+		[DefaultValue(12), Range(1, 18), Slider]
 		public int ScrollSensitivity { get; set; }
 		[DefaultValue(typeof(Color), "100, 149, 237, 255")]
 		public Color SourceBrowserColor {
