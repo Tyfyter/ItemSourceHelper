@@ -749,6 +749,7 @@ namespace ItemSourceHelper {
 		public int cursorIndex = 0;
 		public StringBuilder text = new();
 		string lastSearch = "";
+		public int typingTimer = 0;
 		public void SetSearch(string search) {
 			lastSearch = search;
 			ItemSourceBrowser browserWindow = ItemSourceHelper.Instance.BrowserWindow;
@@ -770,6 +771,7 @@ namespace ItemSourceHelper {
 			cursorIndex = 0;
 		}
 		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
+			int typingTimeoutTime = ItemSourceHelperConfig.Instance.AutoSearchTime + 1;
 			DynamicSpriteFont font = FontAssets.MouseText.Value;
 			const float scale = 1.25f;
 			bounds.Y += 4;
@@ -812,6 +814,7 @@ namespace ItemSourceHelper {
 				}
 			}
 			spriteBatch.DrawRoundedRetangle(bounds, color);
+			bool typed = false;
 			if (focused) {
 				Main.CurrentInputTextTakerOverride = this;
 				Main.chatRelease = false;
@@ -836,40 +839,61 @@ namespace ItemSourceHelper {
 							cursorIndex++;
 						}
 					}
+					typed = true;
 					goto specialControls;
 				}
 				if (Main.inputText.PressingShift()) {
 					if (UIMethods.JustPressed(Keys.Delete)) {
 						Copy(cut: true);
+						typed = true;
 						goto specialControls;
 					} else if (UIMethods.JustPressed(Keys.Insert)) {
 						Paste();
+						typed = true;
 						goto specialControls;
 					}
 				}
 				if (UIMethods.JustPressed(Keys.Left)) {
-					if (cursorIndex > 0) cursorIndex--;
+					if (cursorIndex > 0) {
+						cursorIndex--;
+						typed = true;
+					}
 				} else if (UIMethods.JustPressed(Keys.Right)) {
-					if (cursorIndex < text.Length) cursorIndex++;
+					if (cursorIndex < text.Length) {
+						cursorIndex++;
+						typed = true;
+					}
 				}
 
 				if (input.Length == 0 && cursorIndex > 0) {
 					text.Remove(--cursorIndex, 1);
+					typed = true;
 				} else if (input.Length == 2) {
 					text.Insert(cursorIndex++, input[1]);
+					typed = true;
 				} else if (UIMethods.JustPressed(Keys.Delete)) {
-					if (cursorIndex < text.Length) text.Remove(cursorIndex, 1);
+					if (cursorIndex < text.Length) {
+						text.Remove(cursorIndex, 1);
+						typed = true;
+					}
 				}
 				if (UIMethods.JustPressed(Keys.Enter)) {
 					SetSearch(text.ToString());
 					focused = false;
+					typingTimer = 0;
 				} else if (Main.inputTextEscape) {
 					Clear();
 					text.Append(lastSearch);
 					focused = false;
+					typingTimer = 0;
 				}
 			}
 			specialControls:
+			if (typed) {
+				typingTimer = typingTimeoutTime;
+			} else if (typingTimer > 0 && --typingTimer == 0) {
+				SetSearch(text.ToString());
+			}
 			Vector2 offset = new(8, 2);
 			if (focused && Main.timeForVisualEffects % 40 < 20) {
 				spriteBatch.DrawString(

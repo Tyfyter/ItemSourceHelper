@@ -16,6 +16,8 @@ namespace ItemSourceHelper {
 		public static ItemSourceHelperConfig Instance;
 		[DefaultValue(12), Range(1, 18), Slider]
 		public int ScrollSensitivity { get; set; }
+		[DefaultValue(15), Range(-1, 600)]
+		public int AutoSearchTime { get; set; }
 		[DefaultValue(typeof(Color), "100, 149, 237, 255")]
 		public Color SourceBrowserColor {
 			get => ItemSourceHelper.Instance.BrowserWindow.SourceBrowser.color;

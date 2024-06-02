@@ -106,6 +106,15 @@ Configs: {
 				Higher numbers will make scrolling less sensitive
 				'''
 		}
+
+		AutoSearchTime: {
+			Label: Auto Search Time
+			Tooltip:
+				'''
+				How many ticks the search bar will wait after you stop typing to update its search without pressing enter
+				Set to -1 to disable
+				'''
+		}
 	}
 
 	ItemSourceHelperPositions: {
