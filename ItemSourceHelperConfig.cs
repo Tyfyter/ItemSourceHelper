@@ -18,6 +18,10 @@ namespace ItemSourceHelper {
 		public int ScrollSensitivity { get; set; }
 		[DefaultValue(15), Range(-1, 600)]
 		public int AutoSearchTime { get; set; }
+		[DefaultValue(true)]
+		public bool AnimatedRecipeGroups { get; set; }
+
+		[Header("Colors")]
 		[DefaultValue(typeof(Color), "100, 149, 237, 255")]
 		public Color SourceBrowserColor {
 			get => ItemSourceHelper.Instance.BrowserWindow.SourceBrowser.color;

@@ -115,6 +115,13 @@ Configs: {
 				Set to -1 to disable
 				'''
 		}
+
+		AnimatedRecipeGroups: {
+			Label: Animated Recipe Groups
+			Tooltip: If this is enabled recipe groups will cycle between displaying each item in the group instead of displaying one "iconic" item as they do in vanilla
+		}
+
+		Headers.Colors: Colors
 	}
 
 	ItemSourceHelperPositions: {

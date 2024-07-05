@@ -125,6 +125,7 @@ namespace ItemSourceHelper {
 			ItemSourceHelper.Instance.BrowserWindow.ActiveSourceFilters.SetSortMethod(ItemSourceHelper.Instance.SourceSorters[0]);
 			ItemSourceHelper.Instance.BrowserWindow.ActiveItemFilters.SetSortMethod(ItemSourceHelper.Instance.SourceSorters.TryCast<ItemSorter>().First());
 			ItemSourceHelper.Instance.Filters.Sort(new FilterComparer());
+			AnimatedRecipeGroupGlobalItem.PostSetupRecipes();
 		}
 		public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers) {
 			if (!isActive) {
