@@ -17,6 +17,7 @@ using Terraria.Localization;
 using Terraria.ModLoader.IO;
 using ReLogic.Content;
 using Microsoft.Xna.Framework.Graphics;
+using Terraria.GameContent.ItemDropRules;
 
 namespace ItemSourceHelper {
 	public class ItemSourceHelper : Mod {
@@ -29,12 +30,16 @@ namespace ItemSourceHelper {
 		public Dictionary<int, int> IconicWeapons { get; private set; }
 		public List<string> PreOrderedFilterChannels { get; private set; }
 		public List<SourceSorter> SourceSorters { get; private set; }
+		public HashSet<int> CraftableItems { get; private set; }
+		public HashSet<int> NPCLootItems { get; private set; }
+		public HashSet<int> ItemLootItems { get; private set; }
 		public static ModKeybind OpenToItemHotkey { get; private set; }
 		public static ModKeybind OpenMenuHotkey { get; private set; }
 		public static ModKeybind OpenBestiaryHotkey { get; private set; }
 		internal static UISearchBar BestiarySearchBar;
 		public static Asset<Texture2D> InventoryBackOutline { get; private set; }
 		public static Asset<Texture2D> SortArrows { get; private set; }
+		public static Asset<Texture2D> ItemIndicators { get; private set; }
 		public ItemSourceHelper() {
 			Instance = this;
 			Sources = [];
@@ -53,6 +58,9 @@ namespace ItemSourceHelper {
 			];
 			BrowserWindow = new();
 			ChildFilterCount = 1;
+			CraftableItems = [];
+			NPCLootItems = [];
+			ItemLootItems = [];
 		}
 		public override void Load() {
 			OpenToItemHotkey = KeybindLoader.RegisterKeybind(this, "Open Browser To Hovered Item", nameof(Keys.OemOpenBrackets));
@@ -60,6 +68,7 @@ namespace ItemSourceHelper {
 			if (ModLoader.HasMod("GlobalLootViewer")) OpenBestiaryHotkey = KeybindLoader.RegisterKeybind(this, "Open Bestiary To Hovered Item", nameof(Keys.OemPipe));
 			InventoryBackOutline = Assets.Request<Texture2D>("Inventory_Back_Outline");
 			SortArrows = Assets.Request<Texture2D>("Sort_Arrows");
+			ItemIndicators = Assets.Request<Texture2D>("Item_Indicators");
 			MonoModHooks.Add(
 				typeof(ModContent).GetMethod("ResizeArrays", BindingFlags.NonPublic | BindingFlags.Static),
 				(Action<bool> orig, bool unloading) => {
@@ -126,6 +135,34 @@ namespace ItemSourceHelper {
 			ItemSourceHelper.Instance.BrowserWindow.ActiveItemFilters.SetSortMethod(ItemSourceHelper.Instance.SourceSorters.TryCast<ItemSorter>().First());
 			ItemSourceHelper.Instance.Filters.Sort(new FilterComparer());
 			AnimatedRecipeGroupGlobalItem.PostSetupRecipes();
+			foreach (ItemSource item in ItemSourceHelper.Instance.Sources) {
+				ItemSourceHelper.Instance.CraftableItems.Add(item.ItemType);
+			}
+
+			static void DoAddDropGroup(List<IItemDropRule> rules, HashSet<int> dropSet, DropGroup group) {
+				foreach (IItemDropRule rule in rules) {
+					DropRateInfoChainFeed ratesInfo = new(1f);
+					List<DropRateInfo> dropInfoList = [];
+					rule.ReportDroprates(dropInfoList, ratesInfo);
+					if (dropInfoList.Count > 0) {
+						for (int i = 0; i < dropInfoList.Count; i++) {
+							dropSet.Add(dropInfoList[i].itemId);
+						}
+						group.DropInfoList = dropInfoList;
+					}
+				}
+			}
+			static T GetFieldValue<T>(string name) {
+				return (T)typeof(ItemDropDatabase).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Main.ItemDropsDB);
+			}
+			foreach (var rules in GetFieldValue<Dictionary<int, List<IItemDropRule>>>("_entriesByNpcNetId")) {
+				DoAddDropGroup(rules.Value, ItemSourceHelper.Instance.NPCLootItems, new DropGroup(npc: rules.Key));
+			}
+			DoAddDropGroup(GetFieldValue<List<IItemDropRule>>("_globalEntries"), ItemSourceHelper.Instance.NPCLootItems, new DropGroup());
+
+			foreach (var rules in GetFieldValue<Dictionary<int, List<IItemDropRule>>>("_entriesByItemId")) {
+				DoAddDropGroup(rules.Value, ItemSourceHelper.Instance.ItemLootItems, new DropGroup(item: rules.Key));
+			}
 		}
 		public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers) {
 			if (!isActive) {
@@ -140,6 +177,11 @@ namespace ItemSourceHelper {
 		public override void PreSaveAndQuit() {
 			ItemSourceHelperPositions.Instance.Save();
 		}
+	}
+	public class DropGroup(int? npc = null, int? item = null) {
+		public readonly int? npc = npc;
+		public readonly int? item = item;
+		public List<DropRateInfo> DropInfoList { get; set; }
 	}
 	public class ScrollingPlayer : ModPlayer {
 		internal static IScrollableUIItem scrollable;

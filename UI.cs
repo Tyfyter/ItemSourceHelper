@@ -1081,6 +1081,38 @@ namespace ItemSourceHelper {
 								}
 							}
 						}
+						if (ItemSourceHelper.Instance.CraftableItems.Contains(item.type)) {
+							spriteBatch.Draw(
+								ItemSourceHelper.ItemIndicators.Value,
+								position + new Vector2(3, 3),
+								new Rectangle(0, 0, 8, 8),
+								Color.White
+							);
+						}
+						if (item.material) {
+							spriteBatch.Draw(
+								ItemSourceHelper.ItemIndicators.Value,
+								position + new Vector2(3, size - (8 + 3)),
+								new Rectangle(10, 0, 8, 8),
+								Color.White
+							);
+						}
+						if (ItemSourceHelper.Instance.NPCLootItems.Contains(item.type)) {
+							spriteBatch.Draw(
+								ItemSourceHelper.ItemIndicators.Value,
+								position + new Vector2(size - (8 + 3), 3),
+								new Rectangle(20, 0, 8, 8),
+								Color.White
+							);
+						}
+						if (ItemSourceHelper.Instance.ItemLootItems.Contains(item.type)) {
+							spriteBatch.Draw(
+								ItemSourceHelper.ItemIndicators.Value,
+								position + new Vector2(size - (8 + 3), size - (8 + 3)),
+								new Rectangle(30, 0, 8, 8),
+								Color.White
+							);
+						}
 					}
 					x += sizeWithPadding;
 				}
