@@ -246,7 +246,7 @@ namespace ItemSourceHelper {
 						} else {
 							UIMethods.DrawRoundedRetangle(spriteBatch, button, color);
 						}
-						Texture2D texture = filter.TextureAsset.Value;
+						Texture2D texture = filter.TextureValue;
 						spriteBatch.Draw(texture, texture.Size().RectWithinCentered(button, 8), Color.White);
 						if (filterIsActive) {//index != -1 && filter.Type == activeFilters.GetFilter(index).Type
 							Rectangle corner = button;
@@ -356,7 +356,7 @@ namespace ItemSourceHelper {
 							} else {
 								UIMethods.DrawRoundedRetangle(spriteBatch, button, color);
 							}
-							Texture2D texture = filter.TextureAsset.Value;
+							Texture2D texture = filter.TextureValue;
 							spriteBatch.Draw(texture, texture.Size().RectWithinCentered(button, 8), Color.White);
 							if (filterIsActive) {//index != -1 && filter.Type == activeFilters.GetFilter(index).Type
 								Rectangle corner = button;
@@ -696,11 +696,19 @@ namespace ItemSourceHelper {
 		public bool MatchesSlot(T value) {
 			if (filterItem?.IsAir != false) return true;
 			if (value is ItemSource source) {
-				if (source.ItemType == filterItem.type) return true;
-				foreach (Item ingredient in source.GetSourceItems()) {
-					if (ingredient.type == filterItem.type) return true;
+				RecipeGroup recipeGroup = null;
+				if (filterItem.TryGetGlobalItem(out AnimatedRecipeGroupGlobalItem groupItem) && groupItem.recipeGroup != -1) {
+					RecipeGroup.recipeGroups.TryGetValue(groupItem.recipeGroup, out recipeGroup);
+					if (recipeGroup is not null && recipeGroup.ValidItems.Count == 1) recipeGroup = null;
+				}
+				if (recipeGroup is null) {
+					if (source.ItemType == filterItem.type) return true;
+					foreach (Item ingredient in source.GetSourceItems()) {
+						if (ingredient.type == filterItem.type) return true;
+					}
 				}
 				foreach (HashSet<int> group in source.GetSourceGroups()) {
+					if (ReferenceEquals(group, recipeGroup?.ValidItems)) return true;
 					if (group.Contains(filterItem.type)) return true;
 				}
 			} else if (value is Item item) {

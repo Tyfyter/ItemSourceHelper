@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Terraria;
 using Terraria.ID;
@@ -53,7 +54,7 @@ public interface IFilter<T> {
 	public IEnumerable<IFilter<T>> ChildFilters();
 	public int FilterChannel { get; }
 	public int Type { get; }
-	public Asset<Texture2D> TextureAsset { get; }
+	public Texture2D TextureValue { get; }
 	public IEnumerable<Type> FilterDependencies => [];
 	public bool ShouldRemove(List<IFilter<T>> filters) {
 		foreach (Type dependency in FilterDependencies) {
@@ -71,7 +72,7 @@ public class OrFilter<T>(params IFilter<T>[] filters) : IFilter<T> {
 	public string DisplayNameText => string.Join(" | ", Filters.Select(f => f.DisplayNameText));
 	public int FilterChannel => Filters[0].FilterChannel;
 	public int Type => Filters[0].Type;
-	public Asset<Texture2D> TextureAsset => Asset<Texture2D>.Empty;
+	public Texture2D TextureValue => Asset<Texture2D>.DefaultValue;
 	public IEnumerable<IFilter<T>> ChildFilters() => [];
 	public bool Matches(T source) {
 		for (int i = 0; i < Filters.Count; i++) {
@@ -111,7 +112,7 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFi
 	public virtual IEnumerable<Type> FilterDependencies => [];
 	protected virtual bool IsChildFilter => false;
 	protected Asset<Texture2D> texture;
-	public virtual Asset<Texture2D> TextureAsset => texture;
+	public virtual Texture2D TextureValue => texture.Value;
 	public virtual float SortPriority => 1f;
 	public sealed override void SetupContent() {
 		if (FilterChannelName != null) {
@@ -235,5 +236,13 @@ public abstract class ItemSorter : SourceSorter, IComparer<Item>, ISorter<Item> 
 		int itemComp = Compare(x.Item, y.Item);
 		if (itemComp != 0) return itemComp;
 		return Comparer<int>.Default.Compare(x.SourceType.Type, y.SourceType.Type);
+	}
+}
+public class HashSetComparer<T> : IEqualityComparer<ISet<T>> {
+	public bool Equals(ISet<T> x, ISet<T> y) => x.SetEquals(y);
+	public int GetHashCode([DisallowNull] ISet<T> obj) {
+		int hash = 0;
+		foreach (T item in obj) hash ^= item.GetHashCode();
+		return hash;
 	}
 }

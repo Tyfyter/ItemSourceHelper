@@ -140,6 +140,7 @@ public class CraftingItemSourceType : ItemSourceType {
 			if (RecipeGroup.recipeGroups[group].ContainsItem(requiredItem.type)) {
 				if (!CachedRecipeGroupItems.TryGetValue(group, out item)) CachedRecipeGroupItems[group] = item = requiredItem.Clone();
 				ApplyRecipeGroupName(RecipeGroup.recipeGroups[group].GetText(), item, requiredItem.stack);
+				if (item.TryGetGlobalItem(out AnimatedRecipeGroupGlobalItem cloneItem) && requiredItem.TryGetGlobalItem(out AnimatedRecipeGroupGlobalItem cloneReq)) cloneItem.recipeGroup = cloneReq.recipeGroup;
 				return true;
 			}
 		}
@@ -148,11 +149,7 @@ public class CraftingItemSourceType : ItemSourceType {
 	}
 	static void ApplyRecipeGroupName(string text, Item item, int stack) {
 		item.stack = stack;
-		if (stack > 1) {
-			item.SetNameOverride($"{text} ({stack})");
-		} else {
-			item.SetNameOverride(text);
-		}
+		item.SetNameOverride(text);
 	}
 }
 public class CraftingItemSource(ItemSourceType sourceType, Recipe recipe) : ItemSource(sourceType, recipe.createItem) {
@@ -345,9 +342,45 @@ public class VanillaFilter : ItemFilter {
 	public override IEnumerable<Type> FilterDependencies => [typeof(ModdedFilter)];
 }
 public class MaterialFilter : ItemFilter {
+	List<RecipeGroupFilter> children;
+	public override void PostSetupRecipes() {
+		children = new(RecipeGroup.recipeGroups.Count);
+		RecipeGroupFilter child;
+		HashSet<HashSet<int>> addedGroups = new(new HashSetComparer<int>());
+		foreach (RecipeGroup group in RecipeGroup.recipeGroups.Values) {
+			if (group.ValidItems.Count == 1 || !addedGroups.Add(group.ValidItems)) continue;
+			child = new RecipeGroupFilter(group);
+			children.Add(child);
+			child.LateRegister();
+		}
+		children.Sort((x, y) => Comparer<int>.Default.Compare(x.RecipeGroup.IconicItemId, y.RecipeGroup.IconicItemId));
+	}
 	public override float SortPriority => 98f;
 	public override string Texture => "Terraria/Images/Item_" + ItemID.Topaz;
 	public override bool Matches(Item item) => item.material;
+	public override IEnumerable<ItemFilter> ChildItemFilters() => children;
+}
+[Autoload(false)]
+public class RecipeGroupFilter(RecipeGroup recipeGroup) : ItemFilter {
+	public RecipeGroup RecipeGroup => recipeGroup;
+	public override string Name => $"{base.Name}_{recipeGroup.RegisteredId}";
+	protected override bool IsChildFilter => true;
+	public override string DisplayNameText => recipeGroup.GetText();
+	protected override string FilterChannelName => "RecipeGroup";
+	public override Texture2D TextureValue {
+		get {
+			int itemType;
+			if (ItemSourceHelperConfig.Instance.AnimatedRecipeGroups) {
+				itemType = recipeGroup.ValidItems.Skip((int)(Main.timeForVisualEffects / 60) % recipeGroup.ValidItems.Count).First();
+			} else {
+				itemType = recipeGroup.IconicItemId;
+			}
+			Main.instance.LoadItem(itemType);
+			return TextureAssets.Item[itemType].Value;
+		}
+	}
+	public override bool Matches(Item item) => recipeGroup.ValidItems.Contains(item.type);
+	public override IEnumerable<Type> FilterDependencies => [typeof(MaterialFilter)];
 }
 public class AmmoFilter : ItemFilter {
 	List<ItemFilter> children;

@@ -4,12 +4,13 @@ using System.Linq;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.GameContent;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace ItemSourceHelper {
 	internal class AnimatedRecipeGroupGlobalItem : GlobalItem {
 		public override bool InstancePerEntity => true;
-		int recipeGroup = -1;
+		public int recipeGroup = -1;
 		public static void PostSetupRecipes() {
 			for (int i = 0; i < Main.recipe.Length; i++) {
 				Recipe recipe = Main.recipe[i];
