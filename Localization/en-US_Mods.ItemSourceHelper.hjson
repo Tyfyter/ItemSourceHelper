@@ -8,6 +8,37 @@ ItemSourceFilter: {
 	AmmoFilter.DisplayName: Ammo
 	AmmoUseFilter.DisplayName: Uses Ammo
 	WingFilter.DisplayName: Wings
+	ToolFilter.DisplayName: Tools
+	ToolTypeFilter_Pickaxe.DisplayName: Pickaxes
+	ToolTypeFilter_Axe.DisplayName: Axes
+	ToolTypeFilter_Hammer.DisplayName: Hammers
+	ToolTypeFilter_Wire.DisplayName: Wiring
+	RarityParentFilter.DisplayName: Rarity
+	RarityFilter_White.DisplayName: White
+	RarityFilter_Blue.DisplayName: Blue
+	RarityFilter_Green.DisplayName: Green
+	RarityFilter_Orange.DisplayName: Orange
+	RarityFilter_LightRed.DisplayName: Light Red
+	RarityFilter_Pink.DisplayName: Pink
+	RarityFilter_Cyan.DisplayName: Cyan
+	RarityFilter_Yellow.DisplayName: Yellow
+	RarityFilter_LightPurple.DisplayName: Light Purple
+	RarityFilter_Lime.DisplayName: Lime
+	RarityFilter_Red.DisplayName: Red
+	RarityFilter_Gray.DisplayName: Gray
+	RarityFilter_Quest.DisplayName: Quest
+	RarityFilter_Master.DisplayName: Master
+	RarityFilter_Purple.DisplayName: Purple
+	RarityFilter_ThoriumMod/TerrariumRarity.DisplayName: Terrarium
+	RarityFilter_ThoriumMod/DonatorRarity.DisplayName: Donator
+	RarityFilter_ThoriumMod/BloodOrangeRarity.DisplayName: Blood Orange
+	RarityFilter_Expert.DisplayName: Expert
+	RarityFilter_Origins/CrimsonRarity.DisplayName: Crimson
+	RarityFilter_Origins/CursedRarity.DisplayName: Cursed
+	RarityFilter_Origins/ButterscotchRarity.DisplayName: Butterscotch
+	RarityFilter_Origins/AltCyanRarity.DisplayName: Alt Cyan
+	RarityFilter_EpikV2/CursedRarity.DisplayName: Cursed
+	RarityFilter_EpikV2/GoldRarity.DisplayName: Gold
 }
 
 AmmoName: {

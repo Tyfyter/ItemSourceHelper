@@ -1,4 +1,5 @@
 ﻿using ItemSourceHelper.Default;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using System;
@@ -6,6 +7,8 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Terraria;
+using Terraria.DataStructures;
+using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
@@ -50,11 +53,13 @@ public abstract class ItemSourceType : ModTexturedType, ILocalizedModType {
 }
 public interface IFilter<T> {
 	public string DisplayNameText { get; }
+	public int DisplayNameRarity => ItemRarityID.White;
 	public bool Matches(T source);
 	public IEnumerable<IFilter<T>> ChildFilters();
 	public int FilterChannel { get; }
 	public int Type { get; }
 	public Texture2D TextureValue { get; }
+	public DrawAnimation TextureAnimation => null;
 	public IEnumerable<Type> FilterDependencies => [];
 	public bool ShouldRemove(List<IFilter<T>> filters) {
 		foreach (Type dependency in FilterDependencies) {
@@ -105,6 +110,7 @@ public class SourceTypeFilter(ItemSourceType sourceType) : ItemSourceFilter {
 public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFilter<ItemSource> {
 	public string LocalizationCategory => "ItemSourceFilter";
 	public virtual LocalizedText DisplayName => Mod is null ? ItemSourceHelper.GetLocalization(this) : this.GetLocalization("DisplayName");
+	public virtual int DisplayNameRarity => ItemRarityID.White;
 	public virtual string DisplayNameText => DisplayName.Value;
 	public int Type { get; private set; }
 	public int FilterChannel { get; private set; }
@@ -113,6 +119,8 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFi
 	protected virtual bool IsChildFilter => false;
 	protected Asset<Texture2D> texture;
 	public virtual Texture2D TextureValue => texture.Value;
+	protected DrawAnimation animation;
+	public virtual DrawAnimation TextureAnimation => animation;
 	public virtual float SortPriority => 1f;
 	public sealed override void SetupContent() {
 		if (FilterChannelName != null) {
@@ -142,6 +150,11 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFi
 	}
 	public abstract bool Matches(ItemSource source);
 	public virtual IEnumerable<IFilter<ItemSource>> ChildFilters() => [];
+	protected void UseItemTexture(int itemType) {
+		Main.instance.LoadItem(itemType);
+		texture = TextureAssets.Item[itemType];
+		animation = Main.itemAnimations[itemType];
+	}
 }
 public abstract class ItemFilter : ItemSourceFilter, IFilter<Item> {
 	public override sealed bool Matches(ItemSource source) => Matches(source.Item);

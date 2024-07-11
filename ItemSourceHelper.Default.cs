@@ -18,6 +18,7 @@ using Terraria.GameContent;
 using Terraria.Map;
 using System.Collections.Immutable;
 using Microsoft.Xna.Framework;
+using System.Text.RegularExpressions;
 
 namespace ItemSourceHelper.Default;
 #region shop
@@ -197,8 +198,7 @@ public class CraftingStationSourceFilter(int tileType) : ItemSourceFilter {
 		nameKey = text.Key;
 		noLocalization:
 		if (itemType != 0) {
-			Main.instance.LoadItem(itemType);
-			texture = TextureAssets.Item[itemType];
+			UseItemTexture(itemType);
 		}
 	}
 	protected override bool IsChildFilter => true;
@@ -252,9 +252,7 @@ public class WeaponFilter : ItemFilter {
 [Autoload(false)]
 public class WeaponTypeFilter(DamageClass damageClass) : ItemFilter {
 	public override void SetStaticDefaults() {
-		int item = ItemSourceHelper.Instance.IconicWeapons[damageClass.Type];
-		Main.instance.LoadItem(item);
-		texture = TextureAssets.Item[item];
+		UseItemTexture(ItemSourceHelper.Instance.IconicWeapons[damageClass.Type]);
 	}
 	protected override bool IsChildFilter => true;
 	protected override string FilterChannelName => "WeaponType";
@@ -275,6 +273,39 @@ public class OtherWeaponTypeFilter : ItemFilter {
 		return true;
 	}
 	public override IEnumerable<Type> FilterDependencies => [typeof(WeaponFilter)];
+}
+public class ToolFilter : ItemFilter {
+	List<ItemFilter> Children { get; set; } = [];
+	public void AddChildFilter(ItemFilter child) {
+		Children.Add(child);
+		Mod.AddContent(child);
+	}
+	public override void Load() {
+		AddChildFilter(new ToolTypeFilter((i) => i.pick > 0, "Pickaxe", ItemID.CopperPickaxe));
+		AddChildFilter(new ToolTypeFilter((i) => i.axe > 0, "Axe", ItemID.CopperAxe));
+		AddChildFilter(new ToolTypeFilter((i) => i.hammer > 0, "Hammer", ItemID.CopperHammer));
+		AddChildFilter(new ToolTypeFilter((i) => ItemID.Sets.SortingPriorityWiring[i.type] != -1, "Wire", ItemID.Wire));
+	}
+	protected override string FilterChannelName => "ItemType";
+	public override string Texture => "Terraria/Images/Item_" + ItemID.IronPickaxe;
+	public override bool Matches(Item item) {
+		for (int i = 0; i < Children.Count; i++) {
+			if (Children[i].Matches(item)) return true;
+		}
+		return false;
+	}
+	public override IEnumerable<ItemFilter> ChildItemFilters() => Children;
+}
+[Autoload(false)]
+public class ToolTypeFilter(Predicate<Item> condition, string name, int iconicItem) : ItemFilter {
+	public override void SetStaticDefaults() {
+		UseItemTexture(iconicItem);
+	}
+	protected override bool IsChildFilter => true;
+	protected override string FilterChannelName => "ToolType";
+	public override string Name => $"{base.Name}_{name}";
+	public override bool Matches(Item item) => condition(item);
+	public override IEnumerable<Type> FilterDependencies => [typeof(ToolFilter)];
 }
 public class AccessoryFilter : ItemFilter {
 	public List<ItemFilter> Children { get; } = [];
@@ -376,6 +407,7 @@ public class RecipeGroupFilter(RecipeGroup recipeGroup) : ItemFilter {
 				itemType = recipeGroup.IconicItemId;
 			}
 			Main.instance.LoadItem(itemType);
+			animation = Main.itemAnimations[itemType];
 			return TextureAssets.Item[itemType].Value;
 		}
 	}
@@ -437,8 +469,7 @@ public class AmmoTypeFilter(int type) : ItemFilter {
 	protected override string FilterChannelName => "AmmoType";
 	protected override bool IsChildFilter => true;
 	public override void SetStaticDefaults() {
-		Main.instance.LoadItem(AmmoType);
-		texture = TextureAssets.Item[AmmoType];
+		UseItemTexture(AmmoType);
 	}
 	public override bool Matches(Item item) => item.ammo == AmmoType;
 	public override IEnumerable<Type> FilterDependencies => [typeof(AmmoFilter)];
@@ -455,6 +486,56 @@ public class AmmoUseFilter : ItemFilter {
 public class AmmoUseTypeFilter(int type) : AmmoTypeFilter(type) {
 	public override bool Matches(Item item) => item.useAmmo == AmmoType;
 	public override IEnumerable<Type> FilterDependencies => [typeof(AmmoUseFilter)];
+}
+public class RarityParentFilter : ItemFilter {
+	List<RarityFilter> Children { get; set; } = [];
+	public void AddChildFilter(RarityFilter child) {
+		Children.Add(child);
+		child.LateRegister();
+	}
+	public override void PostSetupRecipes() {
+		Dictionary<int, string> rarities = new(RarityLoader.RarityCount);
+		foreach (string rare in ItemRarityID.Search.Names) {
+			rarities.Add(ItemRarityID.Search.GetId(rare), rare);
+		}
+		for (int i = ItemRarityID.Count; i < RarityLoader.RarityCount; i++) {
+			rarities.Add(i, RarityLoader.GetRarity(i).FullName);
+		}
+		for (int i = 0; i < ItemLoader.ItemCount; i++) {
+			if (rarities.Count <= 0) break;
+			if (i == ItemID.None) continue;
+			int rare = ContentSamples.ItemsByType[i].rare;
+			if (rarities.TryGetValue(rare, out string name)) {
+				AddChildFilter(new(rare, name, i));
+				rarities.Remove(rare);
+			}
+		}
+		Children.Sort((x, y) => Comparer<int>.Default.Compare(
+			x.Rarity >= 0 ? x.Rarity : int.MaxValue + x.Rarity,
+			y.Rarity >= 0 ? y.Rarity : int.MaxValue + y.Rarity
+		));
+	}
+	public override float SortPriority => 97f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.MetalDetector;
+	public override bool Matches(Item item) => true;
+	public override IEnumerable<ItemFilter> ChildItemFilters() => Children;
+}
+[Autoload(false)]
+public partial class RarityFilter(int rare, string name, int iconicItem) : ItemFilter {
+	public int Rarity => rare;
+	public override void SetStaticDefaults() {
+		UseItemTexture(iconicItem);
+	}
+	protected override bool IsChildFilter => true;
+	protected override string FilterChannelName => "Rarity";
+	public override string Name => $"{base.Name}_{name}";
+	public override int DisplayNameRarity => rare;
+	public override LocalizedText DisplayName => Mod is null ? ItemSourceHelper.GetLocalization(this, makeDefaultValue: makeDefaultValue) : this.GetLocalization("DisplayName", makeDefaultValue: makeDefaultValue);
+	string makeDefaultValue() => NameFancifier().Replace(name.Split("/")[^1].Replace("Rarity", "").Replace("_", ""), " $1").Trim();
+	public override bool Matches(Item item) => item.rare == rare;
+	public override IEnumerable<Type> FilterDependencies => [typeof(RarityParentFilter)];
+
+	[GeneratedRegex("([A-Z])")] private static partial Regex NameFancifier();
 }
 #endregion filters
 #region search types

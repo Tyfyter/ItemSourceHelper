@@ -70,10 +70,10 @@ namespace ItemSourceHelper {
 					[4] = FilterItem = new(),
 					[5] = ConditionsItem = new(),
 					[6] = SearchItem = new(),
-					[7] = slidyThing,
+					[0] = slidyThing,
 				},
 				itemIDs = new int[3, 7] {
-					{ 6, 4, 4, 7, 2, 3, 5 },
+					{ 6, 4, 4, 0, 2, 3, 5 },
 					{ 6, 1, 1, 1, 2, 3, 5 },
 					{ 6, 1, 1, 1, 2, 3, 5 }
 				},
@@ -101,10 +101,10 @@ namespace ItemSourceHelper {
 					},
 					[4] = FilterItem,
 					[6] = SearchItem,
-					[7] = slidyThing,
+					[0] = slidyThing,
 				},
 				itemIDs = new int[3, 7] {
-					{ 6, -1, -1, 7, 2, 2, 2 },
+					{ 6, -1, -1, 0, 2, 2, 2 },
 					{ 6, 1, 1, 1, 2, 2, 2 },
 					{ 6, 1, 1, 1, 2, 2, 2 }
 				},
@@ -166,6 +166,8 @@ namespace ItemSourceHelper {
 				int maxX = bounds.X + bounds.Width - size / 2;
 				int y = bounds.Y + 6;
 				int maxY = bounds.Y + bounds.Height - size / 2;
+				int topMaxX = maxX;
+
 				cutOffTop = false;
 				cutOffBottom = false;
 				Point mousePos = Main.MouseScreen.ToPoint();
@@ -173,17 +175,17 @@ namespace ItemSourceHelper {
 				Color hiColor = new(50, 50, 50, 0);
 				Rectangle button = new(x, y, size, size);
 				if (activeFilters.FilterCount != 0) {
-					if (canHover && button.Contains(mousePos)) {
-						spriteBatch.Draw(actuator, button, Color.Pink);
+					Rectangle clearButton = new(maxX - (size - 6), y, size, size);
+					if (canHover && clearButton.Contains(mousePos)) {
+						spriteBatch.Draw(actuator, clearButton, Color.Pink);
 						if (Main.mouseLeft && Main.mouseLeftRelease) {
 							activeFilters.ClearSelectedFilters();
 							lastFilter = null;
 						}
 					} else {
-						spriteBatch.Draw(actuator, button, Color.Red);
+						spriteBatch.Draw(actuator, clearButton, Color.Red);
 					}
-					x += sizeWithPadding;
-					minX += sizeWithPadding;
+					topMaxX -= sizeWithPadding;
 				}
 
 				int lastFilterChannel = -1;
@@ -206,7 +208,7 @@ namespace ItemSourceHelper {
 						bool filterIsActive = activeFilters.IsFilterActive(filter);
 						if (button.Contains(mousePos)) {
 							UIMethods.DrawRoundedRetangle(spriteBatch, button, hiColor);
-							UIMethods.TryMouseText(filter.DisplayNameText);
+							UIMethods.TryMouseText(filter.DisplayNameText, filter.DisplayNameRarity);
 							if (Main.mouseLeft && Main.mouseLeftRelease) {
 								bool recalculate = false;
 								if (filterIsActive) {
@@ -214,12 +216,13 @@ namespace ItemSourceHelper {
 									if (lastFilter == filter) lastFilter = null;
 									recalculate = true;
 								} else {
-									recalculate = activeFilters.TryAddFilter(filter);
+									recalculate = activeFilters.TryAddFilter(filter, Main.keyState.PressingShift());
 									if (filter.ChildFilters().Any()) lastFilter = filter;
 								}
 								if (recalculate) {
 									activeFilters.RemoveOrphans();
 									activeFilters.ClearCache();
+									if (lastFilter is not null && !activeFilters.IsFilterActive(lastFilter)) lastFilter = null;
 								}
 								/*if (index == -1) {
 									activeFilters.AddSelectedFilter(filter);
@@ -247,7 +250,16 @@ namespace ItemSourceHelper {
 							UIMethods.DrawRoundedRetangle(spriteBatch, button, color);
 						}
 						Texture2D texture = filter.TextureValue;
-						spriteBatch.Draw(texture, texture.Size().RectWithinCentered(button, 8), Color.White);
+						Rectangle iconPos;
+						Rectangle? iconFrame = null;
+						if (filter.TextureAnimation is null) {
+							iconPos = texture.Size().RectWithinCentered(button, 8);
+						} else {
+							iconFrame = filter.TextureAnimation.GetFrame(texture);
+							iconPos = iconFrame.Value.FitWithinCentered(button, 8);
+							//filter.TextureAnimation.Update();
+						}
+						spriteBatch.Draw(texture, iconPos, iconFrame, Color.White);
 						if (filterIsActive) {//index != -1 && filter.Type == activeFilters.GetFilter(index).Type
 							Rectangle corner = button;
 							int halfWidth = corner.Width / 2;
@@ -258,7 +270,7 @@ namespace ItemSourceHelper {
 						}
 					}
 					x += sizeWithPadding;
-					if (x >= maxX) {
+					if (x >= topMaxX) {
 						cutOffTop = true;
 					}
 				}
@@ -329,7 +341,7 @@ namespace ItemSourceHelper {
 							bool filterIsActive = activeFilters.IsFilterActive(filter);
 							if (button.Contains(mousePos)) {
 								UIMethods.DrawRoundedRetangle(spriteBatch, button, hiColor);
-								UIMethods.TryMouseText(filter.DisplayNameText);
+								UIMethods.TryMouseText(filter.DisplayNameText, filter.DisplayNameRarity);
 								if (Main.mouseLeft && Main.mouseLeftRelease) {
 									bool recalculate = false;
 									if (filterIsActive) {
@@ -357,7 +369,16 @@ namespace ItemSourceHelper {
 								UIMethods.DrawRoundedRetangle(spriteBatch, button, color);
 							}
 							Texture2D texture = filter.TextureValue;
-							spriteBatch.Draw(texture, texture.Size().RectWithinCentered(button, 8), Color.White);
+							Rectangle iconPos;
+							Rectangle? iconFrame = null;
+							if (filter.TextureAnimation is null) {
+								iconPos = texture.Size().RectWithinCentered(button, 8);
+							} else {
+								iconFrame = filter.TextureAnimation.GetFrame(texture);
+								iconPos = iconFrame.Value.FitWithinCentered(button, 8);
+								//filter.TextureAnimation.Update();
+							}
+							spriteBatch.Draw(texture, iconPos, iconFrame, Color.White);
 							if (filterIsActive) {//index != -1 && filter.Type == activeFilters.GetFilter(index).Type
 								Rectangle corner = button;
 								int halfWidth = corner.Width / 2;
@@ -1522,9 +1543,9 @@ namespace ItemSourceHelper {
 			rectangle.Height = (int)(rectangle.Height * scale.Y);
 			return rectangle;
 		}
-		public static void TryMouseText(string text, string tooltip = null) {
+		public static void TryMouseText(string text, int rarity = 0, string tooltip = null) {
 			if (!Main.mouseText) {
-				Main.instance.MouseTextHackZoom(text, tooltip);
+				Main.instance.MouseTextHackZoom(text, rarity, 0, tooltip);
 				Main.mouseText = true;
 			}
 		}
