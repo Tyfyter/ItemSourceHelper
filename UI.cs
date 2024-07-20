@@ -212,34 +212,6 @@ namespace ItemSourceHelper {
 							UIMethods.TryMouseText(filter.DisplayNameText, filter.DisplayNameRarity);
 							if (Main.mouseLeft && Main.mouseLeftRelease) {
 								SetFilter(filter, null, Main.keyState.PressingShift());
-								/*
-								bool recalculate = false;
-								if (filterIsActive) {
-									activeFilters.TryRemoveFilter(filter);
-									if (lastFilter == filter) lastFilter = null;
-									recalculate = true;
-								} else {
-									recalculate = activeFilters.TryAddFilter(filter, Main.keyState.PressingShift());
-									if (filter.ChildFilters().Any()) lastFilter = filter;
-								}
-								if (recalculate) {
-									activeFilters.RemoveOrphans();
-									activeFilters.ClearCache();
-									if (lastFilter is not null && !activeFilters.IsFilterActive(lastFilter)) lastFilter = null;
-								}
-								/*if (index == -1) {
-									activeFilters.AddSelectedFilter(filter);
-									if (filter.ChildFilters().Any()) lastFilter = filter;
-									shouldResetScroll = true;
-								} else if (filter.Type == activeFilters.GetFilter(index).Type) {
-									activeFilters.RemoveSelectedFilter(index);
-									if (lastFilter == filter) lastFilter = null;
-									index = -1;
-								} else {
-									activeFilters.RemoveSelectedFilter(index, filter);
-									if (lastFilter == filter) lastFilter = null;
-									if (filter.ChildFilters().Any()) lastFilter = filter;
-								}*/
 							} else if (Main.mouseRight && Main.mouseRightRelease) {
 								if (filter == lastFilter) {
 									lastFilter = null;
@@ -341,33 +313,16 @@ namespace ItemSourceHelper {
 							button.X = x;
 							button.Y = y;
 							int index = activeFilters.FindFilterIndex(filter.ShouldReplace);
-							bool filterIsActive = activeFilters.IsFilterActive(filter);
+							bool filterIsActive = activeFilters.IsChildFilterActive(lastFilter, filter);
 							if (button.Contains(mousePos)) {
 								UIMethods.DrawRoundedRetangle(spriteBatch, button, hiColor);
 								UIMethods.TryMouseText(filter.DisplayNameText, filter.DisplayNameRarity);
 								if (Main.mouseLeft && Main.mouseLeftRelease) {
-									SetFilter(filter, null, Main.keyState.PressingShift());
-									/*bool recalculate = false;
 									if (filterIsActive) {
-										activeFilters.TryRemoveFilter(filter);
-										recalculate = true;
+										activeFilters.TryRemoveChildFilter(lastFilter, filter);
 									} else {
-										recalculate = activeFilters.TryAddFilter(filter, Main.keyState.PressingShift());
+										activeFilters.TryAddChildFilter(lastFilter, filter, Main.keyState.PressingShift());
 									}
-									if (recalculate) {
-										activeFilters.RemoveOrphans();
-										activeFilters.ClearCache();
-									}
-									/*if (index == -1) {
-										activeFilters.AddSelectedFilter(filter);
-										shouldResetScroll = true;
-									} else if (filter.Type == activeFilters.GetFilter(index).Type) {
-										activeFilters.RemoveSelectedFilter(index);
-										index = -1;
-									} else {
-										activeFilters.RemoveSelectedFilter(index, filter);
-										shouldResetScroll = true;
-									}*/
 								}
 							} else {
 								UIMethods.DrawRoundedRetangle(spriteBatch, button, color);
@@ -414,7 +369,6 @@ namespace ItemSourceHelper {
 				if (filter.ChildFilters().Any()) lastFilter = filter;
 			}
 			if (recalculate) {
-				activeFilters.RemoveOrphans();
 				activeFilters.ClearCache();
 				if (lastFilter is not null && !activeFilters.IsFilterActive(lastFilter)) lastFilter = null;
 			}
@@ -637,7 +591,7 @@ namespace ItemSourceHelper {
 					T source = sourceSource[i];
 					if (!MatchesSlot(source)) goto cont;
 					for (int j = 0; j < searchFilter.Count; j++) if (!searchFilter[j].Matches(source)) goto cont;
-					for (int j = 0; j < filters.Count; j++) if (!filters[j].Matches(source)) goto cont;
+					for (int j = 0; j < filters.Count; j++) if (!filters[j].MatchesAll(source)) goto cont;
 					cache.Add((source, i));
 					yield return source;
 					cont:;
@@ -655,7 +609,7 @@ namespace ItemSourceHelper {
 					T source = sourceSource[i];
 					if (!MatchesSlot(source)) goto cont;
 					for (int j = 0; j < searchFilter.Count; j++) if (!searchFilter[j].Matches(source)) goto cont;
-					for (int j = 0; j < filters.Count; j++) if (!filters[j].Matches(source)) goto cont;
+					for (int j = 0; j < filters.Count; j++) if (!filters[j].MatchesAll(source)) goto cont;
 					cache.Add((source, i));
 					yield return source;
 					cont:;
@@ -697,6 +651,7 @@ namespace ItemSourceHelper {
 		}
 		/// <returns>true if the cache must be cleared and/or some filters may have lost dependents</returns>
 		public bool TryAddFilter(IFilter<T> filter, bool orMerge = false) {
+			filter.ActiveChildren.Clear();
 			int index = filters.FindIndex(filter.ShouldReplace);
 			if (index != -1) {
 				if (orMerge) {
@@ -722,8 +677,8 @@ namespace ItemSourceHelper {
 				} else {
 					filters.RemoveAt(index);
 				}
+				ClearCache();
 			}
-			ClearCache();
 		}
 		public bool IsFilterActive(IFilter<T> filter) {
 			int index = filters.FindIndex(filter.ShouldReplace);
@@ -736,8 +691,53 @@ namespace ItemSourceHelper {
 			}
 			return false;
 		}
-		public void RemoveOrphans() {
-			while (filters.RemoveAll(f => f.ShouldRemove(filters)) > 0) ;
+		public void TryAddChildFilter(IFilter<T> parent, IFilter<T> filter, bool orMerge = false) {
+			filter.ActiveChildren.Clear();
+			foreach (IFilter<T> child in parent.ActiveChildren) {
+				if (filter.ShouldReplace(child)) {
+					if (orMerge) {
+						if (child is OrFilter<T> orFilter) {
+							orFilter.Add(filter);
+						} else {
+							parent.ActiveChildren.Remove(child);
+							parent.ActiveChildren.Add(new OrFilter<T>(child, filter));
+						}
+						ClearCache();
+						return;
+					}
+					parent.ActiveChildren.Remove(child);
+					ClearCache();
+					break;
+				}
+			}
+
+			parent.ActiveChildren.Add(filter);
+			cache.RemoveAll(filter.DoesntMatch);
+		}
+		public void TryRemoveChildFilter(IFilter<T> parent, IFilter<T> filter) {
+			foreach (IFilter<T> child in parent.ActiveChildren) {
+				if (filter.ShouldReplace(child)) {
+					if (child is OrFilter<T> orFilter) {
+						orFilter.Remove(filter);
+						if (orFilter.Filters.Count == 0) parent.ActiveChildren.Remove(child);
+					} else {
+						parent.ActiveChildren.Remove(child);
+					}
+					ClearCache();
+					break;
+				}
+			}
+		}
+		public bool IsChildFilterActive(IFilter<T> parent, IFilter<T> filter) {
+			foreach (IFilter<T> child in parent.ActiveChildren) {
+				if (filter.ShouldReplace(child)) {
+					if (child is OrFilter<T> orFilter) {
+						return orFilter.Contains(filter);
+					}
+					return child == filter;
+				}
+			}
+			return false;
 		}
 		#endregion selected filters
 		public void SetFilterItem(Item item) {
@@ -1531,8 +1531,8 @@ namespace ItemSourceHelper {
 	}
 	public static class UIMethods {
 		public static bool ShouldReplace<T>(this IFilter<T> self, IFilter<T> other) => self.FilterChannel == -1 ? other.Type == self.Type : other.FilterChannel == self.FilterChannel;
-		public static bool DoesntMatch<T>(this IFilter<T> self, T source) => !self.Matches(source);
-		internal static bool DoesntMatch<T>(this IFilter<T> self, (T source, int index) data) => !self.Matches(data.source);
+		public static bool DoesntMatch<T>(this IFilter<T> self, T source) => !self.MatchesAll(source);
+		internal static bool DoesntMatch<T>(this IFilter<T> self, (T source, int index) data) => !self.MatchesAll(data.source);
 		public static void DrawRoundedRetangle(this SpriteBatch spriteBatch, Rectangle rectangle, Color color, Texture2D texture = null) {
 			texture ??= TextureAssets.InventoryBack13.Value;
 			Rectangle textureBounds = texture.Bounds;

@@ -259,7 +259,6 @@ public class WeaponTypeFilter(DamageClass damageClass) : ItemFilter {
 	public override string Name => $"{base.Name}_{damageClass.FullName}";
 	public override string DisplayNameText => damageClass.DisplayName.Value;
 	public override bool Matches(Item item) => item.CountsAsClass(damageClass);
-	public override IEnumerable<Type> FilterDependencies => [typeof(WeaponFilter)];
 }
 [Autoload(false)]
 public class OtherWeaponTypeFilter : ItemFilter {
@@ -272,7 +271,6 @@ public class OtherWeaponTypeFilter : ItemFilter {
 		}
 		return true;
 	}
-	public override IEnumerable<Type> FilterDependencies => [typeof(WeaponFilter)];
 }
 public class ToolFilter : ItemFilter {
 	List<ItemFilter> Children { get; set; } = [];
@@ -305,7 +303,6 @@ public class ToolTypeFilter(Predicate<Item> condition, string name, int iconicIt
 	protected override string FilterChannelName => "ToolType";
 	public override string Name => $"{base.Name}_{name}";
 	public override bool Matches(Item item) => condition(item);
-	public override IEnumerable<Type> FilterDependencies => [typeof(ToolFilter)];
 }
 public class AccessoryFilter : ItemFilter {
 	public List<ItemFilter> Children { get; } = [];
@@ -324,7 +321,6 @@ public class WingFilter : ItemFilter {
 	public override float SortPriority => 0f;
 	public override string Texture => "Terraria/Images/Item_" + ItemID.SteampunkWings;
 	public override bool Matches(Item item) => item.wingSlot != -1;
-	public override IEnumerable<Type> FilterDependencies => [typeof(AccessoryFilter)];
 }
 public class ModdedFilter : ItemFilter {
 	List<ItemFilter> children;
@@ -359,7 +355,6 @@ public class ModFilter(Mod mod) : ItemFilter {
 		}
 	}
 	public override bool Matches(Item item) => item.ModItem?.Mod == mod;
-	public override IEnumerable<Type> FilterDependencies => [typeof(ModdedFilter)];
 }
 [Autoload(false)]
 public class VanillaFilter : ItemFilter {
@@ -370,7 +365,6 @@ public class VanillaFilter : ItemFilter {
 		texture = ModContent.Request<Texture2D>("Terraria/Images/UI/WorldCreation/IconDifficultyNormal");
 	}
 	public override bool Matches(Item item) => item.ModItem == null && item.StatsModifiedBy.Count != 0;
-	public override IEnumerable<Type> FilterDependencies => [typeof(ModdedFilter)];
 }
 public class MaterialFilter : ItemFilter {
 	List<RecipeGroupFilter> children;
@@ -412,7 +406,6 @@ public class RecipeGroupFilter(RecipeGroup recipeGroup) : ItemFilter {
 		}
 	}
 	public override bool Matches(Item item) => recipeGroup.ValidItems.Contains(item.type);
-	public override IEnumerable<Type> FilterDependencies => [typeof(MaterialFilter)];
 }
 public class AmmoFilter : ItemFilter {
 	List<ItemFilter> children;
@@ -472,7 +465,6 @@ public class AmmoTypeFilter(int type) : ItemFilter {
 		UseItemTexture(AmmoType);
 	}
 	public override bool Matches(Item item) => item.ammo == AmmoType;
-	public override IEnumerable<Type> FilterDependencies => [typeof(AmmoFilter)];
 }
 public class AmmoUseFilter : ItemFilter {
 	internal List<ItemFilter> children;
@@ -485,7 +477,6 @@ public class AmmoUseFilter : ItemFilter {
 [Autoload(false)]
 public class AmmoUseTypeFilter(int type) : AmmoTypeFilter(type) {
 	public override bool Matches(Item item) => item.useAmmo == AmmoType;
-	public override IEnumerable<Type> FilterDependencies => [typeof(AmmoUseFilter)];
 }
 public class RarityParentFilter : ItemFilter {
 	List<RarityFilter> Children { get; set; } = [];
@@ -533,7 +524,6 @@ public partial class RarityFilter(int rare, string name, int iconicItem) : ItemF
 	public override LocalizedText DisplayName => Mod is null ? ItemSourceHelper.GetLocalization(this, makeDefaultValue: makeDefaultValue) : this.GetLocalization("DisplayName", makeDefaultValue: makeDefaultValue);
 	string makeDefaultValue() => NameFancifier().Replace(name.Split("/")[^1].Replace("Rarity", "").Replace("_", ""), " $1").Trim();
 	public override bool Matches(Item item) => item.rare == rare;
-	public override IEnumerable<Type> FilterDependencies => [typeof(RarityParentFilter)];
 
 	[GeneratedRegex("([A-Z])")] private static partial Regex NameFancifier();
 }

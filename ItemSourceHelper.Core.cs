@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -60,14 +61,8 @@ public interface IFilter<T> {
 	public int Type { get; }
 	public Texture2D TextureValue { get; }
 	public DrawAnimation TextureAnimation => null;
-	public IEnumerable<Type> FilterDependencies => [];
-	public bool ShouldRemove(List<IFilter<T>> filters) {
-		foreach (Type dependency in FilterDependencies) {
-			if (!filters.Any(f => f.GetType() == dependency)) return true;
-		}
-		return false;
-	}
 	public IFilter<T> SimplestForm => this;
+	public ICollection<IFilter<T>> ActiveChildren { get; }
 }
 public interface ITooltipModifier {
 	public void ModifyTooltips(Item item, List<TooltipLine> tooltips);
@@ -81,7 +76,7 @@ public class OrFilter<T>(params IFilter<T>[] filters) : IFilter<T> {
 	public IEnumerable<IFilter<T>> ChildFilters() => [];
 	public bool Matches(T source) {
 		for (int i = 0; i < Filters.Count; i++) {
-			if (Filters[i].Matches(source)) return true;
+			if (Filters[i].MatchesAll(source)) return true;
 		}
 		return false;
 	}
@@ -91,11 +86,8 @@ public class OrFilter<T>(params IFilter<T>[] filters) : IFilter<T> {
 		Filters.Remove(value);
 		return Filters.Count == 1 ? Filters[0] : this;
 	}
-	public bool ShouldRemove(List<IFilter<T>> parentList) {
-		while (Filters.RemoveAll(f => f.ShouldRemove(parentList)) > 0) ;
-		return Filters.Count == 0;
-	}
 	public IFilter<T> SimplestForm => Filters.Count == 1 ? Filters[0] : this;
+	public ICollection<IFilter<T>> ActiveChildren { get; private set; } = [];
 }
 [Autoload(false)]
 public class SourceTypeFilter(ItemSourceType sourceType) : ItemSourceFilter {
@@ -115,7 +107,6 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFi
 	public int Type { get; private set; }
 	public int FilterChannel { get; private set; }
 	protected virtual string FilterChannelName => null;
-	public virtual IEnumerable<Type> FilterDependencies => [];
 	protected virtual bool IsChildFilter => false;
 	protected Asset<Texture2D> texture;
 	public virtual Texture2D TextureValue => texture.Value;
@@ -123,6 +114,7 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFi
 	public virtual DrawAnimation TextureAnimation => animation;
 	public virtual float SortPriority => 1f;
 	public sealed override void SetupContent() {
+		SetupChildren();
 		if (FilterChannelName != null) {
 			FilterChannel = FilterChannels.GetChannel(FilterChannelName);
 		} else {
@@ -130,6 +122,9 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFi
 		}
 		SetStaticDefaults();
 		_ = DisplayNameText;
+	}
+	public virtual void SetupChildren() {
+		ActiveChildren = new List<IFilter<ItemSource>>();
 	}
 	public virtual void PostSetupRecipes() { }
 	public void LateRegister() {
@@ -155,13 +150,19 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFi
 		texture = TextureAssets.Item[itemType];
 		animation = Main.itemAnimations[itemType];
 	}
+	public ICollection<IFilter<ItemSource>> ActiveChildren { get; private set; }
 }
 public abstract class ItemFilter : ItemSourceFilter, IFilter<Item> {
+	public override void SetupChildren() {
+		base.SetupChildren();
+		ActiveChildren = new SubCollection<IFilter<Item>, IFilter<ItemSource>>(base.ActiveChildren);
+	}
 	public override sealed bool Matches(ItemSource source) => Matches(source.Item);
 	public abstract bool Matches(Item item);
 	public override sealed IEnumerable<ItemSourceFilter> ChildFilters() => ChildItemFilters();
 	IEnumerable<IFilter<Item>> IFilter<Item>.ChildFilters() => ChildItemFilters();
 	public virtual IEnumerable<ItemFilter> ChildItemFilters() => [];
+	public new ICollection<IFilter<Item>> ActiveChildren { get; private set; }
 }
 public class FilterChannels : ILoadable {
 	static List<string> channels = [];
@@ -257,5 +258,47 @@ public class HashSetComparer<T> : IEqualityComparer<ISet<T>> {
 		int hash = 0;
 		foreach (T item in obj) hash ^= item.GetHashCode();
 		return hash;
+	}
+}
+public class SubCollection<T, B>(ICollection<B> Parent) : ICollection<T> {
+	public int Count => Parent.Count;
+	public bool IsReadOnly => Parent.IsReadOnly;
+	readonly List<T> rejects = [];
+	public void Add(T _item) {
+		if (_item is B item) Parent.Add(item);
+		else rejects.Add(_item);
+	}
+	public void Clear() {
+		Parent.Clear();
+		rejects.Clear();
+	}
+	public bool Contains(T _item) => _item is B item ? Parent.Contains(item) : rejects.Contains(_item);
+	public void CopyTo(T[] array, int arrayIndex) {
+		foreach (T item in this) {
+			array[arrayIndex++] = item;
+		}
+		foreach (T item in rejects) {
+			array[arrayIndex++] = item;
+		}
+	}
+	public IEnumerator<T> GetEnumerator() {
+		foreach (B _item in Parent) if (_item is T item) yield return item;
+		for (int i = 0; i < rejects.Count; i++) yield return rejects[i];
+	}
+	public bool Remove(T _item) => _item is B item ? Parent.Remove(item) : rejects.Remove(_item);
+	IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+}
+public static class CoreExtenstions {
+	public static bool MatchesAll<T>(this IFilter<T> filter, T item) {
+		if (!filter.Matches(item)) return false;
+		foreach (IFilter<T> child in filter.ActiveChildren) if (!child.Matches(item)) return false;
+		return true;
+	}
+	public static void SetChild<T>(this IFilter<T> filter, IFilter<T> child, bool? active) {
+		if (filter.ActiveChildren.Contains(child)) {
+			if (active != true) filter.ActiveChildren.Remove(child);
+		} else {
+			if (active != false) filter.ActiveChildren.Add(child);
+		}
 	}
 }
