@@ -1,4 +1,5 @@
 ﻿using ItemSourceHelper.Core;
+using ItemSourceHelper.Default;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -139,7 +140,7 @@ namespace ItemSourceHelper {
 		public IEnumerable<IFilter<T>> filters;
 		public IEnumerable<ISorter<T>> sorters;
 		public Action ResetScroll { get; init; }
-		IFilter<T> lastFilter;
+		public IFilter<T> lastFilter;
 		int scrollTop;
 		bool cutOffTop;
 		int scrollBottom;
@@ -210,6 +211,8 @@ namespace ItemSourceHelper {
 							UIMethods.DrawRoundedRetangle(spriteBatch, button, hiColor);
 							UIMethods.TryMouseText(filter.DisplayNameText, filter.DisplayNameRarity);
 							if (Main.mouseLeft && Main.mouseLeftRelease) {
+								SetFilter(filter, null, Main.keyState.PressingShift());
+								/*
 								bool recalculate = false;
 								if (filterIsActive) {
 									activeFilters.TryRemoveFilter(filter);
@@ -343,7 +346,8 @@ namespace ItemSourceHelper {
 								UIMethods.DrawRoundedRetangle(spriteBatch, button, hiColor);
 								UIMethods.TryMouseText(filter.DisplayNameText, filter.DisplayNameRarity);
 								if (Main.mouseLeft && Main.mouseLeftRelease) {
-									bool recalculate = false;
+									SetFilter(filter, null, Main.keyState.PressingShift());
+									/*bool recalculate = false;
 									if (filterIsActive) {
 										activeFilters.TryRemoveFilter(filter);
 										recalculate = true;
@@ -396,6 +400,24 @@ namespace ItemSourceHelper {
 				}
 			}
 			if (shouldResetScroll && ResetScroll is not null) ResetScroll();
+		}
+		public void SetFilter(IFilter<T> filter, bool? state = null, bool orMerge = false) {
+			bool recalculate = false;
+			if (activeFilters.IsFilterActive(filter)) {
+				if (state != true) {
+					activeFilters.TryRemoveFilter(filter);
+					if (lastFilter == filter) lastFilter = null;
+					recalculate = true;
+				}
+			} else if (state != false) {
+				recalculate = activeFilters.TryAddFilter(filter, orMerge);
+				if (filter.ChildFilters().Any()) lastFilter = filter;
+			}
+			if (recalculate) {
+				activeFilters.RemoveOrphans();
+				activeFilters.ClearCache();
+				if (lastFilter is not null && !activeFilters.IsFilterActive(lastFilter)) lastFilter = null;
+			}
 		}
 		public void Scroll(int direction) {
 			if (cutOffTop && direction > 0 || scrollTop > 0 && direction < 0) scrollTop += direction;
@@ -538,11 +560,25 @@ namespace ItemSourceHelper {
 						ItemSlot.Draw(spriteBatch, items, ItemSlot.Context.CraftingMaterial, i, position);
 						if (canHover && Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size) {
 							ItemSlot.MouseHover(items, ItemSlot.Context.CraftingMaterial, i);
-							if (Main.mouseLeft && Main.mouseLeftRelease) {
+							if ((Main.mouseLeft && Main.mouseLeftRelease) || (Main.mouseRight && Main.mouseRightRelease)) {
 								if (items[i].type != doubleClickItem) doubleClickTime = 0;
 								if (doubleClickTime > 0) {
-									ItemSourceHelper.Instance.BrowserWindow.FilterItem.SetItem(items[i]);
-									ItemSourceBrowser.isItemBrowser = false;
+									if (Main.mouseLeft) {
+										ItemSourceHelper.Instance.BrowserWindow.FilterItem.SetItem(items[i]);
+										ItemSourceBrowser.isItemBrowser = false;
+									} else {
+										if (items[i].TryGetGlobalItem(out AnimatedRecipeGroupGlobalItem global) && global.recipeGroup != -1) {
+											MaterialFilter materialFilter = ModContent.GetInstance<MaterialFilter>();
+											foreach (IFilter<Item> filter in materialFilter.ChildItemFilters()) {
+												if (filter is RecipeGroupFilter recipeGroupFilter && recipeGroupFilter.RecipeGroup.RegisteredId == global.recipeGroup) {
+													ItemSourceBrowser.isItemBrowser = true;
+													ItemSourceHelper.Instance.BrowserWindow.ItemFilterList.SetFilter(materialFilter, true);
+													ItemSourceHelper.Instance.BrowserWindow.ItemFilterList.SetFilter(filter, true);
+													break;
+												}
+											}
+										}
+									}
 								} else {
 									doubleClickTime = 15;
 									doubleClickItem = items[i].type;
