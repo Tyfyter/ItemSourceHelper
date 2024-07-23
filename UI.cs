@@ -253,6 +253,7 @@ namespace ItemSourceHelper {
 				y += sizeWithPadding;
 				if (sorters is not null) {
 					foreach (ISorter<T> sorter in sorters) {
+						if (!activeFilters.FiltersSupportSortMethod(sorter)) continue;
 						if (x >= baseX - size) {
 							button.X = x;
 							button.Y = y;
@@ -563,6 +564,7 @@ namespace ItemSourceHelper {
 		}
 	}
 	public class FilteredEnumerable<T> : IEnumerable<T> {
+		ISorter<T> defaultSortMethod;
 		ISorter<T> sourceSourceSource;
 		List<T> sourceSource;
 		List<IFilter<T>> filters = [];
@@ -622,7 +624,12 @@ namespace ItemSourceHelper {
 			searchFilter = filters.ToList();
 			if (cache.Count != 0) cache.RemoveAll(i => filters.Any(f => f.DoesntMatch(i)));
 		}
+		public void SetDefaultSortMethod(ISorter<T> sortMethod) {
+			defaultSortMethod = sortMethod;
+			if (sourceSource is null) SetSortMethod(sortMethod);
+		}
 		public void SetSortMethod(ISorter<T> sortMethod) {
+			defaultSortMethod ??= sortMethod;
 			SetBackingList(sortMethod.SortedValues);
 			sourceSourceSource = sortMethod;
 		}
@@ -632,6 +639,50 @@ namespace ItemSourceHelper {
 			ClearCache();
 		}
 		public bool IsSelectedSortMethod(ISorter<T> sortMethod) => sourceSourceSource == sortMethod;
+		public bool FiltersSupportSortMethod(ISorter<T> sortMethod) {
+			if (sortMethod == null) return true;
+			Predicate<IFilterBase>[] reqs = sortMethod.FilterRequirements;
+			bool allReqs = true;
+			for (int i = 0; i < reqs.Length && allReqs; i++) {
+				foreach (IFilter<T> filter in filters) {
+					if (reqs[i](filter)) goto found;
+					foreach (IFilter<T> subFilter in filter.ActiveChildren) {
+						if (reqs[i](subFilter)) goto found;
+					}
+				}
+				allReqs = false;
+				found:;
+			}
+			return allReqs;
+		}
+		public void CheckSortMethodSupport() {
+			if (sourceSourceSource == null) return;
+			if (!FiltersSupportSortMethod(sourceSourceSource)) {
+				SetSortMethod(defaultSortMethod);
+				inverted = false;
+			}
+		}
+		protected void CheckSortMethodSupport(IFilter<T> lostFilter) {
+			if (sourceSourceSource == null) return;
+			Predicate<IFilterBase>[] reqs = sourceSourceSource.FilterRequirements;
+			bool lostReq = false;
+			for (int i = 0; i < reqs.Length && !lostReq; i++) {
+				if (reqs[i](lostFilter)) {
+					lostReq = true;
+					break;
+				}
+				foreach (IFilter<T> subFilter in lostFilter.ActiveChildren) {
+					if (reqs[i](subFilter)) {
+						lostReq = true;
+						break;
+					}
+				}
+			}
+			if (lostReq) {
+				SetSortMethod(defaultSortMethod);
+				inverted = false;
+			}
+		}
 		public void FillTooltipAdders(List<ITooltipModifier> list) {
 			if (sourceSourceSource is ITooltipModifier modifier) list.Add(modifier);
 			list.AddRange(filters.TryCast<ITooltipModifier>());
@@ -646,6 +697,8 @@ namespace ItemSourceHelper {
 		public int FindFilterIndex(Predicate<IFilter<T>> match) => filters.FindIndex(match);
 		public IFilter<T> GetFilter(int index) => filters[index];
 		public void ClearSelectedFilters() {
+			SetSortMethod(defaultSortMethod);
+			inverted = false;
 			filters.Clear();
 			ClearCache();
 		}
@@ -661,6 +714,7 @@ namespace ItemSourceHelper {
 						filters[index] = new OrFilter<T>(filters[index], filter);
 					}
 				} else {
+					CheckSortMethodSupport(filters[index]);
 					filters[index] = filter;
 				}
 				return true;
@@ -677,6 +731,7 @@ namespace ItemSourceHelper {
 				} else {
 					filters.RemoveAt(index);
 				}
+				CheckSortMethodSupport(filter);
 				ClearCache();
 			}
 		}
@@ -705,6 +760,7 @@ namespace ItemSourceHelper {
 						ClearCache();
 						return;
 					}
+					CheckSortMethodSupport(child);
 					parent.ActiveChildren.Remove(child);
 					ClearCache();
 					break;
@@ -723,6 +779,7 @@ namespace ItemSourceHelper {
 					} else {
 						parent.ActiveChildren.Remove(child);
 					}
+					CheckSortMethodSupport(child);
 					ClearCache();
 					break;
 				}

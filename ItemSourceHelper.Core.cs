@@ -52,7 +52,8 @@ public abstract class ItemSourceType : ModTexturedType, ILocalizedModType {
 	public virtual void PostSetupRecipes() { }
 	public virtual IEnumerable<ItemSourceFilter> ChildFilters() => [];
 }
-public interface IFilter<T> {
+public interface IFilterBase { }
+public interface IFilter<T> : IFilterBase {
 	public string DisplayNameText { get; }
 	public int DisplayNameRarity => ItemRarityID.White;
 	public bool Matches(T source);
@@ -216,6 +217,8 @@ public interface ISorter<T> {
 	public List<T> SortedValues { get; }
 	public LocalizedText DisplayName { get; }
 	public Asset<Texture2D> TextureAsset { get; }
+	public Predicate<IFilterBase>[] FilterRequirements { get; }
+	public void SetupRequirements();
 }
 public abstract class SourceSorter : ModTexturedType, ILocalizedModType, IComparer<ItemSource>, ISorter<ItemSource> {
 	public string LocalizationCategory => "SourceSorter";
@@ -240,6 +243,10 @@ public abstract class SourceSorter : ModTexturedType, ILocalizedModType, ICompar
 	public List<ItemSource> SortedSources { get; private set; }
 	public List<ItemSource> SortedValues => SortedSources;
 	public abstract int Compare(ItemSource x, ItemSource y);
+	public virtual void SetupRequirements() {
+
+	}
+	public Predicate<IFilterBase>[] FilterRequirements { get; protected set;  } = [];
 }
 public abstract class ItemSorter : SourceSorter, IComparer<Item>, ISorter<Item> {
 	internal void SortItems() => SortedItems = ContentSamples.ItemsByType.Values.Where(i => !i.IsAir).Order(this).ToList();

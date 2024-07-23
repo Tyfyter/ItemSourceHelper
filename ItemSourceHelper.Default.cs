@@ -19,6 +19,7 @@ using Terraria.Map;
 using System.Collections.Immutable;
 using Microsoft.Xna.Framework;
 using System.Text.RegularExpressions;
+using Stubble.Core.Imported;
 
 namespace ItemSourceHelper.Default;
 #region shop
@@ -225,6 +226,7 @@ public class ShimmerItemSource(ItemSourceType sourceType, int resultType, int in
 }
 #endregion shimmer
 #region filters
+#region usable
 public class WeaponFilter : ItemFilter {
 	List<ItemFilter> children;
 	public override void Load() {
@@ -251,6 +253,7 @@ public class WeaponFilter : ItemFilter {
 }
 [Autoload(false)]
 public class WeaponTypeFilter(DamageClass damageClass) : ItemFilter {
+	public DamageClass DamageClass => damageClass;
 	public override void SetStaticDefaults() {
 		UseItemTexture(ItemSourceHelper.Instance.IconicWeapons[damageClass.Type]);
 	}
@@ -304,10 +307,50 @@ public class ToolTypeFilter(Predicate<Item> condition, string name, int iconicIt
 	public override string Name => $"{base.Name}_{name}";
 	public override bool Matches(Item item) => condition(item);
 }
-public class AccessoryFilter : ItemFilter {
+#endregion usable
+#region equippable
+public class ArmorFilter : ItemFilter {
 	public List<ItemFilter> Children { get; } = [];
 	protected override string FilterChannelName => "ItemType";
 	public override float SortPriority => 2f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.IronChainmail;
+	public override bool Matches(Item item) => item.headSlot != -1 || item.bodySlot != -1 || item.legSlot != -1;
+	public override IEnumerable<ItemFilter> ChildItemFilters() => Children;
+}
+public class HelmetFilter : ItemFilter {
+	public override void SetStaticDefaults() {
+		ModContent.GetInstance<ArmorFilter>().Children.InsertOrdered(this, new FilterOrderComparer());
+	}
+	protected override string FilterChannelName => "ArmorType";
+	protected override bool IsChildFilter => true;
+	public override float SortPriority => 0f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.HallowedMask;
+	public override bool Matches(Item item) => item.headSlot != -1;
+}
+public class ChestplateFilter : ItemFilter {
+	public override void SetStaticDefaults() {
+		ModContent.GetInstance<ArmorFilter>().Children.InsertOrdered(this, new FilterOrderComparer());
+	}
+	protected override string FilterChannelName => "ArmorType";
+	protected override bool IsChildFilter => true;
+	public override float SortPriority => 1f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.HallowedPlateMail;
+	public override bool Matches(Item item) => item.bodySlot != -1;
+}
+public class LeggingFilter : ItemFilter {
+	public override void SetStaticDefaults() {
+		ModContent.GetInstance<ArmorFilter>().Children.InsertOrdered(this, new FilterOrderComparer());
+	}
+	protected override string FilterChannelName => "ArmorType";
+	protected override bool IsChildFilter => true;
+	public override float SortPriority => 2f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.HallowedGreaves;
+	public override bool Matches(Item item) => item.legSlot != -1;
+}
+public class AccessoryFilter : ItemFilter {
+	public List<ItemFilter> Children { get; } = [];
+	protected override string FilterChannelName => "ItemType";
+	public override float SortPriority => 2.1f;
 	public override string Texture => "Terraria/Images/Item_" + ItemID.BandofRegeneration;
 	public override bool Matches(Item item) => item.accessory;
 	public override IEnumerable<ItemFilter> ChildItemFilters() => Children;
@@ -322,6 +365,7 @@ public class WingFilter : ItemFilter {
 	public override string Texture => "Terraria/Images/Item_" + ItemID.SteampunkWings;
 	public override bool Matches(Item item) => item.wingSlot != -1;
 }
+#endregion equippable
 public class ModdedFilter : ItemFilter {
 	List<ItemFilter> children;
 	public override void SetStaticDefaults() {
@@ -584,10 +628,20 @@ public class DefaultItemSorter : ItemSorter, ITooltipModifier {
 		tooltips.Add(new(ItemSourceHelper.Instance, "ItemID", $"Item ID {item.type}: {ItemID.Search.GetName(item.type)}"));
 	}
 }
+public class NameItemSorter : ItemSorter {
+	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.Sign];
+	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.Sign);
+	public override float SortPriority => 1;
+	public override int Compare(Item x, Item y) {
+		int manaComp = string.Compare(x.Name, y.Name, StringComparison.CurrentCultureIgnoreCase);
+		if (manaComp != 0) return manaComp;
+		return DefaultItemSorter.BasicComparison(x, y);
+	}
+}
 public class ValueItemSorter : ItemSorter, ITooltipModifier {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.GoldCoin];
 	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.GoldCoin);
-	public override float SortPriority => 1;
+	public override float SortPriority => 2;
 	public override int Compare(Item x, Item y) {
 		int valueComp = Comparer<float>.Default.Compare(x.value, y.value);
 		if (valueComp != 0) return valueComp;
@@ -613,7 +667,7 @@ public class ValueItemSorter : ItemSorter, ITooltipModifier {
 public class RarityItemSorter : ItemSorter {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.MetalDetector];
 	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.MetalDetector);
-	public override float SortPriority => 1;
+	public override float SortPriority => 2;
 	public override int Compare(Item x, Item y) {
 		int rarityComp = Comparer<float>.Default.Compare(x.rare, y.rare);
 		if (rarityComp != 0) return rarityComp;
@@ -627,14 +681,64 @@ public class RarityItemSorter : ItemSorter {
 		}
 	}
 }
-public class DamageSourceSorter : ItemSorter {
+public class DamageItemSorter : ItemSorter {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.DPSMeter];
 	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.DPSMeter);
-	public override float SortPriority => 2;
+	public override float SortPriority => 9;
 	public override int Compare(Item x, Item y) {
 		int damageComp = Comparer<float>.Default.Compare(x.damage, y.damage);
 		if (damageComp != 0) return damageComp;
 		return DefaultItemSorter.BasicComparison(x, y);
+	}
+	public override void SetupRequirements() {
+		FilterRequirements = [
+			(filter) => filter is WeaponFilter
+		];
+	}
+}
+public class ManaItemSorter : ItemSorter {
+	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.ManaCrystal];
+	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.ManaCrystal);
+	public override float SortPriority => 9;
+	public override int Compare(Item x, Item y) {
+		int manaComp = Comparer<float>.Default.Compare(x.mana, y.mana);
+		if (manaComp != 0) return manaComp;
+		return DefaultItemSorter.BasicComparison(x, y);
+	}
+	public override void SetupRequirements() {
+		FilterRequirements = [
+			(filter) => filter is WeaponTypeFilter weaponType && (weaponType.DamageClass == DamageClass.Magic || weaponType.DamageClass == DamageClass.Summon)
+		];
+	}
+}
+public class DefenseItemSorter : ItemSorter {
+	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.Shackle];
+	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.Shackle);
+	public override float SortPriority => 9;
+	public override int Compare(Item x, Item y) {
+		int defenseComp = Comparer<float>.Default.Compare(x.defense, y.defense);
+		if (defenseComp != 0) return defenseComp;
+		return DefaultItemSorter.BasicComparison(x, y);
+	}
+	public override void SetupRequirements() {
+		FilterRequirements = [
+			(filter) => filter is ArmorFilter
+		];
+	}
+}
+public class FlightTimeItemSorter : ItemSorter {
+	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.LeafWings];
+	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.LeafWings);
+	public override float SortPriority => 9;
+	public override int Compare(Item x, Item y) {
+		int flightTimeComp = (x.wingSlot == -1 || y.wingSlot == -1) ? 0 : Comparer<int>.Default.Compare(ArmorIDs.Wing.Sets.Stats[x.wingSlot].FlyTime, ArmorIDs.Wing.Sets.Stats[y.wingSlot].FlyTime);
+		if (flightTimeComp != 0) return flightTimeComp;
+		return DefaultItemSorter.BasicComparison(x, y);
+	}
+	public override void SetupRequirements() {
+		FilterRequirements = [
+			(filter) => filter is WingFilter
+		];
 	}
 }
 #endregion sorting methods

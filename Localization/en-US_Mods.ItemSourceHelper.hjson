@@ -39,6 +39,10 @@ ItemSourceFilter: {
 	RarityFilter_Origins/AltCyanRarity.DisplayName: Alt Cyan
 	RarityFilter_EpikV2/CursedRarity.DisplayName: Cursed
 	RarityFilter_EpikV2/GoldRarity.DisplayName: Gold
+	ArmorFilter.DisplayName: Armor
+	ChestplateFilter.DisplayName: Chestplates
+	HelmetFilter.DisplayName: Helmets
+	LeggingFilter.DisplayName: Leggings
 }
 
 AmmoName: {
@@ -181,10 +185,14 @@ Configs: {
 }
 
 SourceSorter: {
-	DamageSourceSorter.DisplayName: Damage
+	DamageItemSorter.DisplayName: Damage
 	DefaultItemSorter.DisplayName: Item ID
 	RarityItemSorter.DisplayName: Rarity
 	ValueItemSorter.DisplayName: Value
+	ManaItemSorter.DisplayName: Mana Cost
+	NameItemSorter.DisplayName: Name
+	DefenseItemSorter.DisplayName: Defense
+	FlightTimeItemSorter.DisplayName: Flight Time
 }
 
 SourceBrowser: Source Browser

@@ -103,7 +103,7 @@ namespace ItemSourceHelper {
 		public static LocalizedText GetLocalization(ILocalizedModType self, string suffix = "DisplayName", Func<string> makeDefaultValue = null) =>
 			Language.GetOrRegister(Instance.GetLocalizationKey($"{self.LocalizationCategory}.{self.Name}.{suffix}"), makeDefaultValue);
 	}
-	file class FilterComparer : IComparer<ItemSourceFilter> {
+	public class FilterOrderComparer : IComparer<ItemSourceFilter> {
 		public int Compare(ItemSourceFilter x, ItemSourceFilter y) {
 			int xChannel = x.FilterChannel, yChannel = y.FilterChannel;
 			if (xChannel == -1) xChannel = int.MaxValue;
@@ -130,10 +130,11 @@ namespace ItemSourceHelper {
 			foreach (SourceSorter sorter in ItemSourceHelper.Instance.SourceSorters) {
 				sorter.SortSources();
 				if (sorter is ItemSorter itemSorter) itemSorter.SortItems();
+				sorter.SetupRequirements();
 			}
-			ItemSourceHelper.Instance.BrowserWindow.ActiveSourceFilters.SetSortMethod(ItemSourceHelper.Instance.SourceSorters[0]);
-			ItemSourceHelper.Instance.BrowserWindow.ActiveItemFilters.SetSortMethod(ItemSourceHelper.Instance.SourceSorters.TryCast<ItemSorter>().First());
-			ItemSourceHelper.Instance.Filters.Sort(new FilterComparer());
+			ItemSourceHelper.Instance.BrowserWindow.ActiveSourceFilters.SetDefaultSortMethod(ItemSourceHelper.Instance.SourceSorters[0]);
+			ItemSourceHelper.Instance.BrowserWindow.ActiveItemFilters.SetDefaultSortMethod(ItemSourceHelper.Instance.SourceSorters.TryCast<ItemSorter>().First());
+			ItemSourceHelper.Instance.Filters.Sort(new FilterOrderComparer());
 			AnimatedRecipeGroupGlobalItem.PostSetupRecipes();
 			foreach (ItemSource item in ItemSourceHelper.Instance.Sources) {
 				ItemSourceHelper.Instance.CraftableItems.Add(item.ItemType);
