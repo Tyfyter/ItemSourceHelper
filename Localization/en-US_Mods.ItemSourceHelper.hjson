@@ -3,7 +3,7 @@ ItemSourceFilter: {
 	OtherWeaponTypeFilter.DisplayName: Other
 	AccessoryFilter.DisplayName: Accessories
 	ModdedFilter.DisplayName: Modded Items
-	VanillaFilter.DisplayName: Vanilla items modified by mods
+	ModifiedVanillaFilter.DisplayName: Vanilla items modified by mods
 	MaterialFilter.DisplayName: Materials
 	AmmoFilter.DisplayName: Ammo
 	AmmoUseFilter.DisplayName: Uses Ammo

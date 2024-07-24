@@ -149,6 +149,8 @@ namespace ItemSourceHelper {
 			spriteBatch.DrawRoundedRetangle(bounds, color);
 			bounds.Height -= 1;
 			Texture2D actuator = TextureAssets.Actuator.Value;
+			Main.instance.LoadItem(ItemID.TeamBlockWhitePlatform);
+			Texture2D platform = TextureAssets.Item[ItemID.UnicornHorn].Value;
 			bool shouldResetScroll = false;
 			bounds.X += 3;
 			bounds.Width -= 3;
@@ -205,13 +207,14 @@ namespace ItemSourceHelper {
 						}
 						button.X = x;
 						button.Y = y;
-						int index = activeFilters.FindFilterIndex(filter.ShouldReplace);
+						bool changed = false;//OwO
 						bool filterIsActive = activeFilters.IsFilterActive(filter);
 						if (button.Contains(mousePos)) {
 							UIMethods.DrawRoundedRetangle(spriteBatch, button, hiColor);
 							UIMethods.TryMouseText(filter.DisplayNameText, filter.DisplayNameRarity);
 							if (Main.mouseLeft && Main.mouseLeftRelease) {
-								SetFilter(filter, null, Main.keyState.PressingShift());
+								SetFilter(filter, null, Main.keyState.PressingShift(), Main.keyState.PressingControl());
+								changed = true;
 							} else if (Main.mouseRight && Main.mouseRightRelease) {
 								if (filter == lastFilter) {
 									lastFilter = null;
@@ -242,6 +245,24 @@ namespace ItemSourceHelper {
 							corner.Width -= halfWidth;
 							corner.Height /= 2;
 							spriteBatch.Draw(actuator, corner, Color.Green);
+							if (!changed) {
+								IFilter<T> index = activeFilters.GetFilter(activeFilters.FindFilterIndex(filter.ShouldReplace));
+								bool isNot = false;
+								if (index is NotFilter<T> notFilter0 && notFilter0.Filter == filter) {
+									isNot = true;
+								} else if (index is OrFilter<T> orFilter0) {
+									for (int i = 0; i < orFilter0.Filters.Count; i++) {
+										if (orFilter0.Filters[i] is NotFilter<T> notFilter1 && notFilter1.Filter == filter) {
+											isNot = true;
+											break;
+										}
+									}
+								}
+								if (isNot) {
+									corner.X -= halfWidth;
+									spriteBatch.Draw(actuator, corner, Color.Red);
+								}
+							}
 						}
 					}
 					x += sizeWithPadding;
@@ -313,7 +334,7 @@ namespace ItemSourceHelper {
 						if (x >= baseX - size) {
 							button.X = x;
 							button.Y = y;
-							int index = activeFilters.FindFilterIndex(filter.ShouldReplace);
+							bool changed = false;
 							bool filterIsActive = activeFilters.IsChildFilterActive(lastFilter, filter);
 							if (button.Contains(mousePos)) {
 								UIMethods.DrawRoundedRetangle(spriteBatch, button, hiColor);
@@ -322,8 +343,13 @@ namespace ItemSourceHelper {
 									if (filterIsActive) {
 										activeFilters.TryRemoveChildFilter(lastFilter, filter);
 									} else {
-										activeFilters.TryAddChildFilter(lastFilter, filter, Main.keyState.PressingShift());
+										if (Main.keyState.PressingControl()) {
+											activeFilters.TryAddChildFilter(lastFilter, new NotFilter<T>(filter), Main.keyState.PressingShift());
+										} else {
+											activeFilters.TryAddChildFilter(lastFilter, filter, Main.keyState.PressingShift());
+										}
 									}
+									changed = true;
 								}
 							} else {
 								UIMethods.DrawRoundedRetangle(spriteBatch, button, color);
@@ -346,6 +372,31 @@ namespace ItemSourceHelper {
 								corner.Width -= halfWidth;
 								corner.Height /= 2;
 								spriteBatch.Draw(actuator, corner, Color.Green);
+								if (!changed) {
+									foreach (IFilter<T> child in lastFilter.ActiveChildren) {
+										bool isNot = false;
+										if (child == filter) {
+											goto foundNotnt;
+										} else if (child is NotFilter<T> notFilter0 && notFilter0.Filter == filter) {
+											isNot = true;
+										} else if (child is OrFilter<T> orFilter0) {
+											for (int i = 0; i < orFilter0.Filters.Count; i++) {
+												if (child == filter) {
+													goto foundNotnt;
+												} else if(orFilter0.Filters[i] is NotFilter<T> notFilter1 && notFilter1.Filter == filter) {
+													isNot = true;
+													break;
+												}
+											}
+										}
+										if (isNot) {
+											corner.X -= halfWidth;
+											spriteBatch.Draw(actuator, corner, Color.Red);
+											break;
+										}
+									}
+									foundNotnt:;
+								}
 							}
 						}
 						x += sizeWithPadding;
@@ -357,7 +408,8 @@ namespace ItemSourceHelper {
 			}
 			if (shouldResetScroll && ResetScroll is not null) ResetScroll();
 		}
-		public void SetFilter(IFilter<T> filter, bool? state = null, bool orMerge = false) {
+		public void SetFilter(IFilter<T> filter, bool? state = null, bool orMerge = false, bool invert = false) {
+			if (invert) filter = new NotFilter<T>(filter);
 			bool recalculate = false;
 			if (activeFilters.IsFilterActive(filter)) {
 				if (state != true) {
@@ -740,13 +792,15 @@ namespace ItemSourceHelper {
 			if (index != -1) {
 				if (filters[index] is OrFilter<T> orFilter) {
 					return orFilter.Contains(filter);
+				} else if (filters[index] is NotFilter<T> notFilter) {
+					return notFilter.Filter == filter;
 				} else {
 					return filters[index] == filter;
 				}
 			}
 			return false;
 		}
-		public void TryAddChildFilter(IFilter<T> parent, IFilter<T> filter, bool orMerge = false) {
+		public void TryAddChildFilter(IFilter<T> parent, IFilter<T> filter, bool orMerge = false, bool invert = false) {
 			filter.ActiveChildren.Clear();
 			foreach (IFilter<T> child in parent.ActiveChildren) {
 				if (filter.ShouldReplace(child)) {
@@ -790,6 +844,8 @@ namespace ItemSourceHelper {
 				if (filter.ShouldReplace(child)) {
 					if (child is OrFilter<T> orFilter) {
 						return orFilter.Contains(filter);
+					} else if (child is NotFilter<T> notFilter) {
+						return notFilter.Filter == filter;
 					}
 					return child == filter;
 				}

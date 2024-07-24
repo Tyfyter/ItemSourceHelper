@@ -82,12 +82,27 @@ public class OrFilter<T>(params IFilter<T>[] filters) : IFilter<T> {
 		return false;
 	}
 	public void Add(IFilter<T> value) => Filters.Add(value);
-	public bool Contains(IFilter<T> value) => Filters.Contains(value);
+	public bool Contains(IFilter<T> value) => Filters.Contains(value, containsComparer);
 	public IFilter<T> Remove(IFilter<T> value) {
 		Filters.Remove(value);
 		return Filters.Count == 1 ? Filters[0] : this;
 	}
 	public IFilter<T> SimplestForm => Filters.Count == 1 ? Filters[0] : this;
+	public ICollection<IFilter<T>> ActiveChildren { get; private set; } = [];
+	static readonly ContainsComparer containsComparer = new();
+	class ContainsComparer : IEqualityComparer<IFilter<T>> {
+		public bool Equals(IFilter<T> x, IFilter<T> y) => (x is NotFilter<T> notFilterX ? notFilterX.Filter : x) == (y is NotFilter<T> notFilterY ? notFilterY.Filter : y);
+		public int GetHashCode([DisallowNull] IFilter<T> obj) => obj is NotFilter<T> notFilter ? notFilter.Filter.GetHashCode() : obj.GetHashCode();
+	}
+}
+public class NotFilter<T>(IFilter<T> filter) : IFilter<T> {
+	public IFilter<T> Filter => filter;
+	public string DisplayNameText => "-" + filter.DisplayNameText;
+	public int FilterChannel => filter.FilterChannel;
+	public int Type => filter.Type;
+	public Texture2D TextureValue => Asset<Texture2D>.DefaultValue;
+	public IEnumerable<IFilter<T>> ChildFilters() => [];
+	public bool Matches(T source) => !filter.MatchesAll(source);
 	public ICollection<IFilter<T>> ActiveChildren { get; private set; } = [];
 }
 [Autoload(false)]
@@ -239,7 +254,8 @@ public abstract class SourceSorter : ModTexturedType, ILocalizedModType, ICompar
 	public sealed override void SetupContent() {
 		SetStaticDefaults();
 	}
-	internal void SortSources() => SortedSources = ItemSourceHelper.Instance.Sources.Order(this).ToList();
+	internal void SortSources() => SortedSources = ItemSourceHelper.Instance.Sources.Where(SourceFilter).Order(this).ToList();
+	public virtual bool SourceFilter(ItemSource source) => true;
 	public List<ItemSource> SortedSources { get; private set; }
 	public List<ItemSource> SortedValues => SortedSources;
 	public abstract int Compare(ItemSource x, ItemSource y);
@@ -249,7 +265,9 @@ public abstract class SourceSorter : ModTexturedType, ILocalizedModType, ICompar
 	public Predicate<IFilterBase>[] FilterRequirements { get; protected set;  } = [];
 }
 public abstract class ItemSorter : SourceSorter, IComparer<Item>, ISorter<Item> {
-	internal void SortItems() => SortedItems = ContentSamples.ItemsByType.Values.Where(i => !i.IsAir).Order(this).ToList();
+	internal void SortItems() => SortedItems = ContentSamples.ItemsByType.Values.Where(i => !i.IsAir).Where(ItemFilter).Order(this).ToList();
+	public virtual bool ItemFilter(Item item) => true;
+	public override bool SourceFilter(ItemSource source) => ItemFilter(source.Item);
 	public List<Item> SortedItems { get; private set; }
 	public new List<Item> SortedValues => SortedItems;
 	public abstract int Compare(Item x, Item y);
@@ -298,7 +316,7 @@ public class SubCollection<T, B>(ICollection<B> Parent) : ICollection<T> {
 public static class CoreExtenstions {
 	public static bool MatchesAll<T>(this IFilter<T> filter, T item) {
 		if (!filter.Matches(item)) return false;
-		foreach (IFilter<T> child in filter.ActiveChildren) if (!child.Matches(item)) return false;
+		if (filter.ActiveChildren is not null) foreach (IFilter<T> child in filter.ActiveChildren) if (!child.Matches(item)) return false;
 		return true;
 	}
 	public static void SetChild<T>(this IFilter<T> filter, IFilter<T> child, bool? active) {

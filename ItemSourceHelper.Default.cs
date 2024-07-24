@@ -377,13 +377,13 @@ public class ModdedFilter : ItemFilter {
 			children.Add(child);
 			child.LateRegister();
 		}
-		child = new VanillaFilter();
+		/*child = new ModifiedVanillaFilter();
 		children.Add(child);
-		child.LateRegister();
+		child.LateRegister();*/
 		children.TrimExcess();
 	}
 	public override float SortPriority => 99f;
-	public override bool Matches(Item item) => item.ModItem?.Mod != null || item.StatsModifiedBy.Count != 0;
+	public override bool Matches(Item item) => item.ModItem?.Mod != null;// || item.StatsModifiedBy.Count != 0
 	public override IEnumerable<ItemFilter> ChildItemFilters() => children;
 }
 [Autoload(false)]
@@ -401,8 +401,8 @@ public class ModFilter(Mod mod) : ItemFilter {
 	public override bool Matches(Item item) => item.ModItem?.Mod == mod;
 }
 [Autoload(false)]
-public class VanillaFilter : ItemFilter {
-	public override float SortPriority => 0f;
+public class ModifiedVanillaFilter : ItemFilter {
+	public override float SortPriority => 1f;
 	protected override bool IsChildFilter => true;
 	protected override string FilterChannelName => "ModName";
 	public override void SetStaticDefaults() {
@@ -695,6 +695,7 @@ public class DamageItemSorter : ItemSorter {
 			(filter) => filter is WeaponFilter
 		];
 	}
+	public override bool ItemFilter(Item item) => item.damage > 0 && item.useStyle != ItemUseStyleID.None && item.createTile == -1;
 }
 public class ManaItemSorter : ItemSorter {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.ManaCrystal];
@@ -725,16 +726,18 @@ public class DefenseItemSorter : ItemSorter {
 			(filter) => filter is ArmorFilter
 		];
 	}
+	public override bool ItemFilter(Item item) => item.headSlot != -1 || item.bodySlot != -1 || item.legSlot != -1;
 }
 public class FlightTimeItemSorter : ItemSorter {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.LeafWings];
 	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.LeafWings);
 	public override float SortPriority => 9;
 	public override int Compare(Item x, Item y) {
-		int flightTimeComp = (x.wingSlot == -1 || y.wingSlot == -1) ? 0 : Comparer<int>.Default.Compare(ArmorIDs.Wing.Sets.Stats[x.wingSlot].FlyTime, ArmorIDs.Wing.Sets.Stats[y.wingSlot].FlyTime);
+		int flightTimeComp = Comparer<int>.Default.Compare(ArmorIDs.Wing.Sets.Stats[x.wingSlot].FlyTime, ArmorIDs.Wing.Sets.Stats[y.wingSlot].FlyTime);
 		if (flightTimeComp != 0) return flightTimeComp;
 		return DefaultItemSorter.BasicComparison(x, y);
 	}
+	public override bool ItemFilter(Item item) => item.wingSlot != -1;
 	public override void SetupRequirements() {
 		FilterRequirements = [
 			(filter) => filter is WingFilter
