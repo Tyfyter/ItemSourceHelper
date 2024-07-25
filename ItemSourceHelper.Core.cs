@@ -64,6 +64,7 @@ public interface IFilter<T> : IFilterBase {
 	public DrawAnimation TextureAnimation => null;
 	public IFilter<T> SimplestForm => this;
 	public ICollection<IFilter<T>> ActiveChildren { get; }
+	public bool ShouldHide() => false;
 }
 public interface ITooltipModifier {
 	public void ModifyTooltips(Item item, List<TooltipLine> tooltips);
@@ -123,6 +124,7 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFi
 	public int Type { get; private set; }
 	public int FilterChannel { get; private set; }
 	protected virtual string FilterChannelName => null;
+	protected virtual int? FilterChannelTargetPlacement => null;
 	protected virtual bool IsChildFilter => false;
 	protected Asset<Texture2D> texture;
 	public virtual Texture2D TextureValue => texture.Value;
@@ -132,6 +134,10 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFi
 	public sealed override void SetupContent() {
 		SetupChildren();
 		if (FilterChannelName != null) {
+			if (!FilterChannels.ChannelExists(FilterChannelName) && FilterChannelTargetPlacement.HasValue) {
+				int placement = FilterChannelTargetPlacement.Value;
+				while (!FilterChannels.ReserveChannel(FilterChannelName, placement)) placement++;
+			}
 			FilterChannel = FilterChannels.GetChannel(FilterChannelName);
 		} else {
 			FilterChannel = -1;
@@ -143,6 +149,7 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFi
 		ActiveChildren = new List<IFilter<ItemSource>>();
 	}
 	public virtual void PostSetupRecipes() { }
+	public virtual bool ShouldHide() => false;
 	public void LateRegister() {
 		Register();
 		SetupContent();
@@ -184,6 +191,7 @@ public class FilterChannels : ILoadable {
 	static Dictionary<int, string> channels = [];
 	static Dictionary<string, int> channelsReverse = [];
 	static int channelCount = 1;
+	public static bool ChannelExists(string name) => channelsReverse.ContainsKey(name);
 	public static int GetChannel(string name) {
 		if (channelsReverse.TryGetValue(name, out int index)) return index;
 		while (channels.ContainsKey(channelCount)) channelCount++;
@@ -192,7 +200,7 @@ public class FilterChannels : ILoadable {
 		return channelCount;
 	}
 	public static bool ReserveChannel(string name, int id) {
-		if (channels.TryAdd(id, name)) {
+		if (!channelsReverse.ContainsKey(name) && channels.TryAdd(id, name)) {
 			channelsReverse.Add(name, id);
 			return true;
 		} else return false;

@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using ItemSourceHelper.Default;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Linq;
 using Terraria;
@@ -44,6 +45,17 @@ namespace ItemSourceHelper {
 				return false;
 			}
 			return true;
+		}
+		public override void OnResearched(Item item, bool fullyResearched) {
+			if (fullyResearched) {
+				ResearchedFilter filter = ModContent.GetInstance<ResearchedFilter>();
+				if (ItemSourceHelper.Instance.BrowserWindow.ActiveItemFilters.IsFilterActive(filter)) {
+					ItemSourceHelper.Instance.BrowserWindow.ActiveItemFilters.ClearCache();
+				}
+				if (ItemSourceHelper.Instance.BrowserWindow.ActiveSourceFilters.IsFilterActive(filter)) {
+					ItemSourceHelper.Instance.BrowserWindow.ActiveSourceFilters.ClearCache();
+				}
+			}
 		}
 	}
 }

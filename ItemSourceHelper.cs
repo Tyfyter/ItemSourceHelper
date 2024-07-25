@@ -55,14 +55,14 @@ namespace ItemSourceHelper {
 			};
 			PreOrderedFilterChannels = [
 				"SourceType",
-				"ItemType"
+				"ItemType",
+				"ConsumableType",
 			];
 			BrowserWindow = new();
 			ChildFilterCount = 1;
 			CraftableItems = [];
 			NPCLootItems = [];
 			ItemLootItems = [];
-			FilterChannels.ReserveChannel("Modded", 1101);
 		}
 		public override void Load() {
 			OpenToItemHotkey = KeybindLoader.RegisterKeybind(this, "Open Browser To Hovered Item", nameof(Keys.OemOpenBrackets));

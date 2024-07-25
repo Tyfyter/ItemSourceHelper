@@ -195,6 +195,7 @@ namespace ItemSourceHelper {
 
 				int lastFilterChannel = -1;
 				foreach (IFilter<T> filter in filters) {
+					if (filter.ShouldHide()) continue;
 					if (x >= minX - size) {
 						if (lastFilterChannel != filter.FilterChannel) {
 							if (lastFilterChannel != -1) {
@@ -337,6 +338,7 @@ namespace ItemSourceHelper {
 						x += 2 + padding;
 					}
 					foreach (IFilter<T> filter in lastFilter.ChildFilters()) {
+						if (filter.ShouldHide()) continue;
 						if (x >= baseX - size) {
 							button.X = x;
 							button.Y = y;

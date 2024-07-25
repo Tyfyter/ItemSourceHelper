@@ -20,6 +20,7 @@ using System.Collections.Immutable;
 using Microsoft.Xna.Framework;
 using System.Text.RegularExpressions;
 using Stubble.Core.Imported;
+using Terraria.GameContent.Creative;
 
 namespace ItemSourceHelper.Default;
 #region shop
@@ -307,6 +308,45 @@ public class ToolTypeFilter(Predicate<Item> condition, string name, int iconicIt
 	public override string Name => $"{base.Name}_{name}";
 	public override bool Matches(Item item) => condition(item);
 }
+public class FishingFilter : ItemFilter {
+	List<ItemFilter> Children { get; set; } = [];
+	public void AddChildFilter(ItemFilter child) {
+		Children.Add(child);
+		Mod.AddContent(child);
+	}
+	public override void Load() {
+		AddChildFilter(new ToolTypeFilter(item => item.fishingPole > 0, "FishingRods", ItemID.GoldenFishingRod));
+		AddChildFilter(new ToolTypeFilter(item => item.bait > 0, "FishingBait", ItemID.MasterBait));
+		AddChildFilter(new ToolTypeFilter(item => Main.anglerQuestItemNetIDs.Contains(item.type), "QuestFish", ItemID.Slimefish));
+		AddChildFilter(new ToolTypeFilter(item => ItemID.Sets.IsFishingCrate[item.type], "FishingCrates", ItemID.WoodenCrate));
+	}
+	protected override string FilterChannelName => "ItemType";
+	public override string Texture => "Terraria/Images/Item_" + ItemID.MechanicsRod;
+	public override bool Matches(Item item) {
+		for (int i = 0; i < Children.Count; i++) {
+			if (Children[i].Matches(item)) return true;
+		}
+		return false;
+	}
+	public override IEnumerable<ItemFilter> ChildItemFilters() => Children;
+}
+public class LootBagFilter : ItemFilter {
+	List<ItemFilter> Children { get; set; } = [];
+	public void AddChildFilter(ItemFilter child) {
+		Children.Add(child);
+		Mod.AddContent(child);
+	}
+	public override void Load() {
+		AddChildFilter(new ToolTypeFilter(item => ItemID.Sets.BossBag[item.type], "BossBag", ItemID.MoonLordBossBag));
+		AddChildFilter(new ToolTypeFilter(item => ItemID.Sets.IsFishingCrate[item.type] && !ItemID.Sets.IsFishingCrateHardmode[item.type], "PrehardmodeCrate", ItemID.IronCrate));
+		AddChildFilter(new ToolTypeFilter(item => ItemID.Sets.IsFishingCrateHardmode[item.type], "HardmodeCrate", ItemID.HallowedFishingCrateHard));
+		AddChildFilter(new ToolTypeFilter(item => !ItemID.Sets.BossBag[item.type] && !ItemID.Sets.IsFishingCrate[item.type], "LootBag_Misc", ItemID.GoodieBag));
+	}
+	protected override string FilterChannelName => "ConsumableType";
+	public override string Texture => "Terraria/Images/Item_" + ItemID.Present;
+	public override bool Matches(Item item) => Main.ItemDropsDB.GetRulesForItemID(item.type).Count != 0;
+	public override IEnumerable<ItemFilter> ChildItemFilters() => Children;
+}
 #endregion usable
 #region equippable
 public class ArmorFilter : ItemFilter {
@@ -494,6 +534,7 @@ public class ModdedFilter : ItemFilter {
 		children.TrimExcess();
 	}
 	protected override string FilterChannelName => "Modded";
+	protected override int? FilterChannelTargetPlacement => 1101;
 	public override float SortPriority => 0f;
 	public override bool Matches(Item item) => item.ModItem?.Mod != null;// || item.StatsModifiedBy.Count != 0
 	public override IEnumerable<ItemFilter> ChildItemFilters() => children;
@@ -515,8 +556,9 @@ public class ModFilter(Mod mod) : ItemFilter {
 public class ModifiedVanillaFilter : ItemFilter {
 	public override float SortPriority => 1f;
 	protected override string FilterChannelName => "Modded";
+	protected override int? FilterChannelTargetPlacement => 1101;
 	public override void SetStaticDefaults() {
-		texture = ModContent.Request<Texture2D>("Terraria/Images/UI/WorldCreation/IconDifficultyNormal");
+		UseItemTexture(ItemID.Cog);
 	}
 	public override bool Matches(Item item) => item.ModItem == null && item.StatsModifiedBy.Count != 0;
 }
@@ -680,6 +722,36 @@ public partial class RarityFilter(int rare, string name, int iconicItem) : ItemF
 	public override bool Matches(Item item) => item.rare == rare;
 
 	[GeneratedRegex("([A-Z])")] private static partial Regex NameFancifier();
+}
+public class ResearchedFilter : ItemFilter {
+	public override void SetStaticDefaults() {
+		texture = ModContent.Request<Texture2D>("Terraria/Images/UI/WorldCreation/IconDifficultyCreative");
+	}
+	protected override string FilterChannelName => "Difficulty";
+	protected override int? FilterChannelTargetPlacement => 1011;
+	public override float SortPriority => 97f;
+	public override bool ShouldHide() => Main.LocalPlayer.difficulty != PlayerDifficultyID.Creative;
+	public override bool Matches(Item item) => CreativeItemSacrificesCatalog.Instance.SacrificeCountNeededByItemId.TryGetValue(item.type, out int needed) && Main.LocalPlayerCreativeTracker.ItemSacrifices.GetSacrificeCount(item.type) >= needed;
+}
+public class ExpertFilter : ItemFilter {
+	public override void SetStaticDefaults() {
+		texture = ModContent.Request<Texture2D>("Terraria/Images/UI/WorldCreation/IconDifficultyExpert");
+	}
+	protected override string FilterChannelName => "Difficulty";
+	protected override int? FilterChannelTargetPlacement => 1011;
+	public override float SortPriority => 98f;
+	public override int DisplayNameRarity => ItemRarityID.Expert;
+	public override bool Matches(Item item) => item.expert;
+}
+public class MasterFilter : ItemFilter {
+	public override void SetStaticDefaults() {
+		texture = ModContent.Request<Texture2D>("Terraria/Images/UI/WorldCreation/IconDifficultyMaster");
+	}
+	protected override string FilterChannelName => "Difficulty";
+	protected override int? FilterChannelTargetPlacement => 1011;
+	public override float SortPriority => 99f;
+	public override int DisplayNameRarity => ItemRarityID.Master;
+	public override bool Matches(Item item) => item.master;
 }
 #endregion filters
 #region search types

@@ -59,6 +59,19 @@ ItemSourceFilter: {
 	TileTypeFilter_Pylon.DisplayName: Pylons
 	WallFilter_Safe.DisplayName: Safe
 	WallFilter_Dangerous.DisplayName: Dangerous
+	ExpertFilter.DisplayName: Expert Mode
+	MasterFilter.DisplayName: Master Mode
+	FishingFilter.DisplayName: Fishing
+	ToolTypeFilter_FishingRods.DisplayName: Fishing Rods
+	ToolTypeFilter_FishingBait.DisplayName: Fishing Bait
+	ToolTypeFilter_QuestFish.DisplayName: Quest Fish
+	ToolTypeFilter_FishingCrates.DisplayName: Fishing Crates
+	LootBagFilter.DisplayName: Loot Bags
+	ToolTypeFilter_BossBag.DisplayName: Boss Bags
+	ToolTypeFilter_PrehardmodeCrate.DisplayName: Prehardmode Fishing Crates
+	ToolTypeFilter_HardmodeCrate.DisplayName: Hardmode Fishing Crates
+	ToolTypeFilter_LootBag_Misc.DisplayName: Miscellaneous
+	ResearchedFilter.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.ResearchedFilter.DisplayName
 }
 
 AmmoName: {
