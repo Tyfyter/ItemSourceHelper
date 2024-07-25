@@ -71,7 +71,7 @@ ItemSourceFilter: {
 	ToolTypeFilter_PrehardmodeCrate.DisplayName: Prehardmode Fishing Crates
 	ToolTypeFilter_HardmodeCrate.DisplayName: Hardmode Fishing Crates
 	ToolTypeFilter_LootBag_Misc.DisplayName: Miscellaneous
-	ResearchedFilter.DisplayName: Mods.ItemSourceHelper.ItemSourceFilter.ResearchedFilter.DisplayName
+	ResearchedFilter.DisplayName: Researched
 }
 
 AmmoName: {

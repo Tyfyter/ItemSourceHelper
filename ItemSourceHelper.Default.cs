@@ -727,8 +727,8 @@ public class ResearchedFilter : ItemFilter {
 	public override void SetStaticDefaults() {
 		texture = ModContent.Request<Texture2D>("Terraria/Images/UI/WorldCreation/IconDifficultyCreative");
 	}
-	protected override string FilterChannelName => "Difficulty";
-	protected override int? FilterChannelTargetPlacement => 1011;
+	protected override string FilterChannelName => "Research";
+	protected override int? FilterChannelTargetPlacement => 1010;
 	public override float SortPriority => 97f;
 	public override bool ShouldHide() => Main.LocalPlayer.difficulty != PlayerDifficultyID.Creative;
 	public override bool Matches(Item item) => CreativeItemSacrificesCatalog.Instance.SacrificeCountNeededByItemId.TryGetValue(item.type, out int needed) && Main.LocalPlayerCreativeTracker.ItemSacrifices.GetSacrificeCount(item.type) >= needed;
