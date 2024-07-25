@@ -366,6 +366,117 @@ public class WingFilter : ItemFilter {
 	public override bool Matches(Item item) => item.wingSlot != -1;
 }
 #endregion equippable
+public class TileFilter : ItemFilter {
+	public List<ItemFilter> Children { get; } = [];
+	protected override string FilterChannelName => "ItemType";
+	public override float SortPriority => 3f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.StoneBlock;
+	public override void SetStaticDefaults() {
+		foreach (TileType type in Enum.GetValues<TileType>()) {
+			AddChild(new TileTypeFilter(type));
+		}
+	}
+	void AddChild(ItemFilter child) {
+		Children.Add(child);
+		child.LateRegister();
+	}
+	public override bool Matches(Item item) => item.createTile != -1;
+	public override IEnumerable<ItemFilter> ChildItemFilters() => Children;
+}
+public enum TileType {
+	Workbench,
+	Anvil,
+	Furnace,
+	Chest,
+	Table,
+	Chair,
+	Door,
+	Platform,
+	Light,
+	Bed,
+	Bookcase,
+	Pylon,
+}
+[Autoload(false)]
+public class TileTypeFilter(TileType type) : ItemFilter {
+	public override string Name => "TileTypeFilter_" + type;
+	protected override bool IsChildFilter => true;
+	protected override string FilterChannelName => "TileType";
+	public override void SetStaticDefaults() {
+		int itemType = type switch {
+			TileType.Workbench => ItemID.WorkBench,
+			TileType.Anvil => ItemID.IronAnvil,
+			TileType.Furnace => ItemID.Furnace,
+			TileType.Chest => ItemID.Chest,
+			TileType.Table => ItemID.WoodenTable,
+			TileType.Chair => ItemID.WoodenChair,
+			TileType.Door => ItemID.WoodenDoor,
+			TileType.Platform => ItemID.WoodPlatform,
+			TileType.Light => ItemID.Torch,
+			TileType.Bed => ItemID.Bed,
+			TileType.Bookcase => ItemID.Bookcase,
+			TileType.Pylon => ItemID.TeleportationPylonPurity,
+			_ => throw new NotImplementedException()
+		};
+		Main.instance.LoadItem(itemType);
+		texture = TextureAssets.Item[itemType];
+	}
+	public override bool Matches(Item item) {
+		bool CheckAdjTiles(int baseTile, params int[] extras) {
+			if (item.createTile == baseTile) return true;
+			for (int i = 0; i < extras.Length; i++) if (item.createTile == extras[i]) return true;
+			ModTile modTile = TileLoader.GetTile(item.createTile);
+			if (modTile is null) return false;
+			return modTile.AdjTiles.Contains(baseTile);
+		}
+		return type switch {
+			TileType.Workbench => CheckAdjTiles(TileID.WorkBenches),
+			TileType.Anvil => CheckAdjTiles(TileID.Anvils),
+			TileType.Furnace => CheckAdjTiles(TileID.Furnaces),
+			TileType.Chest => Main.tileContainer[item.createTile],
+			TileType.Table => Main.tileTable[item.createTile],
+			TileType.Chair => TileID.Sets.RoomNeeds.CountsAsChair.Contains(item.createTile),
+			TileType.Door => TileID.Sets.OpenDoorID[item.createTile] != -1,
+			TileType.Platform => TileID.Sets.Platforms[item.createTile],
+			TileType.Light => TileID.Sets.RoomNeeds.CountsAsTorch.Contains(item.createTile),
+			TileType.Bed => TileID.Sets.IsValidSpawnPoint[item.createTile],
+			TileType.Bookcase => CheckAdjTiles(TileID.Bookcases),
+			TileType.Pylon => TileID.Sets.CountsAsPylon.Contains(item.createTile),
+			_ => throw new NotImplementedException()
+		};
+	}
+}
+public class WallFilter : ItemFilter {
+	public List<ItemFilter> Children { get; } = [];
+	protected override string FilterChannelName => "ItemType";
+	public override float SortPriority => 3.1f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.PlankedWall;
+	public override void SetStaticDefaults() {
+		AddChild(new WallSafetyFilter(true));
+		AddChild(new WallSafetyFilter(false));
+	}
+	void AddChild(ItemFilter child) {
+		Children.Add(child);
+		child.LateRegister();
+	}
+	public override bool Matches(Item item) => item.createWall != -1;
+	public override IEnumerable<ItemFilter> ChildItemFilters() => Children;
+}
+[Autoload(false)]
+public class WallSafetyFilter(bool safe) : ItemFilter {
+	public override string Name => "WallFilter_" + (safe ? "Safe" : "Dangerous");
+	protected override bool IsChildFilter => true;
+	protected override string FilterChannelName => "WallType";
+	public override void SetStaticDefaults() {
+		if (safe) {
+			Main.instance.LoadItem(ItemID.WoodenFence);
+			texture = TextureAssets.Item[ItemID.WoodenFence];
+		} else {
+			texture = TextureAssets.Extra[258];
+		}
+	}
+	public override bool Matches(Item item) => Main.wallHouse[item.createWall] == safe;
+}
 public class ModdedFilter : ItemFilter {
 	List<ItemFilter> children;
 	public override void SetStaticDefaults() {
@@ -382,7 +493,8 @@ public class ModdedFilter : ItemFilter {
 		child.LateRegister();*/
 		children.TrimExcess();
 	}
-	public override float SortPriority => 99f;
+	protected override string FilterChannelName => "Modded";
+	public override float SortPriority => 0f;
 	public override bool Matches(Item item) => item.ModItem?.Mod != null;// || item.StatsModifiedBy.Count != 0
 	public override IEnumerable<ItemFilter> ChildItemFilters() => children;
 }
@@ -400,11 +512,9 @@ public class ModFilter(Mod mod) : ItemFilter {
 	}
 	public override bool Matches(Item item) => item.ModItem?.Mod == mod;
 }
-[Autoload(false)]
 public class ModifiedVanillaFilter : ItemFilter {
 	public override float SortPriority => 1f;
-	protected override bool IsChildFilter => true;
-	protected override string FilterChannelName => "ModName";
+	protected override string FilterChannelName => "Modded";
 	public override void SetStaticDefaults() {
 		texture = ModContent.Request<Texture2D>("Terraria/Images/UI/WorldCreation/IconDifficultyNormal");
 	}
@@ -551,7 +661,7 @@ public class RarityParentFilter : ItemFilter {
 		));
 	}
 	public override float SortPriority => 97f;
-	public override string Texture => "Terraria/Images/Item_" + ItemID.MetalDetector;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.Diamond;
 	public override bool Matches(Item item) => true;
 	public override IEnumerable<ItemFilter> ChildItemFilters() => Children;
 }
@@ -729,8 +839,8 @@ public class DefenseItemSorter : ItemSorter {
 	public override bool ItemFilter(Item item) => item.headSlot != -1 || item.bodySlot != -1 || item.legSlot != -1;
 }
 public class FlightTimeItemSorter : ItemSorter {
-	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.LeafWings];
-	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.LeafWings);
+	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.WingsStardust];
+	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.WingsStardust);
 	public override float SortPriority => 9;
 	public override int Compare(Item x, Item y) {
 		int flightTimeComp = Comparer<int>.Default.Compare(ArmorIDs.Wing.Sets.Stats[x.wingSlot].FlyTime, ArmorIDs.Wing.Sets.Stats[y.wingSlot].FlyTime);

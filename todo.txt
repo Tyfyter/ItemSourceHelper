@@ -1,0 +1,10 @@
+consumables: potions, boss summons, 
+pets
+mounts
+hooks
+dyes
+lootboxes
+fishing
+
+expert
+master

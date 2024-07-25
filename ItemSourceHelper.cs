@@ -18,6 +18,7 @@ using Terraria.ModLoader.IO;
 using ReLogic.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria.GameContent.ItemDropRules;
+using ItemSourceHelper.Default;
 
 namespace ItemSourceHelper {
 	public class ItemSourceHelper : Mod {
@@ -61,6 +62,7 @@ namespace ItemSourceHelper {
 			CraftableItems = [];
 			NPCLootItems = [];
 			ItemLootItems = [];
+			FilterChannels.ReserveChannel("Modded", 1101);
 		}
 		public override void Load() {
 			OpenToItemHotkey = KeybindLoader.RegisterKeybind(this, "Open Browser To Hovered Item", nameof(Keys.OemOpenBrackets));
@@ -106,8 +108,8 @@ namespace ItemSourceHelper {
 	public class FilterOrderComparer : IComparer<ItemSourceFilter> {
 		public int Compare(ItemSourceFilter x, ItemSourceFilter y) {
 			int xChannel = x.FilterChannel, yChannel = y.FilterChannel;
-			if (xChannel == -1) xChannel = int.MaxValue;
-			if (yChannel == -1) yChannel = int.MaxValue;
+			if (xChannel == -1) xChannel = 1000;
+			if (yChannel == -1) yChannel = 1000;
 			int channelComp = Comparer<int>.Default.Compare(xChannel, yChannel);
 			if (channelComp != 0) return channelComp;
 			return Comparer<float>.Default.Compare(x.SortPriority, y.SortPriority);

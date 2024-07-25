@@ -154,6 +154,8 @@ namespace ItemSourceHelper {
 			bool shouldResetScroll = false;
 			bounds.X += 3;
 			bounds.Width -= 3;
+			bool drewTop = false;
+			bool drewBottom = false;
 			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
 				bool canHover = bounds.Contains(Main.mouseX, Main.mouseY);
 				if (canHover) {
@@ -264,10 +266,12 @@ namespace ItemSourceHelper {
 								}
 							}
 						}
+						drewTop = true;
 					}
 					x += sizeWithPadding;
 					if (x >= topMaxX) {
 						cutOffTop = true;
+						break;
 					}
 				}
 				x = baseX - scrollBottom * sizeWithPadding;
@@ -314,10 +318,12 @@ namespace ItemSourceHelper {
 									0,
 								0);
 							}
+							drewBottom = true;
 						}
 						x += sizeWithPadding;
 						if (x >= maxX) {
 							cutOffBottom = true;
+							break;
 						}
 					}
 				}
@@ -398,15 +404,22 @@ namespace ItemSourceHelper {
 									foundNotnt:;
 								}
 							}
+							drewBottom = true;
 						}
 						x += sizeWithPadding;
 						if (x >= maxX) {
 							cutOffBottom = true;
+							break;
 						}
 					}
 				}
 			}
-			if (shouldResetScroll && ResetScroll is not null) ResetScroll();
+			if (shouldResetScroll && ResetScroll is not null) {
+				ResetScroll();
+			} else {
+				if (!drewTop && scrollTop > 0) scrollTop--;
+				if (!drewBottom && scrollBottom > 0) scrollBottom--;
+			}
 		}
 		public void SetFilter(IFilter<T> filter, bool? state = null, bool orMerge = false, bool invert = false) {
 			if (invert) filter = new NotFilter<T>(filter);
@@ -714,11 +727,12 @@ namespace ItemSourceHelper {
 				inverted = false;
 			}
 		}
-		protected void CheckSortMethodSupport(IFilter<T> lostFilter) {
+		protected void CheckSortMethodSupport(IFilter<T> lostFilter, IFilter<T> newFilter = null) {
 			if (sourceSourceSource == null) return;
 			Predicate<IFilterBase>[] reqs = sourceSourceSource.FilterRequirements;
 			bool lostReq = false;
 			for (int i = 0; i < reqs.Length && !lostReq; i++) {
+				if (newFilter is not null && reqs[i](newFilter)) continue;
 				if (reqs[i](lostFilter)) {
 					lostReq = true;
 					break;
@@ -766,7 +780,7 @@ namespace ItemSourceHelper {
 						filters[index] = new OrFilter<T>(filters[index], filter);
 					}
 				} else {
-					CheckSortMethodSupport(filters[index]);
+					CheckSortMethodSupport(filters[index], filter);
 					filters[index] = filter;
 				}
 				return true;
@@ -814,7 +828,7 @@ namespace ItemSourceHelper {
 						ClearCache();
 						return;
 					}
-					CheckSortMethodSupport(child);
+					CheckSortMethodSupport(child, filter);
 					parent.ActiveChildren.Remove(child);
 					ClearCache();
 					break;

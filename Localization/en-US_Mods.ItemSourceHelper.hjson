@@ -43,6 +43,22 @@ ItemSourceFilter: {
 	ChestplateFilter.DisplayName: Chestplates
 	HelmetFilter.DisplayName: Helmets
 	LeggingFilter.DisplayName: Leggings
+	TileFilter.DisplayName: Tiles
+	WallFilter.DisplayName: Walls
+	TileTypeFilter_Workbench.DisplayName: Workbenches
+	TileTypeFilter_Anvil.DisplayName: Anvils
+	TileTypeFilter_Furnace.DisplayName: Furnaces
+	TileTypeFilter_Chest.DisplayName: Containers
+	TileTypeFilter_Table.DisplayName: Tables
+	TileTypeFilter_Chair.DisplayName: Chairs
+	TileTypeFilter_Door.DisplayName: Doors
+	TileTypeFilter_Platform.DisplayName: Platforms
+	TileTypeFilter_Light.DisplayName: Lights
+	TileTypeFilter_Bed.DisplayName: Beds
+	TileTypeFilter_Bookcase.DisplayName: Bookcases
+	TileTypeFilter_Pylon.DisplayName: Pylons
+	WallFilter_Safe.DisplayName: Safe
+	WallFilter_Dangerous.DisplayName: Dangerous
 }
 
 AmmoName: {

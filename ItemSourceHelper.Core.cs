@@ -181,21 +181,27 @@ public abstract class ItemFilter : ItemSourceFilter, IFilter<Item> {
 	public new ICollection<IFilter<Item>> ActiveChildren { get; private set; }
 }
 public class FilterChannels : ILoadable {
-	static List<string> channels = [];
+	static Dictionary<int, string> channels = [];
+	static Dictionary<string, int> channelsReverse = [];
+	static int channelCount = 1;
 	public static int GetChannel(string name) {
-		int index = channels.IndexOf(name);
-		if (index != -1) return index + 1;
-		channels.Add(name);
-		return channels.Count;
+		if (channelsReverse.TryGetValue(name, out int index)) return index;
+		while (channels.ContainsKey(channelCount)) channelCount++;
+		channels.Add(channelCount, name);
+		channelsReverse.Add(name, channelCount);
+		return channelCount;
 	}
-	public FilterChannels() {
-		channels = [];
+	public static bool ReserveChannel(string name, int id) {
+		if (channels.TryAdd(id, name)) {
+			channelsReverse.Add(name, id);
+			return true;
+		} else return false;
 	}
 	public void Load(Mod mod) { }
 	public void Unload() {
 		channels = null;
+		channelsReverse = null;
 	}
-
 }
 public class SearchProviderLoader : ILoadable {
 	static Dictionary<string, SearchProvider> providersByOpener = [];
