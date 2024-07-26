@@ -70,8 +70,24 @@ ItemSourceFilter: {
 	ToolTypeFilter_BossBag.DisplayName: Boss Bags
 	ToolTypeFilter_PrehardmodeCrate.DisplayName: Prehardmode Fishing Crates
 	ToolTypeFilter_HardmodeCrate.DisplayName: Hardmode Fishing Crates
-	ToolTypeFilter_LootBag_Misc.DisplayName: Miscellaneous
+	ToolTypeFilter_LootBag_Misc.DisplayName: Miscellaneous Loot Bags
 	ResearchedFilter.DisplayName: Researched
+	DyeFilter.DisplayName: Dye
+	RealDyeFilter.DisplayName: Normal Dye
+	HairDyeFilter.DisplayName: Hair Dye
+	PotionFilter.DisplayName: Potions
+	ToolTypeFilter_HealingPotion.DisplayName: Healing Potions
+	ToolTypeFilter_ManaPotion.DisplayName: Mana Potions
+	ToolTypeFilter_BuffPotion.DisplayName: Buff Potions
+	ToolTypeFilter_FoodPotion.DisplayName: Food
+	ToolTypeFilter_FlaskPotion.DisplayName: Flasks
+	ToolTypeFilter_MiscPotion.DisplayName: Miscellaneous Potions
+	BossSpawnFilter.DisplayName: Boss Summoning Items
+	HookFilter.DisplayName: Hooks
+	MountFilter.DisplayName: Mounts
+	ToolTypeFilter_Minecarts.DisplayName: Minecarts
+	PetFilter.DisplayName: Pets
+	ToolTypeFilter_LightPets.DisplayName: Light Pets
 }
 
 AmmoName: {

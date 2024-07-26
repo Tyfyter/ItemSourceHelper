@@ -230,6 +230,7 @@ public class ShimmerItemSource(ItemSourceType sourceType, int resultType, int in
 #region usable
 public class WeaponFilter : ItemFilter {
 	List<ItemFilter> children;
+	public override float SortPriority => 0f;
 	public override void Load() {
 		if (ModLoader.HasMod("ThoriumMod")) {
 			ItemSourceHelper.Instance.IconicWeapons[ModContent.Find<DamageClass>("ThoriumMod", "BardDamage").Type] = ModContent.Find<ModItem>("ThoriumMod", "ChronoOcarina").Type;
@@ -278,6 +279,7 @@ public class OtherWeaponTypeFilter : ItemFilter {
 }
 public class ToolFilter : ItemFilter {
 	List<ItemFilter> Children { get; set; } = [];
+	public override float SortPriority => 1f;
 	public void AddChildFilter(ItemFilter child) {
 		Children.Add(child);
 		Mod.AddContent(child);
@@ -310,6 +312,7 @@ public class ToolTypeFilter(Predicate<Item> condition, string name, int iconicIt
 }
 public class FishingFilter : ItemFilter {
 	List<ItemFilter> Children { get; set; } = [];
+	public override float SortPriority => 5f;
 	public void AddChildFilter(ItemFilter child) {
 		Children.Add(child);
 		Mod.AddContent(child);
@@ -330,8 +333,36 @@ public class FishingFilter : ItemFilter {
 	}
 	public override IEnumerable<ItemFilter> ChildItemFilters() => Children;
 }
+public class PotionFilter : ItemFilter {
+	List<ItemFilter> Children { get; set; } = [];
+	public override float SortPriority => 5f;
+	public void AddChildFilter(ItemFilter child) {
+		Children.Add(child);
+		Mod.AddContent(child);
+	}
+	public override void Load() {
+		AddChildFilter(new ToolTypeFilter(item => item.healLife > 0, "HealingPotion", ItemID.HealingPotion));
+		AddChildFilter(new ToolTypeFilter(item => item.healMana > 0, "ManaPotion", ItemID.ManaPotion));
+		AddChildFilter(new ToolTypeFilter(item => item.buffType != 0 && item.buffTime > 0 && !BuffID.Sets.IsAFlaskBuff[item.buffType] && !BuffID.Sets.IsFedState[item.buffType], "BuffPotion", ItemID.IronskinPotion));
+		AddChildFilter(new ToolTypeFilter(item => item.buffType != 0 && BuffID.Sets.IsFedState[item.buffType], "FoodPotion", ItemID.MonsterLasagna));
+		AddChildFilter(new ToolTypeFilter(item => item.buffType != 0 && BuffID.Sets.IsAFlaskBuff[item.buffType], "FlaskPotion", ItemID.FlaskofFire));
+		AddChildFilter(new ToolTypeFilter(item => {
+			return item.healLife <= 0 && item.healMana <= 0 && (item.buffType == 0 || item.buffTime <= 0) && ItemID.Search.GetName(item.type).Contains("POTION", StringComparison.InvariantCultureIgnoreCase);
+		}, "MiscPotion", ItemID.TeleportationPotion));
+	}
+	protected override string FilterChannelName => "ItemType";
+	public override string Texture => "Terraria/Images/Item_" + ItemID.StrangeBrew;
+	public override bool Matches(Item item) {
+		for (int i = 0; i < Children.Count; i++) {
+			if (Children[i].Matches(item)) return true;
+		}
+		return false;
+	}
+	public override IEnumerable<ItemFilter> ChildItemFilters() => Children;
+}
 public class LootBagFilter : ItemFilter {
 	List<ItemFilter> Children { get; set; } = [];
+	public override float SortPriority => 5.1f;
 	public void AddChildFilter(ItemFilter child) {
 		Children.Add(child);
 		Mod.AddContent(child);
@@ -342,10 +373,22 @@ public class LootBagFilter : ItemFilter {
 		AddChildFilter(new ToolTypeFilter(item => ItemID.Sets.IsFishingCrateHardmode[item.type], "HardmodeCrate", ItemID.HallowedFishingCrateHard));
 		AddChildFilter(new ToolTypeFilter(item => !ItemID.Sets.BossBag[item.type] && !ItemID.Sets.IsFishingCrate[item.type], "LootBag_Misc", ItemID.GoodieBag));
 	}
-	protected override string FilterChannelName => "ConsumableType";
+	protected override string FilterChannelName => "ItemType";
 	public override string Texture => "Terraria/Images/Item_" + ItemID.Present;
 	public override bool Matches(Item item) => Main.ItemDropsDB.GetRulesForItemID(item.type).Count != 0;
 	public override IEnumerable<ItemFilter> ChildItemFilters() => Children;
+}
+public class BossSpawnFilter : ItemFilter {
+	public override float SortPriority => 5.2f;
+	protected override string FilterChannelName => "ItemType";
+	public override string Texture => "Terraria/Images/Item_" + ItemID.SuspiciousLookingEye;
+	public override bool Matches(Item item) {
+		if (item.type == ItemID.PirateMap) return true;
+		if (item.type is ItemID.TreasureMap or ItemID.LifeCrystal or ItemID.ManaCrystal or ItemID.LifeFruit) return false;
+		if (ItemID.Sets.DuplicationMenuToolsFilter[item.type]) return false;
+		return ItemID.Sets.SortingPriorityBossSpawns[item.type] != -1;
+	}
+	public override IEnumerable<ItemFilter> ChildItemFilters() => [];
 }
 #endregion usable
 #region equippable
@@ -405,11 +448,80 @@ public class WingFilter : ItemFilter {
 	public override string Texture => "Terraria/Images/Item_" + ItemID.SteampunkWings;
 	public override bool Matches(Item item) => item.wingSlot != -1;
 }
+public class PetFilter : ItemFilter {
+	List<ItemFilter> Children { get; set; } = [];
+	public override float SortPriority => 3.2f;
+	public void AddChildFilter(ItemFilter child) {
+		Children.Add(child);
+		Mod.AddContent(child);
+	}
+	public override void Load() {
+		AddChildFilter(new ToolTypeFilter(item => Main.lightPet[item.buffType], "LightPets", ItemID.WispinaBottle));
+	}
+	protected override string FilterChannelName => "ItemType";
+	public override string Texture => "Terraria/Images/Item_" + ItemID.ExoticEasternChewToy;
+	public override bool Matches(Item item) => item.buffType > 0 && (Main.vanityPet[item.buffType] || Main.lightPet[item.buffType]);
+	public override IEnumerable<ItemFilter> ChildItemFilters() => Children;
+}
+public class MountFilter : ItemFilter {
+	List<ItemFilter> Children { get; set; } = [];
+	public override float SortPriority => 3.1f;
+	public void AddChildFilter(ItemFilter child) {
+		Children.Add(child);
+		Mod.AddContent(child);
+	}
+	public override void Load() {
+		AddChildFilter(new ToolTypeFilter(item => MountID.Sets.Cart[item.mountType], "Minecarts", ItemID.Minecart));
+	}
+	protected override string FilterChannelName => "ItemType";
+	public override string Texture => "Terraria/Images/Item_" + ItemID.MajesticHorseSaddle;
+	public override bool Matches(Item item) => item.mountType != -1;
+	public override IEnumerable<ItemFilter> ChildItemFilters() => Children;
+}
+public class HookFilter : ItemFilter {
+	public override float SortPriority => 3f;
+	protected override string FilterChannelName => "ItemType";
+	public override string Texture => "Terraria/Images/Item_" + ItemID.GrapplingHook;
+	public override bool Matches(Item item) => Main.projHook[item.shoot];
+	public override IEnumerable<ItemFilter> ChildItemFilters() => [];
+}
+public class DyeFilter : ItemFilter {
+	public List<ItemFilter> Children { get; } = [];
+	public override void Load() {
+		AddChild(new RealDyeFilter());
+		AddChild(new HairDyeFilter());
+	}
+	protected override string FilterChannelName => "ItemType";
+	public override float SortPriority => 2.5f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.GreenDye;
+	public override bool Matches(Item item) => item.dye > 0 || item.hairDye > -1;
+	public override IEnumerable<ItemFilter> ChildItemFilters() => Children;
+	public void AddChild(ItemFilter child) {
+		Children.Add(child);
+		Mod.AddContent(child);
+	}
+}
+[Autoload(false)]
+public class RealDyeFilter : ItemFilter {
+	protected override string FilterChannelName => "DyeType";
+	protected override bool IsChildFilter => true;
+	public override float SortPriority => 0f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.FogboundDye;
+	public override bool Matches(Item item) => item.dye > 0;
+}
+[Autoload(false)]
+public class HairDyeFilter : ItemFilter {
+	protected override string FilterChannelName => "DyeType";
+	protected override bool IsChildFilter => true;
+	public override float SortPriority => 1f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.RainbowHairDye;
+	public override bool Matches(Item item) => item.hairDye > -1;
+}
 #endregion equippable
 public class TileFilter : ItemFilter {
 	public List<ItemFilter> Children { get; } = [];
 	protected override string FilterChannelName => "ItemType";
-	public override float SortPriority => 3f;
+	public override float SortPriority => 4f;
 	public override string Texture => "Terraria/Images/Item_" + ItemID.StoneBlock;
 	public override void SetStaticDefaults() {
 		foreach (TileType type in Enum.GetValues<TileType>()) {
@@ -489,7 +601,7 @@ public class TileTypeFilter(TileType type) : ItemFilter {
 public class WallFilter : ItemFilter {
 	public List<ItemFilter> Children { get; } = [];
 	protected override string FilterChannelName => "ItemType";
-	public override float SortPriority => 3.1f;
+	public override float SortPriority => 4.1f;
 	public override string Texture => "Terraria/Images/Item_" + ItemID.PlankedWall;
 	public override void SetStaticDefaults() {
 		AddChild(new WallSafetyFilter(true));

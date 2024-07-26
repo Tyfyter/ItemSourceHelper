@@ -1,5 +1,1 @@
-consumables: potions, boss summons, 
-pets
-mounts
-hooks
-dyes
+documentation
