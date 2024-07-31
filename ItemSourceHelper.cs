@@ -122,8 +122,6 @@ namespace ItemSourceHelper {
 		public static bool isActive = false;
 		public override void PostSetupRecipes() {
 			foreach (ItemSourceType sourceType in ItemSourceHelper.Instance.SourceTypes) sourceType.PostSetupRecipes();
-			int count = ItemSourceHelper.Instance.Filters.Count;
-			for (int i = 0; i < count; i++) ItemSourceHelper.Instance.Filters[i].PostSetupRecipes();
 
 			ItemSourceHelper.Instance.Sources.AddRange(ItemSourceHelper.Instance.SourceTypes.SelectMany(s => s.FillSourceList()));
 			ItemSourceHelper.Instance.BrowserWindow.Ingredience.items = ItemSourceHelper.Instance.Sources.First().GetSourceItems().ToArray();
@@ -166,6 +164,8 @@ namespace ItemSourceHelper {
 			foreach (var rules in GetFieldValue<Dictionary<int, List<IItemDropRule>>>("_entriesByItemId")) {
 				DoAddDropGroup(rules.Value, ItemSourceHelper.Instance.ItemLootItems, new DropGroup(item: rules.Key));
 			}
+			int count = ItemSourceHelper.Instance.Filters.Count;
+			for (int i = 0; i < count; i++) ItemSourceHelper.Instance.Filters[i].PostSetupRecipes();
 		}
 		public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers) {
 			if (!isActive) {

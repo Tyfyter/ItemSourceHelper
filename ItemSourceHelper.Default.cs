@@ -825,13 +825,20 @@ public class RarityParentFilter : ItemFilter {
 		for (int i = ItemRarityID.Count; i < RarityLoader.RarityCount; i++) {
 			rarities.Add(i, RarityLoader.GetRarity(i).FullName);
 		}
+		Dictionary<int, RarityFilter> registeredRarities = new(RarityLoader.RarityCount);
 		for (int i = 0; i < ItemLoader.ItemCount; i++) {
-			if (rarities.Count <= 0) break;
+			if (rarities.Count <= 0 && registeredRarities.Count > 0) break;
 			if (i == ItemID.None) continue;
 			int rare = ContentSamples.ItemsByType[i].rare;
 			if (rarities.TryGetValue(rare, out string name)) {
-				AddChildFilter(new(rare, name, i));
+				RarityFilter newFilter = new(rare, name, i);
+				AddChildFilter(newFilter);
+				registeredRarities.Add(rare, newFilter);
 				rarities.Remove(rare);
+			}
+			if (ItemSourceHelper.Instance.CraftableItems.Contains(i) && registeredRarities.TryGetValue(rare, out RarityFilter filterForChecking)) {
+				filterForChecking.Craftable = true;
+				registeredRarities.Remove(rare);
 			}
 		}
 		Children.Sort((x, y) => Comparer<int>.Default.Compare(
@@ -846,6 +853,7 @@ public class RarityParentFilter : ItemFilter {
 }
 [Autoload(false)]
 public partial class RarityFilter(int rare, string name, int iconicItem) : ItemFilter {
+	public bool Craftable { get; internal set; }
 	public int Rarity => rare;
 	public override void SetStaticDefaults() {
 		UseItemTexture(iconicItem);
@@ -857,6 +865,7 @@ public partial class RarityFilter(int rare, string name, int iconicItem) : ItemF
 	public override LocalizedText DisplayName => Mod is null ? ItemSourceHelper.GetLocalization(this, makeDefaultValue: makeDefaultValue) : this.GetLocalization("DisplayName", makeDefaultValue: makeDefaultValue);
 	string makeDefaultValue() => Regex.Replace(name.Split("/")[^1].Replace("Rarity", "").Replace("_", ""), "([A-Z])", " $1").Trim();
 	public override bool Matches(Item item) => item.rare == rare;
+	public override bool ShouldHide() => !Craftable && !ItemSourceBrowser.isItemBrowser;
 }
 public class ResearchedFilter : ItemFilter {
 	public override void SetStaticDefaults() {
@@ -982,7 +991,7 @@ public class ValueItemSorter : ItemSorter, ITooltipModifier {
 		}
 	}
 }
-public class RarityItemSorter : ItemSorter {
+public class RarityItemSorter : ItemSorter, ITooltipModifier {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.MetalDetector];
 	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.MetalDetector);
 	public override float SortPriority => 2;
