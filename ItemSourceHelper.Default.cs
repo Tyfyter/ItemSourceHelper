@@ -80,11 +80,13 @@ public class ShopItemSource(ItemSourceType sourceType, AbstractNPCShop.Entry ent
 			yield break;
 		}
 		int price = entry.Item.GetStoreValue();
-		if ((price / 1000000) % 100 > 0) yield return new Item(ItemID.PlatinumCoin, (price / 1000000) % 100);
-		if ((price / 10000) % 100 > 0) yield return new Item(ItemID.GoldCoin, (price / 10000) % 100);
-		if ((price / 100) % 100 > 0) yield return new Item(ItemID.SilverCoin, (price / 100) % 100);
-		if (price % 100 > 0) yield return new Item(ItemID.CopperCoin, price % 100);
+		int levelAmount;
+		if (HasCoin(price, 3, out levelAmount)) yield return new Item(ItemID.PlatinumCoin, levelAmount);
+		if (HasCoin(price, 2, out levelAmount)) yield return new Item(ItemID.GoldCoin, levelAmount);
+		if (HasCoin(price, 1, out levelAmount)) yield return new Item(ItemID.SilverCoin, levelAmount);
+		if (HasCoin(price, 0, out levelAmount)) yield return new Item(ItemID.CopperCoin, levelAmount);
 	}
+	public static bool HasCoin(int price, int level, out int levelAmount, int amountPerLevel = 100) => (levelAmount = (price / (int)Math.Pow(amountPerLevel, level)) % 100) > 0;
 	public override IEnumerable<LocalizedText> GetExtraConditionText() => [GetShopName(Shop)];
 	static string GetNameKey(AbstractNPCShop shop) => $"{Lang.GetNPCName(shop.NpcType).Key.Replace(".DisplayName", "")}.ShopName.{shop.Name}";
 	public static LocalizedText GetShopName(AbstractNPCShop shop) => Language.GetOrRegister(GetNameKey(shop), () => {
@@ -951,10 +953,11 @@ public class ValueItemSorter : ItemSorter, ITooltipModifier {
 			});
 		} else {
 			string value = "";
-			if ((price / 1000000) % 100 > 0) value += $"[i/s{(price / 1000000) % 100}:{ItemID.PlatinumCoin}]";
-			if ((price / 10000) % 100 > 0) value += $"[i/s{(price / 10000) % 100}:{ItemID.GoldCoin}]";
-			if ((price / 100) % 100 > 0) value += $"[i/s{(price / 100) % 100}:{ItemID.SilverCoin}]";
-			if (price % 100 > 0) value += $"[i/s{price % 100}:{ItemID.CopperCoin}]";
+			int levelAmount;
+			if (ShopItemSource.HasCoin((int)price, 3, out levelAmount)) value += $"[i/s{levelAmount}:{ItemID.PlatinumCoin}]";
+			if (ShopItemSource.HasCoin((int)price, 2, out levelAmount)) value += $"[i/s{levelAmount}:{ItemID.GoldCoin}]";
+			if (ShopItemSource.HasCoin((int)price, 1, out levelAmount)) value += $"[i/s{levelAmount}:{ItemID.SilverCoin}]";
+			if (ShopItemSource.HasCoin((int)price, 0, out levelAmount)) value += $"[i/s{levelAmount}:{ItemID.CopperCoin}]";
 			tooltips.Add(new(ItemSourceHelper.Instance, "Price", value));
 		}
 	}
