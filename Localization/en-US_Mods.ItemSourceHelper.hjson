@@ -110,12 +110,18 @@ ItemSourceType: {
 	ShopItemSourceType.DisplayName: NPC Shops
 }
 
+Close: Close
+FilterList.HelpText:
+	'''
+	Hold shift to combine normally incompatible filters
+	Combined filters will match any entries that any filter in them matches
+	Hold control to invert filters
+	'''
 Search.HelpText:
 	'''
 	Searches in item names and tooltips by default
 	Start query with ^ to only search in names
 	Start query with # to only search in tooltips
-	Start query with @ to search by mod name
 	Use commas to separate search queries
 	'''
 

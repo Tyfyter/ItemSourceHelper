@@ -416,6 +416,9 @@ namespace ItemSourceHelper {
 					}
 				}
 			}
+			if (!Main.mouseText && Main.keyState.PressingShift() && bounds.Contains(Main.MouseScreen.ToPoint())) {
+				UIMethods.TryMouseText(Language.GetOrRegister($"Mods.{nameof(ItemSourceHelper)}.FilterList.HelpText").Value);
+			}
 			if (shouldResetScroll && ResetScroll is not null) {
 				ResetScroll();
 			} else {
@@ -794,7 +797,7 @@ namespace ItemSourceHelper {
 		public void TryRemoveFilter(IFilter<T> filter) {
 			int index = filters.FindIndex(filter.ShouldReplace);
 			if (index != -1) {
-				if (filters[index] is OrFilter<T> orFilter) {
+				if (filters[index] is OrFilter<T> orFilter && orFilter.Filters.Count > 1) {
 					orFilter.Remove(filter);
 				} else {
 					filters.RemoveAt(index);
@@ -843,9 +846,8 @@ namespace ItemSourceHelper {
 		public void TryRemoveChildFilter(IFilter<T> parent, IFilter<T> filter) {
 			foreach (IFilter<T> child in parent.ActiveChildren) {
 				if (filter.ShouldReplace(child)) {
-					if (child is OrFilter<T> orFilter) {
+					if (child is OrFilter<T> orFilter && orFilter.Filters.Count > 1) {
 						orFilter.Remove(filter);
-						if (orFilter.Filters.Count == 0) parent.ActiveChildren.Remove(child);
 					} else {
 						parent.ActiveChildren.Remove(child);
 					}
@@ -970,20 +972,21 @@ namespace ItemSourceHelper {
 			const float scale = 1.25f;
 			bounds.Y += 4;
 			bounds.Height -= 4;
-			string helpText = "?";
-			Vector2 helpSize = font.MeasureString(helpText) * scale;
-			Vector2 helpPos = bounds.TopRight() - new Vector2(helpSize.X + 4, 0);
-			Color helpColor = Color.Black;
-			if (UIMethods.MouseInArea(helpPos, helpSize)) {
-				UIMethods.TryMouseText(Language.GetOrRegister($"Mods.{nameof(ItemSourceHelper)}.Search.HelpText").Value);
+			string closeText = "X";
+			Vector2 helpSize = font.MeasureString(closeText) * scale;
+			Vector2 closePos = bounds.TopRight() - new Vector2(helpSize.X + 4, 0);
+			Color closeColor = Color.Black;
+			if (UIMethods.MouseInArea(closePos, helpSize)) {
+				UIMethods.TryMouseText(Language.GetOrRegister($"Mods.{nameof(ItemSourceHelper)}.Close").Value);
+				if (Main.mouseLeft && Main.mouseLeftRelease) ItemSourceHelperSystem.isActive = false;
 			} else {
-				helpColor *= 0.7f;
+				closeColor *= 0.7f;
 			}
 			spriteBatch.DrawString(
 				font,
-				helpText,
-				helpPos,
-				helpColor,
+				closeText,
+				closePos,
+				closeColor,
 				0,
 				new(0, 0),
 				scale,
@@ -991,21 +994,21 @@ namespace ItemSourceHelper {
 			0);
 			bounds.Width -= (int)helpSize.X + 8;
 			Color color = this.color;
+			bool hoveringSearch = bounds.Contains(Main.mouseX, Main.mouseY) && !PlayerInput.IgnoreMouseInterface;
 			if (!focused) {
-				if (bounds.Contains(Main.mouseX, Main.mouseY) && !PlayerInput.IgnoreMouseInterface) {
-					if (Main.mouseLeft && Main.mouseLeftRelease) {
-						focused = true;
-						cursorIndex = text.Length;
-					}
+				if (hoveringSearch && Main.mouseLeft && Main.mouseLeftRelease) {
+					focused = true;
+					cursorIndex = text.Length;
 				} else {
 					color *= 0.8f;
 				}
 			} else {
-				if (!bounds.Contains(Main.mouseX, Main.mouseY)) {
-					if (Main.mouseLeft && Main.mouseLeftRelease) {
-						focused = false;
-					}
+				if (!hoveringSearch && Main.mouseLeft && Main.mouseLeftRelease) {
+					focused = false;
 				}
+			}
+			if (Main.keyState.PressingShift() && bounds.Contains(Main.MouseScreen.ToPoint())) {
+				UIMethods.TryMouseText(Language.GetOrRegister($"Mods.{nameof(ItemSourceHelper)}.Search.HelpText").Value);
 			}
 			spriteBatch.DrawRoundedRetangle(bounds, color);
 			bool typed = false;

@@ -85,7 +85,14 @@ public class ShopItemSource(ItemSourceType sourceType, AbstractNPCShop.Entry ent
 		if ((price / 100) % 100 > 0) yield return new Item(ItemID.SilverCoin, (price / 100) % 100);
 		if (price % 100 > 0) yield return new Item(ItemID.CopperCoin, price % 100);
 	}
-	public override IEnumerable<LocalizedText> GetExtraConditionText() => [Language.GetText(ShopTypeSourceFilter.GetNameKey(Shop))];
+	public override IEnumerable<LocalizedText> GetExtraConditionText() => [GetShopName(Shop)];
+	static string GetNameKey(AbstractNPCShop shop) => $"{Lang.GetNPCName(shop.NpcType).Key.Replace(".DisplayName", "")}.ShopName.{shop.Name}";
+	public static LocalizedText GetShopName(AbstractNPCShop shop) => Language.GetOrRegister(GetNameKey(shop), () => {
+		if (shop.Name == "Shop") {
+			return Lang.GetNPCNameValue(shop.NpcType);
+		}
+		return $"{Lang.GetNPCNameValue(shop.NpcType)}: {shop.Name}";
+	});
 }
 [Autoload(false)]
 public class ShopTypeSourceFilter(AbstractNPCShop shop) : ItemSourceFilter {
@@ -98,13 +105,7 @@ public class ShopTypeSourceFilter(AbstractNPCShop shop) : ItemSourceFilter {
 	protected override bool IsChildFilter => true;
 	protected override string FilterChannelName => "ShopType";
 	public override string Name => $"{base.Name}_{shop.FullName}";
-	public static string GetNameKey(AbstractNPCShop shop) => $"{Lang.GetNPCName(shop.NpcType).Key.Replace(".DisplayName", "")}.ShopName.{shop.Name}";
-	public override LocalizedText DisplayName => Language.GetOrRegister(GetNameKey(Shop), () => {
-		if (Shop.Name == "Shop") {
-			return Lang.GetNPCNameValue(Shop.NpcType);
-		}
-		return $"{Lang.GetNPCNameValue(Shop.NpcType)}: {Shop.Name}";
-	});
+	public override LocalizedText DisplayName => ShopItemSource.GetShopName(Shop);
 	public override bool Matches(ItemSource source) => source is ShopItemSource shopSource && shopSource.Shop.NpcType == Shop.NpcType && shopSource.Shop.Name == Shop.Name;
 }
 #endregion shop
