@@ -855,10 +855,8 @@ public partial class RarityFilter(int rare, string name, int iconicItem) : ItemF
 	public override string Name => $"{base.Name}_{name}";
 	public override int DisplayNameRarity => rare;
 	public override LocalizedText DisplayName => Mod is null ? ItemSourceHelper.GetLocalization(this, makeDefaultValue: makeDefaultValue) : this.GetLocalization("DisplayName", makeDefaultValue: makeDefaultValue);
-	string makeDefaultValue() => NameFancifier().Replace(name.Split("/")[^1].Replace("Rarity", "").Replace("_", ""), " $1").Trim();
+	string makeDefaultValue() => Regex.Replace(name.Split("/")[^1].Replace("Rarity", "").Replace("_", ""), "([A-Z])", " $1").Trim();
 	public override bool Matches(Item item) => item.rare == rare;
-
-	[GeneratedRegex("([A-Z])")] private static partial Regex NameFancifier();
 }
 public class ResearchedFilter : ItemFilter {
 	public override void SetStaticDefaults() {
