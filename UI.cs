@@ -102,10 +102,11 @@ namespace ItemSourceHelper {
 					},
 					[4] = FilterItem,
 					[6] = SearchItem,
+					[7] = new CornerSlotGridItem(ItemFilterList),
 					[0] = slidyThing,
 				},
 				itemIDs = new int[3, 7] {
-					{ 6, -1, -1, 0, 2, 2, 2 },
+					{ 6, 7, 7, 0, 2, 2, 2 },
 					{ 6, 1, 1, 1, 2, 2, 2 },
 					{ 6, 1, 1, 1, 2, 2, 2 }
 				},
@@ -160,6 +161,7 @@ namespace ItemSourceHelper {
 				bool canHover = bounds.Contains(Main.mouseX, Main.mouseY);
 				if (canHover) {
 					this.CaptureScroll();
+					Main.LocalPlayer.mouseInterface = true;
 				}
 				int size = (int)(32 * Main.inventoryScale);
 				const int padding = 2;
@@ -183,6 +185,7 @@ namespace ItemSourceHelper {
 					Rectangle clearButton = new(maxX - (size - 6), y, size, size);
 					if (canHover && clearButton.Contains(mousePos)) {
 						spriteBatch.Draw(actuator, clearButton, Color.Pink);
+						UIMethods.TryMouseText(Language.GetOrRegister($"Mods.{nameof(ItemSourceHelper)}.FilterList.ClearButton").Value);
 						if (Main.mouseLeft && Main.mouseLeftRelease) {
 							activeFilters.ClearSelectedFilters();
 							lastFilter = null;
@@ -469,7 +472,10 @@ namespace ItemSourceHelper {
 			//bounds.Width -= 8;
 			bounds.Height -= 1;
 			Point mousePos = Main.MouseScreen.ToPoint();
-			if (bounds.Contains(mousePos)) this.CaptureScroll();
+			if (bounds.Contains(mousePos)) {
+				this.CaptureScroll();
+				Main.LocalPlayer.mouseInterface = true;
+			}
 			cutOff = false;
 			if (doubleClickTime > 0 && --doubleClickTime <= 0) doubleClickItem = 0;
 			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
@@ -566,6 +572,7 @@ namespace ItemSourceHelper {
 			if (doubleClickTime > 0 && --doubleClickTime <= 0) doubleClickItem = 0;
 			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
 				bool canHover = bounds.Contains(Main.mouseX, Main.mouseY);
+				Main.LocalPlayer.mouseInterface |= canHover;
 				int size = (int)(52 * Main.inventoryScale);
 				const int padding = 3;
 				int sizeWithPadding = size + padding;
@@ -578,12 +585,16 @@ namespace ItemSourceHelper {
 				int maxY = bounds.Y + bounds.Height - size / 2;
 				cutOff = false;
 				Vector2 position = new();
+				Texture2D texture = TextureAssets.InventoryBack13.Value;
+				Color normalColor = ItemSourceHelperConfig.Instance.ItemSlotColor;
+				Color hoverColor = ItemSourceHelperConfig.Instance.HoveredItemSlotColor;
 				for (int i = 0; i < items.Length; i++) {
 					if (x >= minX - size) {
 						position.X = x;
 						position.Y = y;
-						ItemSlot.Draw(spriteBatch, items, ItemSlot.Context.CraftingMaterial, i, position);
+						//ItemSlot.Draw(spriteBatch, items, ItemSlot.Context.CraftingMaterial, i, position);
 						if (canHover && Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size) {
+							UIMethods.DrawColoredItemSlot(spriteBatch, items, i, position, texture, hoverColor);
 							ItemSlot.MouseHover(items, ItemSlot.Context.CraftingMaterial, i);
 							if ((Main.mouseLeft && Main.mouseLeftRelease) || (Main.mouseRight && Main.mouseRightRelease)) {
 								if (items[i].type != doubleClickItem) doubleClickTime = 0;
@@ -609,6 +620,8 @@ namespace ItemSourceHelper {
 									doubleClickItem = items[i].type;
 								}
 							}
+						} else {
+							UIMethods.DrawColoredItemSlot(spriteBatch, items, i, position, texture, normalColor);
 						}
 					}
 					x += sizeWithPadding;
@@ -806,12 +819,15 @@ namespace ItemSourceHelper {
 				ClearCache();
 			}
 		}
-		public bool IsFilterActive(IFilter<T> filter) {
+		public bool IsFilterActive(IFilter<T> filter) => IsFilterActive(filter, out _);
+		public bool IsFilterActive(IFilter<T> filter, out bool isNot) {
+			isNot = false;
 			int index = filters.FindIndex(filter.ShouldReplace);
 			if (index != -1) {
 				if (filters[index] is OrFilter<T> orFilter) {
 					return orFilter.Contains(filter);
 				} else if (filters[index] is NotFilter<T> notFilter) {
+					isNot = true;
 					return notFilter.Filter == filter;
 				} else {
 					return filters[index] == filter;
@@ -920,6 +936,7 @@ namespace ItemSourceHelper {
 				ItemSourceHelperConfig.Instance.ItemSlotColor
 			);
 			if (UIMethods.MouseInArea(pos, size)) {
+				Main.LocalPlayer.mouseInterface = true;
 				ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
 				if (Main.mouseLeft && Main.mouseLeftRelease) {
 					if (item.type == Main.mouseItem?.type) {
@@ -941,6 +958,7 @@ namespace ItemSourceHelper {
 		}
 	}
 	public class SearchGridItem : GridItem {
+		public Color textColor;
 		public bool focused = false;
 		public int cursorIndex = 0;
 		public StringBuilder text = new();
@@ -977,6 +995,7 @@ namespace ItemSourceHelper {
 			Vector2 closePos = bounds.TopRight() - new Vector2(helpSize.X + 4, 0);
 			Color closeColor = Color.Black;
 			if (UIMethods.MouseInArea(closePos, helpSize)) {
+				Main.LocalPlayer.mouseInterface = true;
 				UIMethods.TryMouseText(Language.GetOrRegister($"Mods.{nameof(ItemSourceHelper)}.Close").Value);
 				if (Main.mouseLeft && Main.mouseLeftRelease) ItemSourceHelperSystem.isActive = false;
 			} else {
@@ -995,6 +1014,7 @@ namespace ItemSourceHelper {
 			bounds.Width -= (int)helpSize.X + 8;
 			Color color = this.color;
 			bool hoveringSearch = bounds.Contains(Main.mouseX, Main.mouseY) && !PlayerInput.IgnoreMouseInterface;
+			Main.LocalPlayer.mouseInterface |= hoveringSearch;
 			if (!focused) {
 				if (hoveringSearch && Main.mouseLeft && Main.mouseLeftRelease) {
 					focused = true;
@@ -1097,7 +1117,7 @@ namespace ItemSourceHelper {
 					font,
 					"|",
 					bounds.TopLeft() + font.MeasureString(text.ToString()[..cursorIndex]) * Vector2.UnitX * scale + offset * new Vector2(0.5f, 1),
-					Color.Black,
+					textColor,
 					0,
 					new(0, 0),
 					scale,
@@ -1108,7 +1128,7 @@ namespace ItemSourceHelper {
 				font,
 				text,
 				bounds.TopLeft() + offset,
-				Color.Black,
+				textColor,
 				0,
 				new(0, 0),
 				scale,
@@ -1127,13 +1147,16 @@ namespace ItemSourceHelper {
 		public IEnumerable<Condition> conditions = [];
 		float scroll = 0;
 		bool cutOff = false;
-		public void SetConditionsFrom(ItemSource itemSource) => SetConditions(itemSource.GetConditions(), itemSource.GetExtraConditionText());
+		public void SetConditionsFrom(ItemSource itemSource) {
+			SetConditions(itemSource.GetConditions(), itemSource.GetExtraConditionText());
+			if (!conditions.Any() && !conditionts.Any()) conditionts = [itemSource.SourceType.DisplayName];
+		}
 		public void SetConditions(IEnumerable<Condition> conditions, IEnumerable<LocalizedText> conditionts = null) {
 			this.conditions = conditions ?? [];
 			this.conditionts = conditionts ?? [];
 			scroll = 0;
 		}
-		public int GetHeight() => !conditionts.Any() && !conditions.Any() ? 2 : 20;
+		public int GetHeight() => /*!conditionts.Any() && !conditions.Any() ? 2 : */ 20;
 		public override void Update(WindowElement parent, Range x, Range y) {
 			int height = GetHeight();
 			parent.Height -= parent.MinHeights[y.Start] - height;
@@ -1217,7 +1240,10 @@ namespace ItemSourceHelper {
 			//bounds.Width -= 8;
 			bounds.Height -= 1;
 			Point mousePos = Main.MouseScreen.ToPoint();
-			if (bounds.Contains(mousePos)) this.CaptureScroll();
+			if (bounds.Contains(mousePos)) {
+				this.CaptureScroll();
+				Main.LocalPlayer.mouseInterface = true;
+			}
 			cutOff = false;
 			if (doubleClickTime > 0 && --doubleClickTime <= 0) doubleClickItem = 0;
 			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
@@ -1338,6 +1364,7 @@ namespace ItemSourceHelper {
 			bounds.Width -= squish * 2;
 			ref bool value = ref valueReference();
 			if (bounds.Contains(Main.mouseX, Main.mouseY)) {
+				Main.LocalPlayer.mouseInterface = true;
 				UIMethods.DrawRoundedRetangle(spriteBatch, bounds, new(0.1f, 0.1f, 0.1f, 0f));
 				UIMethods.TryMouseText(text.Value);
 				if (Main.mouseLeft && Main.mouseLeftRelease) {
@@ -1357,6 +1384,92 @@ namespace ItemSourceHelper {
 		}
 		public delegate ref bool ValueReference();
 	}
+	public class CornerSlotGridItem(FilterListGridItem<Item> filterList) : GridItem {
+		Item item;
+		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
+			item ??= new();
+			Vector2 size = new Vector2(52 * Main.inventoryScale) * 0.5f;
+			Vector2 pos = bounds.TopLeft();
+			pos.X += 2;
+			Texture2D backTexture = TextureAssets.InventoryBack13.Value;
+			Color normalColor = ItemSourceHelperConfig.Instance.ItemSlotColor;
+			Color hoverColor = ItemSourceHelperConfig.Instance.HoveredItemSlotColor;
+
+			for (int i = 0; i < 2; i++) {
+				for (int j = 0; j < 2; j++) {
+					Vector2 offset = size * new Vector2(i, j);
+					Rectangle frame = new(26 * i, 26 * j, 26, 26);
+					bool hover = UIMethods.MouseInArea(pos + offset, size);
+					spriteBatch.Draw(
+						backTexture,
+						pos + offset,
+						frame,
+						hover ? hoverColor : normalColor,
+						0f,
+						Vector2.Zero,
+						Main.inventoryScale,
+						SpriteEffects.None,
+					0f);
+
+					Vector2 tickOffset = new(3, 3);
+					frame = new Rectangle(0, 0, 8, 8);
+					IFilter<Item> filter = null;
+					Color tickColor = Color.White;
+
+					switch ((i, j)) {
+						case (0, 0):
+						filter = ModContent.GetInstance<CraftableFilter>();
+						break;
+
+						case (0, 1):
+						tickOffset.Y = size.Y - (8 + 3);
+						frame.X = 10;
+						filter = ModContent.GetInstance<MaterialFilter>();
+						break;
+
+						case (1, 0):
+						tickOffset.X = size.X - (8 + 3);
+						frame.X = 20;
+						filter = ModContent.GetInstance<ItemLootFilter>();
+						break;
+
+						case (1, 1):
+						tickOffset.X = size.X - (8 + 3);
+						tickOffset.Y = size.Y - (8 + 3);
+						frame.X = 30;
+						filter = ModContent.GetInstance<NPCLootFilter>();
+						break;
+					}
+					if (filter is not null && filterList is not null) {
+						if (!filterList.activeFilters.IsFilterActive(filter, out bool isNot)) tickColor *= 0.5f;
+						else if (isNot) tickColor = Color.Gray;
+					}
+					spriteBatch.Draw(
+						ItemSourceHelper.ItemIndicators.Value,
+						pos + offset + tickOffset,
+						frame,
+						tickColor
+					);
+					if (hover && filter is not null) {
+						Main.LocalPlayer.mouseInterface = true;
+						UIMethods.TryMouseText(filter.DisplayNameText);
+						if (filterList is not null && Main.mouseLeft && Main.mouseLeftRelease) {
+							filterList.SetFilter(filter, null, Main.keyState.PressingShift(), Main.keyState.PressingControl());
+						}
+					}
+				}
+			}
+		}
+		public void SetItem(int type) => SetItem(new Item(type));
+		public void SetItem(Item type) {
+			item = type?.Clone() ?? new();
+			ItemSourceHelper.Instance.BrowserWindow.ActiveSourceFilters.SetFilterItem(item);
+		}
+		public override void Reset() {
+			item ??= new();
+			item.TurnToAir();
+		}
+	}
 	public class WindowElement : UIElement {
 		#region resize
 		public RectangleHandles handles;
@@ -1364,6 +1477,7 @@ namespace ItemSourceHelper {
 		RectangleHandles heldHandle;
 		Vector2 heldHandleOffset;
 		public Color color;
+		bool lastFrameHover = false;
 		public override void OnInitialize() {
 			heights = new float[HeightWeights.Length];
 			widths = new float[WidthWeights.Length];
@@ -1439,30 +1553,34 @@ namespace ItemSourceHelper {
 					area = GetOuterDimensions().ToRectangle();
 				}
 			}
+			bool hoveringSomewhere = false;
 			foreach (var segment in UIMethods.rectangleSegments) {
 				Rectangle bounds = segment.GetBounds(area);
 				bool matches = segment.Matches(handles);
 				Color partColor = color;
 				bool discolor = false;
-				if (heldHandle == 0) {
-					if (bounds.Contains(mousePos)) {
-						Main.LocalPlayer.mouseInterface = true;
-						if (segment.Handles != 0) {
-							discolor = true;
-							if (Main.mouseLeft && Main.mouseLeftRelease) {
-								heldHandleStretch = !matches;
-								heldHandle = segment.Handles;
-								if (matches) {
-									heldHandleOffset = new Vector2(Left, Top) - Main.MouseScreen;
-								} else {
-									heldHandleOffset = bounds.TopLeft() - Main.MouseScreen + bounds.Size();
+				if (!lastFrameHover) {
+					if (heldHandle == 0) {
+						if (bounds.Contains(mousePos)) {
+							hoveringSomewhere = true;
+							if (segment.Handles != 0) {
+								Main.LocalPlayer.mouseInterface = true;
+								discolor = true;
+								if (Main.mouseLeft && Main.mouseLeftRelease) {
+									heldHandleStretch = !matches;
+									heldHandle = segment.Handles;
+									if (matches) {
+										heldHandleOffset = new Vector2(Left, Top) - Main.MouseScreen;
+									} else {
+										heldHandleOffset = bounds.TopLeft() - Main.MouseScreen + bounds.Size();
+									}
 								}
 							}
 						}
+					} else if (segment.Handles == heldHandle) {
+						Main.LocalPlayer.mouseInterface = true;
+						discolor = true;
 					}
-				} else if (segment.Handles == heldHandle) {
-					Main.LocalPlayer.mouseInterface = true;
-					discolor = true;
 				}
 				if (discolor) {
 					partColor = matches ? handleHoverColor : nonHandleHoverColor;
@@ -1475,7 +1593,10 @@ namespace ItemSourceHelper {
 					partColor
 				);
 			}
+			lastFrameHover = Main.LocalPlayer.mouseInterface;
 			DrawCells(spriteBatch);
+			lastFrameHover ^= Main.LocalPlayer.mouseInterface;
+			Main.LocalPlayer.mouseInterface |= hoveringSomewhere;
 		}
 		public new ref float Left => ref ItemSourceHelperPositions.Instance.SourceBrowserLeft;
 		public new ref float Top => ref ItemSourceHelperPositions.Instance.SourceBrowserTop;

@@ -1,1 +1,38 @@
-Modify this file with a description of your mod.
+Item Source Helper lets you see how to get any*† item, whether it's crafted, purchased, or even transformed by shimmer!
+
+How To Use:
+To Open:
+Bind keys to "Open Browser" and/or "Open Source Browser To Hovered Item"
+Use a hotkey
+
+Window:
+The window can be moved by clicking on the top or left edge and dragging
+The window can be resized by clicking on the bottom or right edge and dragging
+
+Filter List:
+The bottom row displays sorting methods and subfilters (when applicable)
+Scroll to see more filters and subfilters
+Hold shift to combine normally incompatible filters
+Combined filters will match any entries that any filter in them matches
+Hold control to invert filters
+Clicking on the active sorting method will reverse it
+
+Search Bar:
+Searches in item names and tooltips by default
+Start query with ^ to only search in names
+Start query with # to only search in tooltips
+Use commas to separate search queries
+This field supports arrow keys and all vanilla chat controls
+
+Hold shift while hovering over the filter list or search bar to view their respective controls and information in-game
+
+FAQ‡:
+Isn't this just a rip-off of Recipe Browser?:
+Isn't Recipe Browser just a rip-off of the guide?
+
+Why should I use this over [other mod here]?:
+It probably has features [other mod here] doesn't have, although — similarly — [other mod here] may have features this doesn't have
+
+*Grab bag loot viewing will come in a future update, enemy loot viewing currently only implemented through Bestiary Utils version 1.2.4 and higher, but will be properly added in the same update
+†Source types not listed here are not inherently supported, but support for missing vanilla source types will be added in future updates, and support for modded source types may be added from other mods
+‡These questions have not been asked, and were included preemptively

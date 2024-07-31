@@ -695,6 +695,28 @@ public class MaterialFilter : ItemFilter {
 	public override string Texture => "Terraria/Images/Item_" + ItemID.Topaz;
 	public override bool Matches(Item item) => item.material;
 	public override IEnumerable<ItemFilter> ChildItemFilters() => children;
+	public override bool ShouldHide() => ItemSourceBrowser.isItemBrowser;
+}
+public class CraftableFilter : ItemFilter {
+	public override float SortPriority => 98.1f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.TerraBlade;
+	public override bool Matches(Item item) => ItemSourceHelper.Instance.CraftableItems.Contains(item.type);
+	public override IEnumerable<ItemFilter> ChildItemFilters() => [];
+	public override bool ShouldHide() => ItemSourceBrowser.isItemBrowser;
+}
+public class NPCLootFilter : ItemFilter {
+	public override float SortPriority => 98.2f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.Gel;
+	public override bool Matches(Item item) => ItemSourceHelper.Instance.NPCLootItems.Contains(item.type);
+	public override IEnumerable<ItemFilter> ChildItemFilters() => [];
+	public override bool ShouldHide() => ItemSourceBrowser.isItemBrowser;
+}
+public class ItemLootFilter : ItemFilter {
+	public override float SortPriority => 98.3f;
+	public override string Texture => "Terraria/Images/Item_" + ItemID.DogWhistle;
+	public override bool Matches(Item item) => ItemSourceHelper.Instance.ItemLootItems.Contains(item.type);
+	public override IEnumerable<ItemFilter> ChildItemFilters() => [];
+	public override bool ShouldHide() => ItemSourceBrowser.isItemBrowser;
 }
 [Autoload(false)]
 public class RecipeGroupFilter(RecipeGroup recipeGroup) : ItemFilter {

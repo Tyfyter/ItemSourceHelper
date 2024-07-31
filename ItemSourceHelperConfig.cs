@@ -47,6 +47,11 @@ namespace ItemSourceHelper {
 			get => ItemSourceHelper.Instance.BrowserWindow.SearchItem.color;
 			set => ItemSourceHelper.Instance.BrowserWindow.SearchItem.color = value;
 		}
+		[DefaultValue(typeof(Color), "0, 0, 0, 255")]
+		public Color SearchBarTextColor {
+			get => ItemSourceHelper.Instance.BrowserWindow.SearchItem.textColor;
+			set => ItemSourceHelper.Instance.BrowserWindow.SearchItem.textColor = value;
+		}
 		[DefaultValue(typeof(Color), "72, 67, 159, 255")]
 		public Color ItemSlotColor { get; set; }
 		[DefaultValue(typeof(Color), "80, 144, 255, 255")]

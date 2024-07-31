@@ -88,6 +88,9 @@ ItemSourceFilter: {
 	ToolTypeFilter_Minecarts.DisplayName: Minecarts
 	PetFilter.DisplayName: Pets
 	ToolTypeFilter_LightPets.DisplayName: Light Pets
+	CraftableFilter.DisplayName: Crafted
+	ItemLootFilter.DisplayName: Item Loot
+	NPCLootFilter.DisplayName: NPC Loot
 }
 
 AmmoName: {
@@ -106,23 +109,32 @@ Keybinds: {
 
 ItemSourceType: {
 	CraftingItemSourceType.DisplayName: Crafting
-	ShimmerItemSourceType.DisplayName: Shimmer
+	ShimmerItemSourceType.DisplayName: Shimmer Transformation
 	ShopItemSourceType.DisplayName: NPC Shops
 }
 
 Close: Close
-FilterList.HelpText:
-	'''
-	Hold shift to combine normally incompatible filters
-	Combined filters will match any entries that any filter in them matches
-	Hold control to invert filters
-	'''
+
+FilterList: {
+	ClearButton: Clear Selected Filters
+	HelpText:
+		'''
+		The bottom row displays sorting methods and subfilters (when applicable)
+		Scroll to see more filters and subfilters
+		Hold shift to combine normally incompatible filters
+		Combined filters will match any entries that any filter in them matches
+		Hold control to invert filters
+		Clicking on the active sorting method will reverse it
+		'''
+}
+
 Search.HelpText:
 	'''
 	Searches in item names and tooltips by default
 	Start query with ^ to only search in names
 	Start query with # to only search in tooltips
 	Use commas to separate search queries
+	This field supports arrow keys and all vanilla chat controls
 	'''
 
 Configs: {
@@ -146,6 +158,11 @@ Configs: {
 
 		SearchBarColor: {
 			Label: Search Bar Color
+			Tooltip: ""
+		}
+
+		SearchBarTextColor: {
+			Label: Search Bar Text Color
 			Tooltip: ""
 		}
 
@@ -197,7 +214,7 @@ Configs: {
 			Label: Auto Search Time
 			Tooltip:
 				'''
-				How many ticks the search bar will wait after you stop typing to update its search without pressing enter
+				How many ticks the search bar will wait after you stop typing to update its search automatically
 				Set to -1 to disable
 				'''
 		}
