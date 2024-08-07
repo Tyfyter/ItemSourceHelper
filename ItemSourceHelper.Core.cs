@@ -10,6 +10,7 @@ using System.Linq;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.GameContent;
+using Terraria.GameContent.ItemDropRules;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
@@ -51,6 +52,27 @@ public abstract class ItemSourceType : ModTexturedType, ILocalizedModType {
 	}
 	public virtual void PostSetupRecipes() { }
 	public virtual IEnumerable<ItemSourceFilter> ChildFilters() => [];
+}
+public abstract class LootSourceType : ModTexturedType, ILocalizedModType {
+	public string LocalizationCategory => "ItemSourceType";
+	public virtual LocalizedText DisplayName => this.GetLocalization("DisplayName");
+	public abstract IEnumerable<LootSource> FillSourceList();
+	public int Type { get; private set; }
+	protected override void Register() {
+		ModTypeLookup<LootSourceType>.Register(this);
+		Type = ItemSourceHelper.Instance.LootSourceTypes.Count;
+		ItemSourceHelper.Instance.LootSourceTypes.Add(this);
+		Mod.AddContent(new LootSourceTypeFilter(this));
+		_ = DisplayName.Value;
+	}
+	public sealed override void SetupContent() {
+		SetStaticDefaults();
+	}
+	public virtual void PostSetupRecipes() { }
+	public virtual IEnumerable<LootSourceFilter> ChildFilters() => [];
+	public abstract List<DropRateInfo> GetDrops(int type);
+	public abstract void DrawSource(SpriteBatch spriteBatch, int type, Vector2 position, bool hovering);
+	public abstract Dictionary<string, string> GetSearchData(int type);
 }
 public interface IFilterBase { }
 public interface IFilter<T> : IFilterBase {
@@ -116,13 +138,23 @@ public class SourceTypeFilter(ItemSourceType sourceType) : ItemSourceFilter {
 	public override IEnumerable<ItemSourceFilter> ChildFilters() => SourceType.ChildFilters();
 	public override bool Matches(ItemSource source) => source.SourceType == SourceType;
 }
-public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFilter<ItemSource> {
-	public string LocalizationCategory => "ItemSourceFilter";
+[Autoload(false)]
+public class LootSourceTypeFilter(LootSourceType sourceType) : LootSourceFilter {
+	public LootSourceType SourceType => sourceType;
+	public override string Name => "SourceTypeFilter_" + SourceType.FullName;
+	public override string Texture => SourceType.Texture;
+	protected override string FilterChannelName => "SourceType";
+	public override LocalizedText DisplayName => SourceType.DisplayName;
+	public override IEnumerable<LootSourceFilter> ChildFilters() => SourceType.ChildFilters();
+	public override bool Matches(LootSource source) => source.SourceType == SourceType;
+}
+public abstract class SourceFilterBase<T> : ModTexturedType, ILocalizedModType, IFilter<T> {
+	public abstract string LocalizationCategory { get; }
 	public virtual LocalizedText DisplayName => Mod is null ? ItemSourceHelper.GetLocalization(this) : this.GetLocalization("DisplayName");
 	public virtual int DisplayNameRarity => ItemRarityID.White;
 	public virtual string DisplayNameText => DisplayName.Value;
-	public int Type { get; private set; }
-	public int FilterChannel { get; private set; }
+	public int Type { get; protected set; }
+	public int FilterChannel { get; protected set; }
 	protected virtual string FilterChannelName => null;
 	protected virtual int? FilterChannelTargetPlacement => null;
 	protected virtual bool IsChildFilter => false;
@@ -145,14 +177,44 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFi
 		SetStaticDefaults();
 		_ = DisplayNameText;
 	}
-	public virtual void SetupChildren() {
-		ActiveChildren = new List<IFilter<ItemSource>>();
-	}
+	public abstract void SetupChildren();
 	public virtual void PostSetupRecipes() { }
 	public virtual bool ShouldHide() => false;
 	public void LateRegister() {
 		Register();
 		SetupContent();
+	}
+	public abstract bool Matches(T source);
+	public virtual IEnumerable<IFilter<T>> ChildFilters() => [];
+	protected void UseItemTexture(int itemType) {
+		Main.instance.LoadItem(itemType);
+		texture = TextureAssets.Item[itemType];
+		animation = Main.itemAnimations[itemType];
+	}
+	public ICollection<IFilter<T>> ActiveChildren { get; protected set; }
+}
+public abstract class LootSourceFilter : SourceFilterBase<LootSource> {
+	public override string LocalizationCategory => "LootSourceFilter";
+	public override void SetupChildren() {
+		ActiveChildren = new List<IFilter<LootSource>>();
+	}
+	protected sealed override void Register() {
+		ModTypeLookup<LootSourceFilter>.Register(this);
+		if (IsChildFilter) {
+			Type = -(++ItemSourceHelper.Instance.ChildFilterCount);
+		} else {
+			Type = ItemSourceHelper.Instance.LootFilters.Count;
+			ItemSourceHelper.Instance.LootFilters.Add(this);
+		}
+		if (!ModContent.RequestIfExists(Texture, out texture)) {
+			texture = Asset<Texture2D>.Empty;
+		}
+	}
+}
+public abstract class ItemSourceFilter : SourceFilterBase<ItemSource> {
+	public override string LocalizationCategory => "ItemSourceFilter";
+	public override void SetupChildren() {
+		ActiveChildren = new List<IFilter<ItemSource>>();
 	}
 	protected sealed override void Register() {
 		ModTypeLookup<ItemSourceFilter>.Register(this);
@@ -166,14 +228,6 @@ public abstract class ItemSourceFilter : ModTexturedType, ILocalizedModType, IFi
 			texture = Asset<Texture2D>.Empty;
 		}
 	}
-	public abstract bool Matches(ItemSource source);
-	public virtual IEnumerable<IFilter<ItemSource>> ChildFilters() => [];
-	protected void UseItemTexture(int itemType) {
-		Main.instance.LoadItem(itemType);
-		texture = TextureAssets.Item[itemType];
-		animation = Main.itemAnimations[itemType];
-	}
-	public ICollection<IFilter<ItemSource>> ActiveChildren { get; private set; }
 }
 public abstract class ItemFilter : ItemSourceFilter, IFilter<Item> {
 	public override void SetupChildren() {

@@ -47,12 +47,22 @@ namespace ItemSourceHelper {
 		public Color ItemSlotColor { get; set; }
 		[DefaultValue(typeof(Color), "80, 144, 255, 255")]
 		public Color HoveredItemSlotColor { get; set; }
+
 		[DefaultValue(typeof(Color), "80, 207, 129, 255")]
 		public Color ItemBrowserColor { get; set; }
 		[DefaultValue(typeof(Color), "40, 128, 64, 255")]
 		public Color ItemFilterListColor { get; set; }
 		[DefaultValue(typeof(Color), "40, 160, 100, 255")]
 		public Color ItemsListColor { get; set; }
+
+		[DefaultValue(typeof(Color), "207, 129, 80, 255")]
+		public Color LootBrowserColor { get; set; }
+		[DefaultValue(typeof(Color), "128, 64, 40, 255")]
+		public Color LootFilterListColor { get; set; }
+		[DefaultValue(typeof(Color), "160, 100, 40, 255")]
+		public Color LootListColor { get; set; }
+		[DefaultValue(typeof(Color), "255, 144, 80, 255")]
+		public Color DropListColor { get; set; }
 	}
 	public class ItemSourceHelperPositions : ModConfig {
 		public override ConfigScope Mode => ConfigScope.ClientSide;

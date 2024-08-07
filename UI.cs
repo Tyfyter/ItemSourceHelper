@@ -16,12 +16,14 @@ using System.Threading.Tasks;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.GameContent;
+using Terraria.GameContent.ItemDropRules;
 using Terraria.GameInput;
 using Terraria.Graphics.Effects;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.UI;
+using Terraria.UI.Chat;
 
 namespace ItemSourceHelper {
 	public class ItemSourceBrowser : GameInterfaceLayer, IScrollableUIItem {
@@ -36,22 +38,8 @@ namespace ItemSourceHelper {
 		public FilterListGridItem<Item> ItemFilterList => ItemBrowser.ItemFilterList;
 		public FilteredEnumerable<Item> ActiveItemFilters => ItemBrowser.ActiveItemFilters;
 		public ItemBrowserWindow ItemBrowser => ModContent.GetInstance<ItemBrowserWindow>();
-		public static bool isItemBrowser = false;
-		public ItemSourceBrowser() : base($"{nameof(ItemSourceHelper)}: Browser", InterfaceScaleType.UI) {
-			SlidyThingGridItem slidyThing = new(() => ref isItemBrowser, Language.GetOrRegister("Mods.ItemSourceHelper.BrowserToggleTip"), () => {
-				ItemSourceBrowser window = ItemSourceHelper.Instance.BrowserWindow;
-				if (isItemBrowser) {
-					//window.SourceBrowser.items[5].
-					int height = window.ConditionsItem.GetHeight();
-					window.SourceBrowser.Height -= height - 2;
-					window.ItemBrowser.Resize();
-				} else {
-					int height = window.ConditionsItem.GetHeight();
-					window.SourceBrowser.Height += height - 2;
-					window.SourceBrowser.Resize();
-				}
-			});
-		}
+		public static bool isItemBrowser => ItemSourceHelper.Instance.BrowserWindow.selectedTab == ItemSourceHelper.Instance.BrowserWindow.ItemBrowser.Index;
+		public ItemSourceBrowser() : base($"{nameof(ItemSourceHelper)}: Browser", InterfaceScaleType.UI) { }
 		bool tabOverflow = false;
 		protected override bool DrawSelf() {
 			if (ItemSourceHelperPositions.Instance is null || !isActive) return true;
@@ -65,12 +53,18 @@ namespace ItemSourceHelper {
 			float inventoryScale = Main.inventoryScale;
 			Main.inventoryScale = 0.75f;
 			browser.Recalculate();
+
 			tabOverflow = false;
+			bool mouseInterface = Main.LocalPlayer.mouseInterface;
+			Main.LocalPlayer.mouseInterface = false;
 			for (int i = 0; i < Windows.Count; i++) {
 				if (i != selectedTab) tabOverflow |= DrawTab(i);
 			}
+			browser.blockUseHandles |= Main.LocalPlayer.mouseInterface;
+			Main.LocalPlayer.mouseInterface |= mouseInterface;
 			browser.Draw(Main.spriteBatch);
 			tabOverflow |= DrawTab(selectedTab);
+
 			Main.inventoryScale = inventoryScale;
 			return true;
 		}
@@ -137,15 +131,18 @@ namespace ItemSourceHelper {
 		int selectedTab = -1;
 		public int tabScroll = 0;
 		public void Scroll(int direction) {
+			//Main.UIScale += direction * 0.05f;
 			if (tabOverflow && direction > 0 || tabScroll > 0 && direction < 0) tabScroll += direction;
 		}
-		public void SetTab(int index) {
+		public void SetTab(int index, bool clearFilters = false) {
 			Windows[selectedTab].OnLostFocus();
 			selectedTab = index;
+			if (clearFilters) Windows[selectedTab].ResetItems();
 		}
-		public void SetTab<T>() where T : WindowElement {
-			SetTab(ModContent.GetInstance<T>().Index);
+		public void SetTab<T>(bool clearFilters = false) where T : WindowElement {
+			SetTab(ModContent.GetInstance<T>().Index, clearFilters);
 		}
+		public bool IsTabActive<T>() where T : WindowElement => selectedTab == ModContent.GetInstance<T>().Index;
 		bool isActive = false;
 		public void Toggle() {
 			if (isActive) Close();
@@ -482,123 +479,26 @@ namespace ItemSourceHelper {
 			activeFilters.ClearSelectedFilters();
 		}
 	}
-	public class ItemSourceListGridItem : GridItem, IScrollableUIItem {
-		public IEnumerable<ItemSource> items;
-		public int scroll;
-		bool cutOff = false;
-		int lastItemsPerRow = -1;
-		int doubleClickTime = 0;
-		int doubleClickItem = 0;
-		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
-			Color color = this.color;
-			spriteBatch.DrawRoundedRetangle(bounds, color);
-			//bounds.X += 12;
-			//bounds.Y += 10;
-			//bounds.Width -= 8;
-			bounds.Height -= 1;
-			Point mousePos = Main.MouseScreen.ToPoint();
-			if (bounds.Contains(mousePos)) {
-				this.CaptureScroll();
-				Main.LocalPlayer.mouseInterface = true;
-			}
-			cutOff = false;
-			if (doubleClickTime > 0 && --doubleClickTime <= 0) doubleClickItem = 0;
-			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
-				bool canHover = bounds.Contains(Main.mouseX, Main.mouseY);
-				Texture2D texture = TextureAssets.InventoryBack13.Value;
-				int size = (int)(52 * Main.inventoryScale);
-				const int padding = 2;
-				int sizeWithPadding = size + padding;
-
-				int minX = bounds.X + 8;
-				int baseX = minX;
-				int x = baseX;
-				int maxX = bounds.X + bounds.Width - size;
-				int y = bounds.Y + 6;
-				int maxY = bounds.Y + bounds.Height - size / 2;
-				int itemsPerRow = (int)(((maxX - padding) - minX - 1) / (float)sizeWithPadding) + 1;
-				if (lastItemsPerRow != -1 && itemsPerRow != lastItemsPerRow) {
-					int oldSkips = lastItemsPerRow * scroll;
-					int newSkips = itemsPerRow * scroll;
-					float ratio = oldSkips / (float)newSkips;
-					scroll = (int)Math.Round(ratio * scroll);
-				}
-				Vector2 position = new();
-				Color normalColor = ItemSourceHelperConfig.Instance.ItemSlotColor;
-				Color hoverColor = ItemSourceHelperConfig.Instance.HoveredItemSlotColor;
-				bool hadAnyItems = items.Any();
-				bool displayedAnyItems = false;
-				int overscrollFixerTries = 0;
-				retry:
-				foreach (ItemSource itemSource in items.Skip(itemsPerRow * scroll)) {
-					if (x >= maxX - padding) {
-						x = baseX;
-						y += sizeWithPadding;
-						if (y >= maxY - padding) {
-							cutOff = true;
-							break;
-						}
-					}
-					hadAnyItems = true;
-					if (x >= minX - size) {
-						displayedAnyItems = true;
-						Item item = itemSource.Item;
-						position.X = x;
-						position.Y = y;
-						bool hover = canHover && Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size;
-						UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, texture, hover ? hoverColor : normalColor);
-						if (hover) {
-							if (items is FilteredEnumerable<ItemSource> filteredEnum) filteredEnum.FillTooltipAdders(TooltipAdderGlobal.TooltipModifiers);
-							ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
-							if (Main.mouseLeft && Main.mouseLeftRelease) {
-								ItemSourceHelper.Instance.BrowserWindow.Ingredience.items = itemSource.GetSourceItems().ToArray();
-								ItemSourceHelper.Instance.BrowserWindow.ConditionsItem.SetConditionsFrom(itemSource);
-								if (item.type != doubleClickItem) doubleClickTime = 0;
-								if (doubleClickTime > 0) {
-									ItemSourceHelper.Instance.BrowserWindow.FilterItem.SetItem(item);
-									ItemSourceBrowser.isItemBrowser = false;
-									ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>();
-									break;
-								} else {
-									doubleClickTime = 15;
-									doubleClickItem = item.type;
-								}
-							}
-						}
-					}
-					x += sizeWithPadding;
-				}
-				if (hadAnyItems && !displayedAnyItems && ++overscrollFixerTries < 100) {
-					scroll--;
-					goto retry;
-				}
-				lastItemsPerRow = itemsPerRow;
-			}
-		}
-
-		public void Scroll(int direction) {
-			if (!cutOff && direction > 0) return;
-			if (scroll <= 0 && direction < 0) return;
-			scroll += direction;
-		}
-		public override void Reset() {
-			scroll = 0;
-			lastItemsPerRow = -1;
-		}
-	}
 	public class IngredientListGridItem : GridItem, IScrollableUIItem {
-		public Item[] items;
+		Item[] items = [];
 		int scroll;
 		bool cutOff;
 		int doubleClickTime = 0;
 		int doubleClickItem = 0;
+		public void SetItems(Item[] items) {
+			this.items = items;
+			scroll = 0;
+		}
 		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
 			spriteBatch.DrawRoundedRetangle(bounds, color);
 			bounds.Height -= 1;
 			if (doubleClickTime > 0 && --doubleClickTime <= 0) doubleClickItem = 0;
 			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
 				bool canHover = bounds.Contains(Main.mouseX, Main.mouseY);
-				Main.LocalPlayer.mouseInterface |= canHover;
+				if (canHover) {
+					this.CaptureScroll();
+					Main.LocalPlayer.mouseInterface = true;
+				}
 				int size = (int)(52 * Main.inventoryScale);
 				const int padding = 3;
 				int sizeWithPadding = size + padding;
@@ -627,14 +527,12 @@ namespace ItemSourceHelper {
 								if (doubleClickTime > 0) {
 									if (Main.mouseLeft) {
 										ItemSourceHelper.Instance.BrowserWindow.FilterItem.SetItem(items[i]);
-										ItemSourceBrowser.isItemBrowser = false;
 										ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>();
 									} else {
 										if (items[i].TryGetGlobalItem(out AnimatedRecipeGroupGlobalItem global) && global.recipeGroup != -1) {
 											MaterialFilter materialFilter = ModContent.GetInstance<MaterialFilter>();
 											foreach (IFilter<Item> filter in materialFilter.ChildItemFilters()) {
 												if (filter is RecipeGroupFilter recipeGroupFilter && recipeGroupFilter.RecipeGroup.RegisteredId == global.recipeGroup) {
-													ItemSourceBrowser.isItemBrowser = true;
 													ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>();
 													ItemSourceHelper.Instance.BrowserWindow.ItemFilterList.SetFilter(materialFilter, true);
 													ItemSourceHelper.Instance.BrowserWindow.ItemFilterList.SetFilter(filter, true);
@@ -674,7 +572,135 @@ namespace ItemSourceHelper {
 			scroll = 0;
 		}
 	}
-	public class FilteredEnumerable<T> : IEnumerable<T> {
+	public class DropListGridItem : GridItem, IScrollableUIItem {
+		List<DropRateInfo> drops = [];
+		int scroll;
+		bool cutOff;
+		int doubleClickTime = 0;
+		int doubleClickItem = 0;
+		public void SetDrops(List<DropRateInfo> drops) {
+			this.drops = drops;
+			scroll = 0;
+		}
+		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
+			spriteBatch.DrawRoundedRetangle(bounds, color);
+			bounds.Height -= 1;
+			if (doubleClickTime > 0 && --doubleClickTime <= 0) doubleClickItem = 0;
+			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
+				bool canHover = bounds.Contains(Main.mouseX, Main.mouseY);
+				if (canHover) {
+					this.CaptureScroll();
+					Main.LocalPlayer.mouseInterface = true;
+				}
+				int size = (int)(52 * Main.inventoryScale);
+				const int padding = 3;
+				int sizeWithPadding = size + padding;
+
+				int minX = bounds.X + 8;
+				int baseX = minX - scroll * sizeWithPadding;
+				int x = baseX;
+				int maxX = bounds.X +  bounds.Width - size / 2;
+				int y = bounds.Y + 6;
+				int maxY = bounds.Y + bounds.Height - size / 2;
+				cutOff = false;
+				Vector2 position = new();
+				Texture2D texture = TextureAssets.InventoryBack13.Value;
+				Color normalColor = ItemSourceHelperConfig.Instance.ItemSlotColor;
+				Color hoverColor = ItemSourceHelperConfig.Instance.HoveredItemSlotColor;
+				int drew = 0;
+				for (int i = 0; i < drops.Count; i++) {
+					if (x >= minX - size) {
+						drew++;
+						position.X = x;
+						position.Y = y;
+						//ItemSlot.Draw(spriteBatch, items, ItemSlot.Context.CraftingMaterial, i, position);
+						Item item = ContentSamples.ItemsByType[drops[i].itemId];
+						if (canHover && Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size) {
+							UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, texture, hoverColor);
+							tooltipModifier.info = drops[i];
+							TooltipAdderGlobal.TooltipModifiers.Add(tooltipModifier);
+							ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
+							if ((Main.mouseLeft && Main.mouseLeftRelease) || (Main.mouseRight && Main.mouseRightRelease)) {
+								if (drops[i].itemId != doubleClickItem) doubleClickTime = 0;
+								if (doubleClickTime > 0) {
+									if (Main.mouseLeft) {
+										//ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>();
+										//ModContent.GetInstance<ItemBrowserWindow>().ItemList.ScrollToItem(item.type);
+									}
+								} else {
+									doubleClickTime = 15;
+									doubleClickItem = item.type;
+								}
+							}
+						} else {
+							UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, texture, normalColor);
+						}
+						string chanceText;
+						if (drops[i].dropRate >= 0.1f) {
+							chanceText = $"{drops[i].dropRate:P0}";
+						} else {
+							chanceText = $"{drops[i].dropRate:0.##}%";
+						}
+						ChatManager.DrawColorCodedStringWithShadow(
+							spriteBatch,
+							FontAssets.ItemStack.Value,
+							chanceText,
+							position + new Vector2(6f, 30f) * Main.inventoryScale,
+							Color.White,
+							0f,
+							Vector2.Zero,
+							new Vector2(Main.inventoryScale),
+							-1f,
+							Main.inventoryScale
+						);
+					}
+					x += sizeWithPadding;
+					if (x >= maxX) {
+						x = baseX;
+						y += sizeWithPadding;
+						if (y >= maxY) {
+							cutOff = true;
+							break;
+						}
+					}
+				}
+				if (scroll > 0 && drew < (bounds.Width / sizeWithPadding) * 0.5f) scroll -= 1;
+			}
+		}
+		public void Scroll(int direction) {
+			if (!cutOff && direction > 0) return;
+			if (scroll <= 0 && direction < 0) return;
+			scroll += direction;
+		}
+		public override void Reset() {
+			drops = [];
+			scroll = 0;
+		}
+		readonly TooltipModifier tooltipModifier = new();
+		class TooltipModifier : ITooltipModifier {
+			public DropRateInfo info;
+			public void ModifyTooltips(Item item, List<TooltipLine> tooltips) {
+				string amountText = null;
+				if (info.stackMin != info.stackMax) {
+					amountText = $"{info.stackMin}-{info.stackMax}";
+				} else if (info.stackMin > 1) {
+					amountText = info.stackMin.ToString();
+				}
+				if (amountText is not null) tooltips[0].Text += $" ({amountText})";
+				if (info.conditions is not null) for (int i = 0; i < info.conditions.Count; i++) {
+					string description = info.conditions[i].GetConditionDescription();
+					if (description is not null) tooltips.Add(new(ItemSourceHelper.Instance, "Condition" + i, description));
+				}
+			}
+		}
+	}
+	public interface ISearchFilterReceiver {
+		public void SetSearchFilters(IEnumerable<SearchFilter> filters);
+	}
+	public interface IFilterSlotReceiver {
+		public void SetFilterItem(Item item);
+	}
+	public class FilteredEnumerable<T> : IEnumerable<T>, ISearchFilterReceiver, IFilterSlotReceiver {
 		ISorter<T> defaultSortMethod;
 		ISorter<T> sourceSourceSource;
 		List<T> sourceSource;
@@ -927,30 +953,12 @@ namespace ItemSourceHelper {
 		bool DoesntMatchSlot((T source, int index) data) => !MatchesSlot(data.source);
 		public bool MatchesSlot(T value) {
 			if (filterItem?.IsAir != false) return true;
-			if (value is ItemSource source) {
-				RecipeGroup recipeGroup = null;
-				if (filterItem.TryGetGlobalItem(out AnimatedRecipeGroupGlobalItem groupItem) && groupItem.recipeGroup != -1) {
-					RecipeGroup.recipeGroups.TryGetValue(groupItem.recipeGroup, out recipeGroup);
-					if (recipeGroup is not null && recipeGroup.ValidItems.Count == 1) recipeGroup = null;
-				}
-				if (recipeGroup is null) {
-					if (source.ItemType == filterItem.type) return true;
-					foreach (Item ingredient in source.GetSourceItems()) {
-						if (ingredient.type == filterItem.type) return true;
-					}
-				}
-				foreach (HashSet<int> group in source.GetSourceGroups()) {
-					if (ReferenceEquals(group, recipeGroup?.ValidItems)) return true;
-					if (group.Contains(filterItem.type)) return true;
-				}
-			} else if (value is Item item) {
-				if (item.type == filterItem.type) return true;
-			}
-			return false;
+			return SlotMatcher(value, filterItem);
 		}
+		public static Func<T, Item, bool> SlotMatcher = (_, _) => false;
 		IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 	}
-	public class SingleSlotGridItem : GridItem {
+	public class SingleSlotGridItem(IFilterSlotReceiver receiver) : GridItem {
 		Item item;
 		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
 			item ??= new();
@@ -978,14 +986,14 @@ namespace ItemSourceHelper {
 		public void SetItem(int type) => SetItem(new Item(type));
 		public void SetItem(Item type) {
 			item = type?.Clone() ?? new();
-			ItemSourceHelper.Instance.BrowserWindow.ActiveSourceFilters.SetFilterItem(item);
+			receiver.SetFilterItem(item);
 		}
 		public override void Reset() {
 			item ??= new();
 			item.TurnToAir();
 		}
 	}
-	public class SearchGridItem : GridItem {
+	public class SearchGridItem(ISearchFilterReceiver receiver) : GridItem {
 		public bool focused = false;
 		public int cursorIndex = 0;
 		public StringBuilder text = new();
@@ -995,8 +1003,7 @@ namespace ItemSourceHelper {
 			lastSearch = search;
 			ItemSourceBrowser browserWindow = ItemSourceHelper.Instance.BrowserWindow;
 			List<SearchFilter> filters = search.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(SearchLoader.Parse).ToList();
-			browserWindow.ActiveSourceFilters.SetSearchFilters(filters);
-			browserWindow.ActiveItemFilters.SetSearchFilters(filters);
+			receiver.SetSearchFilters(filters);
 		}
 		void Copy(bool cut = false) {
 			Platform.Get<IClipboard>().Value = text.ToString();
@@ -1257,8 +1264,8 @@ namespace ItemSourceHelper {
 		public int scroll;
 		bool cutOff = false;
 		int lastItemsPerRow = -1;
-		int doubleClickTime = 0;
-		int doubleClickItem = 0;
+		public int doubleClickTime = 0;
+		Thing doubleClickThing = default;
 		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
 			Color color = this.color;
 			spriteBatch.DrawRoundedRetangle(bounds, color);
@@ -1272,7 +1279,7 @@ namespace ItemSourceHelper {
 				Main.LocalPlayer.mouseInterface = true;
 			}
 			cutOff = false;
-			if (doubleClickTime > 0 && --doubleClickTime <= 0) doubleClickItem = 0;
+			if (doubleClickTime > 0 && --doubleClickTime <= 0) doubleClickThing = default;
 			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
 				bool canHover = bounds.Contains(Main.mouseX, Main.mouseY);
 				Texture2D texture = TextureAssets.InventoryBack13.Value;
@@ -1312,140 +1319,18 @@ namespace ItemSourceHelper {
 						displayedAnyItems = true;
 						position.X = x;
 						position.Y = y;
-						DrawThing(thing, position, canHover && Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size);
-					}
-					x += sizeWithPadding;
-				}
-				if (hadAnyItems && !displayedAnyItems && ++overscrollFixerTries < 100) {
-					scroll--;
-					goto retry;
-				}
-				lastItemsPerRow = itemsPerRow;
-			}
-		}
-		public abstract void DrawThing(Thing thing, Vector2 position, bool hovering);
-		public void Scroll(int direction) {
-			if (!cutOff && direction > 0) return;
-			if (scroll <= 0 && direction < 0) return;
-			scroll += direction;
-		}
-		public override void Reset() {
-			scroll = 0;
-			lastItemsPerRow = -1;
-		}
-	}
-	public class ItemListGridItem : GridItem, IScrollableUIItem {
-		public IEnumerable<Item> items;
-		public int scroll;
-		bool cutOff = false;
-		int lastItemsPerRow = -1;
-		int doubleClickTime = 0;
-		int doubleClickItem = 0;
-		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
-			Color color = this.color;
-			spriteBatch.DrawRoundedRetangle(bounds, color);
-			//bounds.X += 12;
-			//bounds.Y += 10;
-			//bounds.Width -= 8;
-			bounds.Height -= 1;
-			Point mousePos = Main.MouseScreen.ToPoint();
-			if (bounds.Contains(mousePos)) {
-				this.CaptureScroll();
-				Main.LocalPlayer.mouseInterface = true;
-			}
-			cutOff = false;
-			if (doubleClickTime > 0 && --doubleClickTime <= 0) doubleClickItem = 0;
-			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
-				bool canHover = bounds.Contains(Main.mouseX, Main.mouseY);
-				Texture2D texture = TextureAssets.InventoryBack13.Value;
-				int size = (int)(52 * Main.inventoryScale);
-				const int padding = 2;
-				int sizeWithPadding = size + padding;
-
-				int minX = bounds.X + 8;
-				int baseX = minX;
-				int x = baseX;
-				int maxX = bounds.X + bounds.Width - size;
-				int y = bounds.Y + 6;
-				int maxY = bounds.Y + bounds.Height - size / 2;
-				int itemsPerRow = (int)(((maxX - padding) - minX - 1) / (float)sizeWithPadding) + 1;
-				if (lastItemsPerRow != -1 && itemsPerRow != lastItemsPerRow) {
-					int oldSkips = lastItemsPerRow * scroll;
-					int newSkips = itemsPerRow * scroll;
-					float ratio = oldSkips / (float)newSkips;
-					scroll = (int)Math.Round(ratio * scroll);
-				}
-				Vector2 position = new();
-				Color normalColor = ItemSourceHelperConfig.Instance.ItemSlotColor;
-				Color hoverColor = ItemSourceHelperConfig.Instance.HoveredItemSlotColor;
-				bool hadAnyItems = items.Any();
-				bool displayedAnyItems = false;
-				int overscrollFixerTries = 0;
-				retry:
-				foreach (Item _item in items.Skip(itemsPerRow * scroll)) {
-					Item item = _item;
-					if (x >= maxX - padding) {
-						x = baseX;
-						y += sizeWithPadding;
-						if (y >= maxY - padding) {
-							cutOff = true;
-							break;
-						}
-					}
-					hadAnyItems = true;
-					if (x >= minX - size) {
-						displayedAnyItems = true;
-						position.X = x;
-						position.Y = y;
-						bool hover = canHover && Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size;
-						UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, texture, hover ? hoverColor : normalColor);
-						if (hover) {
-							if (items is FilteredEnumerable<Item> filteredEnum) filteredEnum.FillTooltipAdders(TooltipAdderGlobal.TooltipModifiers);
-							ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
-							if (Main.mouseLeft && Main.mouseLeftRelease) {
-								if (item.type != doubleClickItem) doubleClickTime = 0;
-								if (doubleClickTime > 0) {
-									ItemSourceHelper.Instance.BrowserWindow.FilterItem.SetItem(item);
-									ItemSourceBrowser.isItemBrowser = false;
-									ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>();
-								} else {
-									doubleClickTime = 15;
-									doubleClickItem = item.type;
-								}
+						bool hovering = canHover && Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size;
+						DrawThing(spriteBatch, thing, position, hovering);
+						if (hovering && ((Main.mouseLeft && Main.mouseLeftRelease) || (Main.mouseRight && Main.mouseRightRelease))) {
+							if (ReferenceEquals(thing, doubleClickThing)) doubleClickTime = 0;
+							if (doubleClickTime > 0) {
+								ClickThing(thing, true);
+							} else {
+								doubleClickTime = 15;
+								doubleClickThing = thing;
+								ClickThing(thing, false);
 							}
 						}
-						if (ItemSourceHelper.Instance.CraftableItems.Contains(item.type)) {
-							spriteBatch.Draw(
-								ItemSourceHelper.ItemIndicators.Value,
-								position + new Vector2(3, 3),
-								new Rectangle(0, 0, 8, 8),
-								Color.White
-							);
-						}
-						if (item.material) {
-							spriteBatch.Draw(
-								ItemSourceHelper.ItemIndicators.Value,
-								position + new Vector2(3, size - (8 + 3)),
-								new Rectangle(10, 0, 8, 8),
-								Color.White
-							);
-						}
-						if (ItemSourceHelper.Instance.NPCLootItems.Contains(item.type)) {
-							spriteBatch.Draw(
-								ItemSourceHelper.ItemIndicators.Value,
-								position + new Vector2(size - (8 + 3), 3),
-								new Rectangle(20, 0, 8, 8),
-								Color.White
-							);
-						}
-						if (ItemSourceHelper.Instance.ItemLootItems.Contains(item.type)) {
-							spriteBatch.Draw(
-								ItemSourceHelper.ItemIndicators.Value,
-								position + new Vector2(size - (8 + 3), size - (8 + 3)),
-								new Rectangle(30, 0, 8, 8),
-								Color.White
-							);
-						}
 					}
 					x += sizeWithPadding;
 				}
@@ -1456,7 +1341,8 @@ namespace ItemSourceHelper {
 				lastItemsPerRow = itemsPerRow;
 			}
 		}
-
+		public abstract void DrawThing(SpriteBatch spriteBatch, Thing thing, Vector2 position, bool hovering);
+		public abstract bool ClickThing(Thing thing, bool doubleClick);
 		public void Scroll(int direction) {
 			if (!cutOff && direction > 0) return;
 			if (scroll <= 0 && direction < 0) return;
@@ -1606,6 +1492,7 @@ namespace ItemSourceHelper {
 		public abstract Color BackgroundColor { get; }
 		public void Unload() {}
 		public abstract void SetDefaults();
+		public abstract void SetDefaultSortMethod();
 		public virtual void OnLostFocus() { }
 		///<summary>
 		/// The mod this belongs to.
@@ -1634,7 +1521,7 @@ namespace ItemSourceHelper {
 		RectangleHandles heldHandle;
 		Vector2 heldHandleOffset;
 		public Color color => BackgroundColor;
-		bool lastFrameHover = false;
+		public bool blockUseHandles = false;
 		public override void OnInitialize() {
 			heights = new float[HeightWeights.Length];
 			widths = new float[WidthWeights.Length];
@@ -1716,7 +1603,7 @@ namespace ItemSourceHelper {
 				bool matches = segment.Matches(handles);
 				Color partColor = color;
 				bool discolor = false;
-				if (!lastFrameHover) {
+				if (!blockUseHandles) {
 					if (heldHandle == 0) {
 						if (bounds.Contains(mousePos)) {
 							hoveringSomewhere = true;
@@ -1750,9 +1637,9 @@ namespace ItemSourceHelper {
 					partColor
 				);
 			}
-			lastFrameHover = Main.LocalPlayer.mouseInterface;
+			blockUseHandles = Main.LocalPlayer.mouseInterface;
 			DrawCells(spriteBatch);
-			lastFrameHover ^= Main.LocalPlayer.mouseInterface;
+			blockUseHandles ^= Main.LocalPlayer.mouseInterface;
 			Main.LocalPlayer.mouseInterface |= hoveringSomewhere;
 		}
 		public new ref float Left => ref ItemSourceHelperPositions.Instance.SourceBrowserLeft;
@@ -2017,16 +1904,14 @@ namespace ItemSourceHelper {
 			return ((IEnumerable<UIElement>)[self]).Concat(self.Children.SelectMany(Descendants));
 		}
 		public static void DrawColoredItemSlot(SpriteBatch spriteBatch, Item[] items, int slot, Vector2 position, Texture2D backTexture, Color slotColor, Color lightColor = default, Color textColor = default, string beforeText = null, string afterText = null) {
-			
 			spriteBatch.Draw(backTexture, position, null, slotColor, 0f, Vector2.Zero, Main.inventoryScale, SpriteEffects.None, 0f);
 			if (beforeText is not null) {
-				Terraria.UI.Chat.ChatManager.DrawColorCodedStringWithShadow(spriteBatch, FontAssets.ItemStack.Value, beforeText, position + new Vector2(8f, 4f) * Main.inventoryScale, textColor, 0f, Vector2.Zero, new Vector2(Main.inventoryScale), -1f, Main.inventoryScale);
+				ChatManager.DrawColorCodedStringWithShadow(spriteBatch, FontAssets.ItemStack.Value, beforeText, position + new Vector2(8f, 4f) * Main.inventoryScale, textColor, 0f, Vector2.Zero, new Vector2(Main.inventoryScale), -1f, Main.inventoryScale);
 			}
 			ItemSlot.Draw(spriteBatch, items, ItemSlot.Context.ChatItem, slot, position, lightColor);
 			if (afterText is not null) {
-				Terraria.UI.Chat.ChatManager.DrawColorCodedStringWithShadow(spriteBatch, FontAssets.ItemStack.Value, afterText, position + new Vector2(8f, 4f) * Main.inventoryScale, textColor, 0f, Vector2.Zero, new Vector2(Main.inventoryScale), -1f, Main.inventoryScale);
+				ChatManager.DrawColorCodedStringWithShadow(spriteBatch, FontAssets.ItemStack.Value, afterText, position + new Vector2(8f, 4f) * Main.inventoryScale, textColor, 0f, Vector2.Zero, new Vector2(Main.inventoryScale), -1f, Main.inventoryScale);
 			}
-
 		}
 		public static StretchSegment[] RectangleSegments { get; private set; } = [
 			new(StretchLength.Position, StretchLength.Position, new(0, 0, 10), new(0, 0, 10), RectangleHandles.Top | RectangleHandles.Left),

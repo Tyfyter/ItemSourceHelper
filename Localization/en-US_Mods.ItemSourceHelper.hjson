@@ -111,6 +111,8 @@ ItemSourceType: {
 	CraftingItemSourceType.DisplayName: Crafting
 	ShimmerItemSourceType.DisplayName: Shimmer Transformation
 	ShopItemSourceType.DisplayName: NPC Shops
+	ItemLootSourceType.DisplayName: Mods.ItemSourceHelper.ItemSourceType.ItemLootSourceType.DisplayName
+	NPCLootSourceType.DisplayName: Mods.ItemSourceHelper.ItemSourceType.NPCLootSourceType.DisplayName
 }
 
 Close: Close
@@ -235,6 +237,26 @@ Configs: {
 
 		TabWidth: {
 			Label: Tab Width
+			Tooltip: ""
+		}
+
+		LootBrowserColor: {
+			Label: Loot Browser Color
+			Tooltip: ""
+		}
+
+		LootFilterListColor: {
+			Label: Loot Filter List Color
+			Tooltip: ""
+		}
+
+		LootListColor: {
+			Label: Loot List Color
+			Tooltip: ""
+		}
+
+		DropListColor: {
+			Label: Drop List Color
 			Tooltip: ""
 		}
 	}

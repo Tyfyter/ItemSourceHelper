@@ -19,13 +19,18 @@ using ReLogic.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria.GameContent.ItemDropRules;
 using ItemSourceHelper.Default;
+using Tyfyter.Utils;
+using Terraria.GameContent.Bestiary;
 
 namespace ItemSourceHelper;
 public class ItemSourceHelper : Mod {
 	public static ItemSourceHelper Instance { get; private set; }
 	internal List<ItemSource> Sources { get; private set; }
+	internal List<LootSource> LootSources { get; private set; }
 	public List<ItemSourceType> SourceTypes { get; private set; }
+	public List<LootSourceType> LootSourceTypes { get; private set; }
 	public List<ItemSourceFilter> Filters { get; private set; }
+	public List<LootSourceFilter> LootFilters { get; private set; }
 	public int ChildFilterCount { get; internal set; }
 	public ItemSourceBrowser BrowserWindow { get; private set; }
 	public Dictionary<int, int> IconicWeapons { get; private set; }
@@ -47,6 +52,9 @@ public class ItemSourceHelper : Mod {
 		SourceSorters = [];
 		SourceTypes = [];
 		Filters = [];
+		LootSources = [];
+		LootSourceTypes = [];
+		LootFilters = [];
 		IconicWeapons = new() {
 			[DamageClass.Melee.Type] = ItemID.NightsEdge,
 			[DamageClass.Ranged.Type] = ItemID.Handgun,
@@ -76,6 +84,34 @@ public class ItemSourceHelper : Mod {
 			["ModName"] = item?.ModItem?.Mod?.DisplayNameClean ?? "Terraria",
 			["ModInternalName"] = item?.ModItem?.Mod?.Name ?? "Terraria",
 		});
+		SearchLoader.RegisterSearchable<LootSource>(LootSource.GetSearchData);
+		FilteredEnumerable<ItemSource>.SlotMatcher = (source, filterItem) => {
+			RecipeGroup recipeGroup = null;
+			if (filterItem.TryGetGlobalItem(out AnimatedRecipeGroupGlobalItem groupItem) && groupItem.recipeGroup != -1) {
+				RecipeGroup.recipeGroups.TryGetValue(groupItem.recipeGroup, out recipeGroup);
+				if (recipeGroup is not null && recipeGroup.ValidItems.Count == 1) recipeGroup = null;
+			}
+			if (recipeGroup is null) {
+				if (source.ItemType == filterItem.type) return true;
+				foreach (Item ingredient in source.GetSourceItems()) {
+					if (ingredient.type == filterItem.type) return true;
+				}
+			}
+			foreach (HashSet<int> group in source.GetSourceGroups()) {
+				if (ReferenceEquals(group, recipeGroup?.ValidItems)) return true;
+				if (group.Contains(filterItem.type)) return true;
+			}
+			return false;
+		};
+		FilteredEnumerable<Item>.SlotMatcher = (item, filterItem) => item.type == filterItem.type;
+		FilteredEnumerable<LootSource>.SlotMatcher = (lootSource, filterItem) => {
+			if (lootSource.SourceType == ModContent.GetInstance<ItemLootSourceType>() && lootSource.Type == filterItem.type) return true;
+			foreach (DropRateInfo info in lootSource.SourceType.GetDrops(lootSource.Type)) {
+				if (info.itemId == filterItem.type) return true;
+			}
+			return false;
+		};
+		
 	}
 	public override void Load() {
 		OpenToItemHotkey = KeybindLoader.RegisterKeybind(this, "Open Browser To Hovered Item", nameof(Keys.OemOpenBrackets));
@@ -136,7 +172,7 @@ public class ItemSourceHelperSystem : ModSystem {
 		foreach (ItemSourceType sourceType in ItemSourceHelper.Instance.SourceTypes) sourceType.PostSetupRecipes();
 
 		ItemSourceHelper.Instance.Sources.AddRange(ItemSourceHelper.Instance.SourceTypes.SelectMany(s => s.FillSourceList()));
-		ItemSourceHelper.Instance.BrowserWindow.Ingredience.items = ItemSourceHelper.Instance.Sources.First().GetSourceItems().ToArray();
+		ItemSourceHelper.Instance.LootSources.AddRange(ItemSourceHelper.Instance.LootSourceTypes.SelectMany(s => s.FillSourceList()));
 		ItemSourceHelper.BestiarySearchBar = (UISearchBar)Main.BestiaryUI.Descendants().First(c => c is UISearchBar);
 		ItemSourceHelper.Instance.SourceSorters.Sort(new SorterComparer());
 		foreach (SourceSorter sorter in ItemSourceHelper.Instance.SourceSorters) {
@@ -144,8 +180,9 @@ public class ItemSourceHelperSystem : ModSystem {
 			if (sorter is ItemSorter itemSorter) itemSorter.SortItems();
 			sorter.SetupRequirements();
 		}
-		ItemSourceHelper.Instance.BrowserWindow.ActiveSourceFilters.SetDefaultSortMethod(ItemSourceHelper.Instance.SourceSorters[0]);
-		ItemSourceHelper.Instance.BrowserWindow.ActiveItemFilters.SetDefaultSortMethod(ItemSourceHelper.Instance.SourceSorters.TryCast<ItemSorter>().First());
+		for (int i = 0; i < ItemSourceBrowser.Windows.Count; i++) {
+			ItemSourceBrowser.Windows[i].SetDefaultSortMethod();
+		}
 		ItemSourceHelper.Instance.Filters.Sort(new FilterOrderComparer());
 		AnimatedRecipeGroupGlobalItem.PostSetupRecipes();
 		foreach (ItemSource item in ItemSourceHelper.Instance.Sources) {
@@ -210,7 +247,6 @@ public class ScrollingPlayer : ModPlayer {
 		if (ItemSourceHelper.OpenToItemHotkey.JustPressed) {
 			if (Main.HoverItem?.IsAir == false) {
 				ItemSourceHelper.Instance.BrowserWindow.Open();
-				ItemSourceBrowser.isItemBrowser = false;
 				ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>();
 				ItemSourceBrowser browserWindow = ItemSourceHelper.Instance.BrowserWindow;
 				browserWindow.Reset();

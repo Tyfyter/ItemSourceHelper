@@ -21,6 +21,9 @@ using Microsoft.Xna.Framework;
 using System.Text.RegularExpressions;
 using Stubble.Core.Imported;
 using Terraria.GameContent.Creative;
+using Terraria.GameContent.ItemDropRules;
+using Terraria.GameContent.Bestiary;
+using System.Reflection;
 
 namespace ItemSourceHelper.Default;
 #region shop
@@ -865,7 +868,7 @@ public partial class RarityFilter(int rare, string name, int iconicItem) : ItemF
 	public override LocalizedText DisplayName => Mod is null ? ItemSourceHelper.GetLocalization(this, makeDefaultValue: makeDefaultValue) : this.GetLocalization("DisplayName", makeDefaultValue: makeDefaultValue);
 	string makeDefaultValue() => Regex.Replace(name.Split("/")[^1].Replace("Rarity", "").Replace("_", ""), "([A-Z])", " $1").Trim();
 	public override bool Matches(Item item) => item.rare == rare;
-	public override bool ShouldHide() => !Craftable && !ItemSourceBrowser.isItemBrowser;
+	public override bool ShouldHide() => !Craftable && ItemSourceHelper.Instance.BrowserWindow.IsTabActive<SourceBrowserWindow>();
 }
 public class ResearchedFilter : ItemFilter {
 	public override void SetStaticDefaults() {
@@ -1068,7 +1071,8 @@ public class FlightTimeItemSorter : ItemSorter {
 	}
 }
 #endregion sorting methods
-#region tabs
+#region browsers
+#region source
 public class SourceBrowserWindow : WindowElement {
 	public FilterListGridItem<ItemSource> FilterList { get; private set; }
 	public ItemSourceListGridItem SourceList { get; private set; }
@@ -1090,16 +1094,15 @@ public class SourceBrowserWindow : WindowElement {
 				colorFunc = () => ItemSourceHelperConfig.Instance.SourceFilterListColor
 			},
 			[2] = SourceList = new() {
-				items = ActiveSourceFilters,
+				things = ActiveSourceFilters,
 				colorFunc = () => ItemSourceHelperConfig.Instance.SourcesListColor
 			},
 			[3] = Ingredience = new() {
-				items = [],
 				colorFunc = () => ItemSourceHelperConfig.Instance.IngredientListColor
 			},
-			[4] = FilterItem = new(),
+			[4] = FilterItem = new(ActiveSourceFilters),
 			[5] = ConditionsItem = new(),
-			[6] = SearchItem = new()
+			[6] = SearchItem = new(ActiveSourceFilters)
 		};
 		itemIDs = new int[3, 7] {
 			{ 6, 4, 4,-1, 2, 3, 5 },
@@ -1114,7 +1117,32 @@ public class SourceBrowserWindow : WindowElement {
 		int index = NPC.TypeToDefaultHeadIndex(NPCID.Guide);
 		if (index != -1) texture = TextureAssets.NpcHead[index];
 	}
+	public override void SetDefaultSortMethod() {
+		ActiveSourceFilters.SetDefaultSortMethod(ItemSourceHelper.Instance.SourceSorters[0]);
+	}
 }
+public class ItemSourceListGridItem : ThingListGridItem<ItemSource> {
+	public override bool ClickThing(ItemSource itemSource, bool doubleClick) {
+		if (doubleClick) {
+			ItemSourceHelper.Instance.BrowserWindow.FilterItem.SetItem(itemSource.Item);
+			ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>();
+			return true;
+		}
+		ItemSourceHelper.Instance.BrowserWindow.Ingredience.SetItems(itemSource.GetSourceItems().ToArray());
+		ItemSourceHelper.Instance.BrowserWindow.ConditionsItem.SetConditionsFrom(itemSource);
+		return false;
+	}
+	public override void DrawThing(SpriteBatch spriteBatch, ItemSource itemSource, Vector2 position, bool hovering) {
+		Item item = itemSource.Item;
+		UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, TextureAssets.InventoryBack13.Value, hovering ? ItemSourceHelperConfig.Instance.HoveredItemSlotColor : ItemSourceHelperConfig.Instance.ItemSlotColor);
+		if (hovering) {
+			if (things is FilteredEnumerable<ItemSource> filteredEnum) filteredEnum.FillTooltipAdders(TooltipAdderGlobal.TooltipModifiers);
+			ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
+		}
+	}
+}
+#endregion source
+#region item
 public class ItemBrowserWindow : WindowElement {
 	public SearchGridItem SearchItem { get; private set; }
 	public ItemListGridItem ItemList { get; private set; }
@@ -1132,11 +1160,11 @@ public class ItemBrowserWindow : WindowElement {
 				colorFunc = () => ItemSourceHelperConfig.Instance.ItemFilterListColor
 			},
 			[2] = ItemList = new() {
-				items = ActiveItemFilters,
+				things = ActiveItemFilters,
 				colorFunc = () => ItemSourceHelperConfig.Instance.ItemsListColor
 			},
 			[4] = new CornerSlotGridItem(ItemFilterList),
-			[6] = SearchItem = new()
+			[6] = SearchItem = new(ActiveItemFilters)
 		};
 		itemIDs = new int[3, 7] {
 			{ 6, 4, 4,-1, 2, 2, 2 },
@@ -1150,5 +1178,230 @@ public class ItemBrowserWindow : WindowElement {
 		Main.instance.LoadItem(ItemID.Chest);
 		texture = TextureAssets.Item[ItemID.Chest];
 	}
+	public override void SetDefaultSortMethod() {
+		ActiveItemFilters.SetDefaultSortMethod(ItemSourceHelper.Instance.SourceSorters.TryCast<ItemSorter>().First());
+	}
 }
-#endregion tabs
+public class ItemListGridItem : ThingListGridItem<Item> {
+	public override bool ClickThing(Item item, bool doubleClick) {
+		if (!doubleClick) return false;
+		ItemSourceHelper.Instance.BrowserWindow.FilterItem.SetItem(item);
+		ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>();
+		return true;
+	}
+	public override void DrawThing(SpriteBatch spriteBatch, Item item, Vector2 position, bool hovering) {
+		int size = (int)(52 * Main.inventoryScale);
+		UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, TextureAssets.InventoryBack13.Value, hovering ? ItemSourceHelperConfig.Instance.HoveredItemSlotColor : ItemSourceHelperConfig.Instance.ItemSlotColor);
+		if (hovering) {
+			if (things is FilteredEnumerable<Item> filteredEnum) filteredEnum.FillTooltipAdders(TooltipAdderGlobal.TooltipModifiers);
+			ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
+		}
+		if (ItemSourceHelper.Instance.CraftableItems.Contains(item.type)) {
+			spriteBatch.Draw(
+				ItemSourceHelper.ItemIndicators.Value,
+				position + new Vector2(3, 3),
+				new Rectangle(0, 0, 8, 8),
+				Color.White
+			);
+		}
+		if (item.material) {
+			spriteBatch.Draw(
+				ItemSourceHelper.ItemIndicators.Value,
+				position + new Vector2(3, size - (8 + 3)),
+				new Rectangle(10, 0, 8, 8),
+				Color.White
+			);
+		}
+		if (ItemSourceHelper.Instance.NPCLootItems.Contains(item.type)) {
+			spriteBatch.Draw(
+				ItemSourceHelper.ItemIndicators.Value,
+				position + new Vector2(size - (8 + 3), 3),
+				new Rectangle(20, 0, 8, 8),
+				Color.White
+			);
+		}
+		if (ItemSourceHelper.Instance.ItemLootItems.Contains(item.type)) {
+			spriteBatch.Draw(
+				ItemSourceHelper.ItemIndicators.Value,
+				position + new Vector2(size - (8 + 3), size - (8 + 3)),
+				new Rectangle(30, 0, 8, 8),
+				Color.White
+			);
+		}
+	}
+	public void ScrollToItem(int type) {
+		/*int size = (int)(52 * Main.inventoryScale);
+		const int padding = 2;
+		int sizeWithPadding = size + padding;
+
+		int minX = 0;
+		int baseX = minX;
+		int x = baseX;
+		int maxX = bounds.Width - size;
+		int itemsPerRow = (int)(((maxX - padding) - minX - 1) / (float)sizeWithPadding) + 1;*/
+
+	}
+}
+#endregion item
+#region loot
+public class LootBrowserWindow : WindowElement {
+	public SearchGridItem SearchItem { get; private set; }
+	public LootListGridItem LootList { get; private set; }
+	public DropListGridItem Drops { get; private set; }
+	public FilterListGridItem<LootSource> LootFilterList { get; private set; }
+	public FilteredEnumerable<LootSource> ActiveLootFilters { get; private set; }
+	public SingleSlotGridItem FilterItem { get; private set; }
+	public override Color BackgroundColor => ItemSourceHelperConfig.Instance.LootBrowserColor;
+	public override void SetDefaults() {
+		sortOrder = -0.25f;
+		items = new() {
+			[1] = LootFilterList = new() {
+				filters = ItemSourceHelper.Instance.Filters.TryCast<LootSourceFilter>(),
+				activeFilters = ActiveLootFilters = new(),
+				//sorters = ItemSourceHelper.Instance.SourceSorters.TryCast<LootSourceFilter>(),
+				ResetScroll = () => LootList.scroll = 0,
+				colorFunc = () => ItemSourceHelperConfig.Instance.LootFilterListColor
+			},
+			[2] = LootList = new() {
+				things = ActiveLootFilters,
+				colorFunc = () => ItemSourceHelperConfig.Instance.LootListColor
+			},
+			[3] = Drops = new() {
+				colorFunc = () => ItemSourceHelperConfig.Instance.DropListColor
+			},
+			[4] = FilterItem = new(ActiveLootFilters),
+			[6] = SearchItem = new(ActiveLootFilters)
+		};
+		itemIDs = new int[3, 7] {
+			{ 6, 4, 4,-1, 2, 2, 3 },
+			{ 6, 1, 1, 1, 2, 2, 3 },
+			{ 6, 1, 1, 1, 2, 2, 3 }
+		};
+		WidthWeights = new([0f, 3, 3]);
+		HeightWeights = new([0f, 0f, 0f, 0f, 3f, 0f, 0f]);
+		MinWidths = new([43, 180, 180]);
+		MinHeights = new([31, 21, 16, 21, 132, 2, 53]);
+		Main.instance.LoadItem(ItemID.GoodieBag);
+		texture = TextureAssets.Item[ItemID.GoodieBag];
+	}
+	public override void SetDefaultSortMethod() {
+		ActiveLootFilters.SetBackingList(ItemSourceHelper.Instance.LootSources);
+	}
+}
+public class LootListGridItem : ThingListGridItem<LootSource> {
+	public override bool ClickThing(LootSource lootSource, bool doubleClick) {
+		ModContent.GetInstance<LootBrowserWindow>().Drops.SetDrops(lootSource.SourceType.GetDrops(lootSource.Type));
+		return false;
+	}
+	public override void DrawThing(SpriteBatch spriteBatch, LootSource lootSource, Vector2 position, bool hovering) {
+		lootSource.SourceType.DrawSource(spriteBatch, lootSource.Type, position, hovering);
+	}
+}
+public class ItemLootSourceType : LootSourceType {
+	public override void DrawSource(SpriteBatch spriteBatch, int type, Vector2 position, bool hovering) {
+		Item item = ContentSamples.ItemsByType[type];
+		UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, TextureAssets.InventoryBack13.Value, hovering ? ItemSourceHelperConfig.Instance.HoveredItemSlotColor : ItemSourceHelperConfig.Instance.ItemSlotColor);
+	}
+	public override IEnumerable<LootSource> FillSourceList() {
+		for (int i = 0; i < ItemLoader.ItemCount; i++) {
+			if (Main.ItemDropsDB.GetRulesForItemID(i)?.Count > 0) yield return new(this, i);
+		}
+	}
+	public override List<DropRateInfo> GetDrops(int type) {
+		List<DropRateInfo> drops = [];
+		DropRateInfoChainFeed ratesInfo = new(1f);
+		foreach (IItemDropRule rule in Main.ItemDropsDB.GetRulesForItemID(type)) {
+			rule.ReportDroprates(drops, ratesInfo);
+		}
+		return drops;
+	}
+	public override Dictionary<string, string> GetSearchData(int type) => SearchLoader.GetSearchData(ContentSamples.ItemsByType[type]);
+}
+public class NPCLootSourceType : LootSourceType {
+	RenderTarget2D renderTarget;
+	public override IEnumerable<LootSource> FillSourceList() {
+		for (int i = NPCID.NegativeIDCount; i < NPCLoader.NPCCount; i++) {
+			if (Main.ItemDropsDB.GetRulesForNPCID(i, false)?.Count > 0 && HasValidBestiaryEntry(i)) yield return new(this, i);
+		}
+	}
+	public static bool HasValidBestiaryEntry(int type) {
+		BestiaryEntry entry = BestiaryDatabaseNPCsPopulator.FindEntryByNPCID(type);
+		if (entry?.Info is null) return false;
+		if (NPCID.Sets.NPCBestiaryDrawOffset.TryGetValue(type, out NPCID.Sets.NPCBestiaryDrawModifiers drawModifiers)) {
+			if (drawModifiers.Hide) return false;
+		}
+		return true;
+	}
+	public override List<DropRateInfo> GetDrops(int type) {
+		List<DropRateInfo> drops = [];
+		DropRateInfoChainFeed ratesInfo = new(1f);
+		foreach (IItemDropRule rule in Main.ItemDropsDB.GetRulesForNPCID(type, false)) {
+			rule.ReportDroprates(drops, ratesInfo);
+		}
+		return drops;
+	}
+	public override void DrawSource(SpriteBatch spriteBatch, int type, Vector2 position, bool hovering) {
+		if (renderTarget is not null && (renderTarget.Width != Main.screenWidth || renderTarget.Height != Main.screenHeight)) {
+			renderTarget.Dispose();
+			renderTarget = null;
+		}
+		renderTarget ??= new(Main.instance.GraphicsDevice, Main.screenWidth, Main.screenHeight, false, SurfaceFormat.Color, DepthFormat.None, 0, RenderTargetUsage.PreserveContents);
+
+		Item item = ContentSamples.ItemsByType[ItemID.None];
+		UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, TextureAssets.InventoryBack13.Value, hovering ? ItemSourceHelperConfig.Instance.HoveredItemSlotColor : ItemSourceHelperConfig.Instance.ItemSlotColor);
+		BestiaryEntry bestiaryEntry = BestiaryDatabaseNPCsPopulator.FindEntryByNPCID(type);
+		int size = (int)(52 * Main.inventoryScale);
+		if (bestiaryEntry?.Icon is not null) {
+			Rectangle rectangle = new((int)position.X, (int)position.Y, size, size);
+			BestiaryUICollectionInfo info = new() {
+				OwnerEntry = bestiaryEntry,
+				UnlockState = BestiaryEntryUnlockState.CanShowDropsWithDropRates_4
+			};
+			EntryIconDrawSettings settings = new() {
+				iconbox = rectangle,
+				IsHovered = hovering,
+				IsPortrait = false
+			};
+			bestiaryEntry.Icon.Update(info, rectangle, settings);
+			spriteBatch.End();
+			spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.AnisotropicClamp, DepthStencilState.None, Main.Rasterizer, null, Main.UIScaleMatrix);
+			Main.graphics.GraphicsDevice.SetRenderTarget(renderTarget);
+			Main.graphics.GraphicsDevice.Clear(Color.Transparent);
+			bestiaryEntry.Icon.Draw(info, spriteBatch, settings);
+			spriteBatch.End();
+			spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.AnisotropicClamp, DepthStencilState.None, Main.Rasterizer, null, Main.UIScaleMatrix);
+			RenderTargetUsage renderTargetUsage = Main.graphics.GraphicsDevice.PresentationParameters.RenderTargetUsage;
+			Main.graphics.GraphicsDevice.PresentationParameters.RenderTargetUsage = RenderTargetUsage.PreserveContents;
+			Main.graphics.GraphicsDevice.SetRenderTarget(null);
+			Main.graphics.GraphicsDevice.PresentationParameters.RenderTargetUsage = renderTargetUsage;
+			Vector2 origin = rectangle.Center();
+			origin.Y -= 8;
+			const int padding = 3;
+			rectangle.X += padding;
+			rectangle.Y += padding;
+			rectangle.Width -= padding * 2;
+			rectangle.Height -= padding * 2;
+			float scale = 0.55f;
+			if ((type >= 0 && NPCID.Sets.ShouldBeCountedAsBoss[type]) || ContentSamples.NpcsByNetId[type].boss) scale = 0.35f;
+			scale /= Main.UIScale;
+			using (new UIMethods.ClippingRectangle(rectangle, spriteBatch)) {
+				spriteBatch.Draw(renderTarget, origin + new Vector2(0, 8 * Main.UIScale), null, Color.White, 0, origin * Main.UIScale, scale, SpriteEffects.None, 0);
+			}
+		}
+		if (hovering) UIMethods.TryMouseText(Lang.GetNPCNameValue(type));
+	}
+	public FastFieldInfo<FlavorTextBestiaryInfoElement, string> flavorTextKey = new("_key", BindingFlags.NonPublic);
+	public override Dictionary<string, string> GetSearchData(int type) {
+		if (!ContentSamples.NpcsByNetId.TryGetValue(type, out NPC npc)) return [];
+		return new() {
+			["Name"] = Lang.GetNPCNameValue(type),
+			["ModName"] = npc?.ModNPC?.Mod?.DisplayNameClean ?? "Terraria",
+			["ModInternalName"] = npc?.ModNPC?.Mod?.Name ?? "Terraria",
+		};
+	}
+}
+public record struct LootSource(LootSourceType SourceType, int Type) {
+	public static Dictionary<string, string> GetSearchData(LootSource lootSource) => lootSource.SourceType.GetSearchData(lootSource.Type);
+}
+#endregion loot
+#endregion browsers
