@@ -241,17 +241,17 @@ Configs: {
 		}
 
 		LootBrowserColor: {
-			Label: Loot Browser Color
+			Label: "{$Mods.ItemSourceHelper.LootBrowser} Color"
 			Tooltip: ""
 		}
 
 		LootFilterListColor: {
-			Label: Loot Filter List Color
+			Label: Drop Filter List Color
 			Tooltip: ""
 		}
 
 		LootListColor: {
-			Label: Loot List Color
+			Label: Drop Source List Color
 			Tooltip: ""
 		}
 
@@ -299,10 +299,12 @@ SourceSorter: {
 
 SourceBrowser: Source Browser
 ItemBrowser: Item Browser
+LootBrowser: Drops Browser
 
 BrowserMode: {
 	SourceBrowserWindow.DisplayName: "{$Mods.ItemSourceHelper.SourceBrowser}"
 	ItemBrowserWindow.DisplayName: "{$Mods.ItemSourceHelper.ItemBrowser}"
+	LootBrowserWindow.DisplayName: "{$Mods.ItemSourceHelper.LootBrowser}"
 }
 
 BrowserToggleTip: Mods.ItemSourceHelper.BrowserToggleTip

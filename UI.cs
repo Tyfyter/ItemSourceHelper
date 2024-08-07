@@ -62,6 +62,17 @@ namespace ItemSourceHelper {
 			}
 			browser.blockUseHandles |= Main.LocalPlayer.mouseInterface;
 			Main.LocalPlayer.mouseInterface |= mouseInterface;
+			{
+				float height = ItemSourceHelperPositions.Instance.SourceBrowserHeight;
+				int tabCount = (int)Math.Round(height / ItemSourceHelperConfig.Instance.TabSize);
+				float tabHeight = height / tabCount;
+				browser.blockUseHandles |= new Rectangle(
+					(int)(ItemSourceHelperPositions.Instance.SourceBrowserLeft - ItemSourceHelperConfig.Instance.TabWidth),
+					(int)(ItemSourceHelperPositions.Instance.SourceBrowserTop + tabHeight * (selectedTab - tabScroll)),
+					ItemSourceHelperConfig.Instance.TabWidth + 12,
+					(int)tabHeight
+				).Contains(Main.mouseX, Main.mouseY);
+			}
 			browser.Draw(Main.spriteBatch);
 			tabOverflow |= DrawTab(selectedTab);
 
@@ -82,7 +93,7 @@ namespace ItemSourceHelper {
 						(int)tabHeight
 					);
 					Color highlighted = Color.White;
-					if (area.Contains(Main.MouseScreen.ToPoint())) {
+					if (area.Contains(Main.mouseX, Main.mouseY)) {
 						this.CaptureScroll();
 						Main.LocalPlayer.mouseInterface = true;
 						UIMethods.TryMouseText(Windows[tab].DisplayNameText, Windows[tab].DisplayNameRarity);
@@ -1426,14 +1437,14 @@ namespace ItemSourceHelper {
 						case (1, 0):
 						tickOffset.X = size.X - (8 + 3);
 						frame.X = 20;
-						filter = ModContent.GetInstance<ItemLootFilter>();
+						filter = ModContent.GetInstance<NPCLootFilter>();
 						break;
 
 						case (1, 1):
 						tickOffset.X = size.X - (8 + 3);
 						tickOffset.Y = size.Y - (8 + 3);
 						frame.X = 30;
-						filter = ModContent.GetInstance<NPCLootFilter>();
+						filter = ModContent.GetInstance<ItemLootFilter>();
 						break;
 					}
 					if (filter is not null && filterList is not null) {
