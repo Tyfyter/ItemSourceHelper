@@ -211,7 +211,7 @@ public class FilterChannels : ILoadable {
 		channelsReverse = null;
 	}
 }
-public class SearchProviderLoader : ILoadable {
+public class SearchLoader : ILoadable {
 	static Dictionary<string, SearchProvider> providersByOpener = [];
 	public void Load(Mod mod) {}
 	public void Unload() {
@@ -219,6 +219,10 @@ public class SearchProviderLoader : ILoadable {
 	}
 	public static void RegisterSearchProvider(SearchProvider searchProvider) {
 		providersByOpener.Add(searchProvider.Opener, searchProvider);
+	}
+	public static Dictionary<string, string> GetSearchData<T>(T value) => SearchDataGetter<T>.function(value);
+	public static void RegisterSearchable<T>(Func<T, Dictionary<string, string>> function) {
+		SearchDataGetter<T>.function = function;
 	}
 	public static SearchFilter Parse(string text) {
 		int consumed = 0;
@@ -229,18 +233,26 @@ public class SearchProviderLoader : ILoadable {
 		return new LiteralSearchFilter(text);
 	}
 }
+internal static class SearchDataGetter<T> {
+	internal static Func<T, Dictionary<string, string>> function = _ => [];
+}
 public abstract class SearchProvider : ModType {
 	public abstract string Opener { get; }
 	public abstract SearchFilter GetSearchFilter(string filterText);
 	protected sealed override void Register() {
 		ModTypeLookup<SearchProvider>.Register(this);
-		SearchProviderLoader.RegisterSearchProvider(this);
+		SearchLoader.RegisterSearchProvider(this);
 	}
 }
 [Autoload(false)]
-public abstract class SearchFilter : ItemFilter {
-	protected override bool IsChildFilter => true;
-	public override string DisplayNameText => null;
+public abstract class SearchFilter : IFilter<Dictionary<string, string>> {
+	public string DisplayNameText => null;
+	public int FilterChannel { get; }
+	public int Type { get; }
+	public Texture2D TextureValue { get; }
+	public ICollection<IFilter<Dictionary<string, string>>> ActiveChildren { get; }
+	public IEnumerable<IFilter<Dictionary<string, string>>> ChildFilters() => [];
+	public abstract bool Matches(Dictionary<string, string> source);
 }
 public interface ISorter<T> {
 	public List<T> SortedValues { get; }

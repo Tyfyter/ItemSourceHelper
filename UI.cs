@@ -3,6 +3,7 @@ using ItemSourceHelper.Default;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using ReLogic.Content;
 using ReLogic.Graphics;
 using ReLogic.OS;
 using System;
@@ -13,6 +14,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Terraria;
+using Terraria.DataStructures;
 using Terraria.GameContent;
 using Terraria.GameInput;
 using Terraria.Graphics.Effects;
@@ -22,19 +24,18 @@ using Terraria.ModLoader;
 using Terraria.UI;
 
 namespace ItemSourceHelper {
-	public class ItemSourceBrowser : GameInterfaceLayer {
-		public WindowElement SourceBrowser { get; private set; }
-		public FilterListGridItem<ItemSource> FilterList { get; private set; }
-		public ItemSourceListGridItem SourceList { get; private set; }
-		public IngredientListGridItem Ingredience { get; private set; }
-		public FilteredEnumerable<ItemSource> ActiveSourceFilters { get; private set; }
-		public SingleSlotGridItem FilterItem { get; private set; }
-		public ConditionsGridItem ConditionsItem { get; private set; }
-		public SearchGridItem SearchItem { get; private set; }
-		public ItemListGridItem ItemList { get; private set; }
-		public FilterListGridItem<Item> ItemFilterList { get; private set; }
-		public FilteredEnumerable<Item> ActiveItemFilters { get; private set; }
-		public WindowElement ItemBrowser { get; private set; }
+	public class ItemSourceBrowser : GameInterfaceLayer, IScrollableUIItem {
+		public SourceBrowserWindow SourceBrowser => ModContent.GetInstance<SourceBrowserWindow>();
+		public FilterListGridItem<ItemSource> FilterList => SourceBrowser.FilterList;
+		public ItemSourceListGridItem SourceList => SourceBrowser.SourceList;
+		public IngredientListGridItem Ingredience => SourceBrowser.Ingredience;
+		public FilteredEnumerable<ItemSource> ActiveSourceFilters => SourceBrowser.ActiveSourceFilters;
+		public SingleSlotGridItem FilterItem => SourceBrowser.FilterItem;
+		public ConditionsGridItem ConditionsItem => SourceBrowser.ConditionsItem;
+		public ItemListGridItem ItemList => ItemBrowser.ItemList;
+		public FilterListGridItem<Item> ItemFilterList => ItemBrowser.ItemFilterList;
+		public FilteredEnumerable<Item> ActiveItemFilters => ItemBrowser.ActiveItemFilters;
+		public ItemBrowserWindow ItemBrowser => ModContent.GetInstance<ItemBrowserWindow>();
 		public static bool isItemBrowser = false;
 		public ItemSourceBrowser() : base($"{nameof(ItemSourceHelper)}: Browser", InterfaceScaleType.UI) {
 			SlidyThingGridItem slidyThing = new(() => ref isItemBrowser, Language.GetOrRegister("Mods.ItemSourceHelper.BrowserToggleTip"), () => {
@@ -50,91 +51,114 @@ namespace ItemSourceHelper {
 					window.SourceBrowser.Resize();
 				}
 			});
-			SourceBrowser = new() {
-				handles = RectangleHandles.Top | RectangleHandles.Left,
-				MinWidth = new(180, 0),
-				MinHeight = new(242, 0),
-				MarginTop = 6, MarginLeft = 4, MarginBottom = 0, MarginRight = 4,
-				items = new() {
-					[1] = FilterList = new() {
-						filters = ItemSourceHelper.Instance.Filters,
-						activeFilters = ActiveSourceFilters = new(),
-						sorters = ItemSourceHelper.Instance.SourceSorters,
-						ResetScroll = () => SourceList.scroll = 0
-					},
-					[2] = SourceList = new() {
-						items = ActiveSourceFilters
-					},
-					[3] = Ingredience = new() {
-						items = []
-					},
-					[4] = FilterItem = new(),
-					[5] = ConditionsItem = new(),
-					[6] = SearchItem = new(),
-					[0] = slidyThing,
-				},
-				itemIDs = new int[3, 7] {
-					{ 6, 4, 4, 0, 2, 3, 5 },
-					{ 6, 1, 1, 1, 2, 3, 5 },
-					{ 6, 1, 1, 1, 2, 3, 5 }
-				},
-				WidthWeights = new([0f, 3, 3]),
-				HeightWeights = new([0f, 0f, 0f, 0f, 3f, 0f, 0f]),
-				MinWidths = new([43, 180, 180]),
-				MinHeights = new([31, 21, 16, 21, 132, 53, 20]),
-			};
-			SourceBrowser.Initialize();
-
-			ItemBrowser = new() {
-				handles = RectangleHandles.Top | RectangleHandles.Left,
-				MinWidth = new(180, 0),
-				MinHeight = new(242, 0),
-				MarginTop = 6, MarginLeft = 4, MarginBottom = 4, MarginRight = 4,
-				items = new() {
-					[1] = ItemFilterList = new() {
-						filters = ItemSourceHelper.Instance.Filters.TryCast<ItemFilter>(),
-						activeFilters = ActiveItemFilters = new(),
-						sorters = ItemSourceHelper.Instance.SourceSorters.TryCast<ItemSorter>(),
-						ResetScroll = () => ItemList.scroll = 0
-					},
-					[2] = ItemList = new() {
-						items = ActiveItemFilters
-					},
-					[4] = FilterItem,
-					[6] = SearchItem,
-					[7] = new CornerSlotGridItem(ItemFilterList),
-					[0] = slidyThing,
-				},
-				itemIDs = new int[3, 7] {
-					{ 6, 7, 7, 0, 2, 2, 2 },
-					{ 6, 1, 1, 1, 2, 2, 2 },
-					{ 6, 1, 1, 1, 2, 2, 2 }
-				},
-				WidthWeights = new([0f, 3, 3]),
-				HeightWeights = new([0f, 0f, 0f, 0f, 3f, 0f, 0f]),
-				MinWidths = new([43, 180, 180]),
-				MinHeights = new([31, 21, 16, 21, 132, 53, 2]),
-			};
-			ItemBrowser.Initialize();
 		}
+		bool tabOverflow = false;
 		protected override bool DrawSelf() {
-			if (ItemSourceHelperPositions.Instance is null) return true;
-			WindowElement browser = isItemBrowser ? ItemBrowser : SourceBrowser;
+			if (ItemSourceHelperPositions.Instance is null || !isActive) return true;
+			if (selectedTab == -1) {
+				Windows.Sort();
+				selectedTab = 0;
+				for (int i = 0; i < Windows.Count; i++) Windows[i].Index = i;
+			}
+			WindowElement browser = Windows[selectedTab];
 			browser.Update(new GameTime());
 			float inventoryScale = Main.inventoryScale;
 			Main.inventoryScale = 0.75f;
 			browser.Recalculate();
+			tabOverflow = false;
+			for (int i = 0; i < Windows.Count; i++) {
+				if (i != selectedTab) tabOverflow |= DrawTab(i);
+			}
 			browser.Draw(Main.spriteBatch);
+			tabOverflow |= DrawTab(selectedTab);
 			Main.inventoryScale = inventoryScale;
 			return true;
 		}
-		public void Reset() {
-			SourceBrowser.ResetItems();
-			ActiveSourceFilters.ClearSelectedFilters();
-			ItemBrowser.ResetItems();
-			ActiveItemFilters.ClearSelectedFilters();
-			isItemBrowser = false;
+		public bool DrawTab(int tab) {
+			int scrolledTab = tab - tabScroll;
+			if (scrolledTab >= 0) {
+				float height = ItemSourceHelperPositions.Instance.SourceBrowserHeight;
+				int tabCount = (int)Math.Round(height / ItemSourceHelperConfig.Instance.TabSize);
+				if (scrolledTab < tabCount) {
+					float tabHeight = height / tabCount;
+					Rectangle area = new(
+						(int)(ItemSourceHelperPositions.Instance.SourceBrowserLeft - ItemSourceHelperConfig.Instance.TabWidth),
+						(int)(ItemSourceHelperPositions.Instance.SourceBrowserTop + tabHeight * scrolledTab),
+						ItemSourceHelperConfig.Instance.TabWidth + 12,
+						(int)tabHeight
+					);
+					Color highlighted = Color.White;
+					if (area.Contains(Main.MouseScreen.ToPoint())) {
+						this.CaptureScroll();
+						Main.LocalPlayer.mouseInterface = true;
+						UIMethods.TryMouseText(Windows[tab].DisplayNameText, Windows[tab].DisplayNameRarity);
+						if (tab != selectedTab && Main.mouseLeft && Main.mouseLeftRelease) SetTab(tab);
+					} else if (tab != selectedTab) {
+						highlighted = Color.Gray;
+					}
+					Color color = Windows[tab].color.MultiplyRGB(highlighted);
+					Main.spriteBatch.DrawPartialRoundedRetangle(
+						new Rectangle(area.X, area.Y - 8, area.Width + 2, area.Height + 16),
+						color, null, 0
+					);
+					Main.spriteBatch.DrawPartialRoundedRetangle(
+						area,
+						color, null,
+						RectangleHandles.Top | RectangleHandles.Left,
+						RectangleHandles.Left,
+						RectangleHandles.Bottom | RectangleHandles.Left,
+						RectangleHandles.Top,
+						0,
+						RectangleHandles.Bottom
+					);
+					if (scrolledTab == 0 || scrolledTab == tabCount - 1) Main.spriteBatch.DrawPartialRoundedRetangle(
+						new Rectangle(area.X, area.Y, area.Width + 7, area.Height),
+						color, null,
+						(scrolledTab == 0 ? RectangleHandles.Top : 0) | (scrolledTab == tabCount - 1 ? RectangleHandles.Bottom : 0)
+					);
+					Texture2D texture = Windows[tab].TextureValue;
+					Rectangle texRect = texture.Size().RectWithinCentered(area, 19);
+					texRect.X -= 3;
+					Main.spriteBatch.Draw(
+						texture,
+						texRect,
+						highlighted
+					);
+				} else return true;
+			}
+			return false;
 		}
+		public void Reset() {
+			for (int i = 0; i < Windows.Count; i++) {
+				Windows[i].ResetItems();
+			}
+			selectedTab = 0;
+		}
+		int selectedTab = -1;
+		public int tabScroll = 0;
+		public void Scroll(int direction) {
+			if (tabOverflow && direction > 0 || tabScroll > 0 && direction < 0) tabScroll += direction;
+		}
+		public void SetTab(int index) {
+			Windows[selectedTab].OnLostFocus();
+			selectedTab = index;
+		}
+		public void SetTab<T>() where T : WindowElement {
+			SetTab(ModContent.GetInstance<T>().Index);
+		}
+		bool isActive = false;
+		public void Toggle() {
+			if (isActive) Close();
+			else Open();
+		}
+		public void Open() {
+			isActive = true;
+		}
+		public void Close() {
+			Windows[selectedTab].OnLostFocus();
+			isActive = false;
+		}
+		public static List<WindowElement> Windows { get; internal set; } = [];
 	}
 	public class FilterListGridItem<T> : GridItem, IScrollableUIItem {
 		public FilteredEnumerable<T> activeFilters;
@@ -455,6 +479,7 @@ namespace ItemSourceHelper {
 			scrollTop = 0;
 			scrollBottom = 0;
 			lastFilter = null;
+			activeFilters.ClearSelectedFilters();
 		}
 	}
 	public class ItemSourceListGridItem : GridItem, IScrollableUIItem {
@@ -532,6 +557,7 @@ namespace ItemSourceHelper {
 								if (doubleClickTime > 0) {
 									ItemSourceHelper.Instance.BrowserWindow.FilterItem.SetItem(item);
 									ItemSourceBrowser.isItemBrowser = false;
+									ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>();
 									break;
 								} else {
 									doubleClickTime = 15;
@@ -602,12 +628,14 @@ namespace ItemSourceHelper {
 									if (Main.mouseLeft) {
 										ItemSourceHelper.Instance.BrowserWindow.FilterItem.SetItem(items[i]);
 										ItemSourceBrowser.isItemBrowser = false;
+										ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>();
 									} else {
 										if (items[i].TryGetGlobalItem(out AnimatedRecipeGroupGlobalItem global) && global.recipeGroup != -1) {
 											MaterialFilter materialFilter = ModContent.GetInstance<MaterialFilter>();
 											foreach (IFilter<Item> filter in materialFilter.ChildItemFilters()) {
 												if (filter is RecipeGroupFilter recipeGroupFilter && recipeGroupFilter.RecipeGroup.RegisteredId == global.recipeGroup) {
 													ItemSourceBrowser.isItemBrowser = true;
+													ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>();
 													ItemSourceHelper.Instance.BrowserWindow.ItemFilterList.SetFilter(materialFilter, true);
 													ItemSourceHelper.Instance.BrowserWindow.ItemFilterList.SetFilter(filter, true);
 													break;
@@ -651,7 +679,7 @@ namespace ItemSourceHelper {
 		ISorter<T> sourceSourceSource;
 		List<T> sourceSource;
 		List<IFilter<T>> filters = [];
-		List<IFilter<T>> searchFilter = [];
+		List<SearchFilter> searchFilter = [];
 		List<(T, int)> cache = [];
 		Item filterItem;
 		bool inverted;
@@ -675,7 +703,7 @@ namespace ItemSourceHelper {
 				for (; i > 0; i--) {
 					T source = sourceSource[i];
 					if (!MatchesSlot(source)) goto cont;
-					for (int j = 0; j < searchFilter.Count; j++) if (!searchFilter[j].Matches(source)) goto cont;
+					for (int j = 0; j < searchFilter.Count; j++) if (!searchFilter[j].Matches(SearchLoader.GetSearchData(source))) goto cont;
 					for (int j = 0; j < filters.Count; j++) if (!filters[j].MatchesAll(source)) goto cont;
 					cache.Add((source, i));
 					yield return source;
@@ -693,7 +721,7 @@ namespace ItemSourceHelper {
 				for (; i < sourceSource.Count; i++) {
 					T source = sourceSource[i];
 					if (!MatchesSlot(source)) goto cont;
-					for (int j = 0; j < searchFilter.Count; j++) if (!searchFilter[j].Matches(source)) goto cont;
+					for (int j = 0; j < searchFilter.Count; j++) if (!searchFilter[j].Matches(SearchLoader.GetSearchData(source))) goto cont;
 					for (int j = 0; j < filters.Count; j++) if (!filters[j].MatchesAll(source)) goto cont;
 					cache.Add((source, i));
 					yield return source;
@@ -702,10 +730,10 @@ namespace ItemSourceHelper {
 				reachedEnd = true;
 			}
 		}
-		public void SetSearchFilters(IEnumerable<IFilter<T>> filters) {
+		public void SetSearchFilters(IEnumerable<SearchFilter> filters) {
 			if (searchFilter.Count != 0) ClearCache();
 			searchFilter = filters.ToList();
-			if (cache.Count != 0) cache.RemoveAll(i => filters.Any(f => f.DoesntMatch(i)));
+			if (cache.Count != 0) cache.RemoveAll(i => filters.Any(f => f.DoesntMatch(SearchLoader.GetSearchData(i))));
 		}
 		public void SetDefaultSortMethod(ISorter<T> sortMethod) {
 			defaultSortMethod = sortMethod;
@@ -958,7 +986,6 @@ namespace ItemSourceHelper {
 		}
 	}
 	public class SearchGridItem : GridItem {
-		public Color textColor;
 		public bool focused = false;
 		public int cursorIndex = 0;
 		public StringBuilder text = new();
@@ -967,7 +994,7 @@ namespace ItemSourceHelper {
 		public void SetSearch(string search) {
 			lastSearch = search;
 			ItemSourceBrowser browserWindow = ItemSourceHelper.Instance.BrowserWindow;
-			List<SearchFilter> filters = search.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(SearchProviderLoader.Parse).ToList();
+			List<SearchFilter> filters = search.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(SearchLoader.Parse).ToList();
 			browserWindow.ActiveSourceFilters.SetSearchFilters(filters);
 			browserWindow.ActiveItemFilters.SetSearchFilters(filters);
 		}
@@ -997,7 +1024,7 @@ namespace ItemSourceHelper {
 			if (UIMethods.MouseInArea(closePos, helpSize)) {
 				Main.LocalPlayer.mouseInterface = true;
 				UIMethods.TryMouseText(Language.GetOrRegister($"Mods.{nameof(ItemSourceHelper)}.Close").Value);
-				if (Main.mouseLeft && Main.mouseLeftRelease) ItemSourceHelperSystem.isActive = false;
+				if (Main.mouseLeft && Main.mouseLeftRelease) ItemSourceHelper.Instance.BrowserWindow.Close();
 			} else {
 				closeColor *= 0.7f;
 			}
@@ -1012,7 +1039,7 @@ namespace ItemSourceHelper {
 				0,
 			0);
 			bounds.Width -= (int)helpSize.X + 8;
-			Color color = this.color;
+			Color color = ItemSourceHelperConfig.Instance.SearchBarColor;
 			bool hoveringSearch = bounds.Contains(Main.mouseX, Main.mouseY) && !PlayerInput.IgnoreMouseInterface;
 			Main.LocalPlayer.mouseInterface |= hoveringSearch;
 			if (!focused) {
@@ -1117,7 +1144,7 @@ namespace ItemSourceHelper {
 					font,
 					"|",
 					bounds.TopLeft() + font.MeasureString(text.ToString()[..cursorIndex]) * Vector2.UnitX * scale + offset * new Vector2(0.5f, 1),
-					textColor,
+					ItemSourceHelperConfig.Instance.SearchBarTextColor,
 					0,
 					new(0, 0),
 					scale,
@@ -1128,7 +1155,7 @@ namespace ItemSourceHelper {
 				font,
 				text,
 				bounds.TopLeft() + offset,
-				textColor,
+				ItemSourceHelperConfig.Instance.SearchBarTextColor,
 				0,
 				new(0, 0),
 				scale,
@@ -1225,6 +1252,88 @@ namespace ItemSourceHelper {
 			scroll = 0;
 		}
 	}
+	public abstract class ThingListGridItem<Thing> : GridItem, IScrollableUIItem {
+		public IEnumerable<Thing> things;
+		public int scroll;
+		bool cutOff = false;
+		int lastItemsPerRow = -1;
+		int doubleClickTime = 0;
+		int doubleClickItem = 0;
+		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
+			Color color = this.color;
+			spriteBatch.DrawRoundedRetangle(bounds, color);
+			//bounds.X += 12;
+			//bounds.Y += 10;
+			//bounds.Width -= 8;
+			bounds.Height -= 1;
+			Point mousePos = Main.MouseScreen.ToPoint();
+			if (bounds.Contains(mousePos)) {
+				this.CaptureScroll();
+				Main.LocalPlayer.mouseInterface = true;
+			}
+			cutOff = false;
+			if (doubleClickTime > 0 && --doubleClickTime <= 0) doubleClickItem = 0;
+			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
+				bool canHover = bounds.Contains(Main.mouseX, Main.mouseY);
+				Texture2D texture = TextureAssets.InventoryBack13.Value;
+				int size = (int)(52 * Main.inventoryScale);
+				const int padding = 2;
+				int sizeWithPadding = size + padding;
+
+				int minX = bounds.X + 8;
+				int baseX = minX;
+				int x = baseX;
+				int maxX = bounds.X + bounds.Width - size;
+				int y = bounds.Y + 6;
+				int maxY = bounds.Y + bounds.Height - size / 2;
+				int itemsPerRow = (int)(((maxX - padding) - minX - 1) / (float)sizeWithPadding) + 1;
+				if (lastItemsPerRow != -1 && itemsPerRow != lastItemsPerRow) {
+					int oldSkips = lastItemsPerRow * scroll;
+					int newSkips = itemsPerRow * scroll;
+					float ratio = oldSkips / (float)newSkips;
+					scroll = (int)Math.Round(ratio * scroll);
+				}
+				Vector2 position = new();
+				bool hadAnyItems = things.Any();
+				bool displayedAnyItems = false;
+				int overscrollFixerTries = 0;
+				retry:
+				foreach (Thing thing in things.Skip(itemsPerRow * scroll)) {
+					if (x >= maxX - padding) {
+						x = baseX;
+						y += sizeWithPadding;
+						if (y >= maxY - padding) {
+							cutOff = true;
+							break;
+						}
+					}
+					hadAnyItems = true;
+					if (x >= minX - size) {
+						displayedAnyItems = true;
+						position.X = x;
+						position.Y = y;
+						DrawThing(thing, position, canHover && Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size);
+					}
+					x += sizeWithPadding;
+				}
+				if (hadAnyItems && !displayedAnyItems && ++overscrollFixerTries < 100) {
+					scroll--;
+					goto retry;
+				}
+				lastItemsPerRow = itemsPerRow;
+			}
+		}
+		public abstract void DrawThing(Thing thing, Vector2 position, bool hovering);
+		public void Scroll(int direction) {
+			if (!cutOff && direction > 0) return;
+			if (scroll <= 0 && direction < 0) return;
+			scroll += direction;
+		}
+		public override void Reset() {
+			scroll = 0;
+			lastItemsPerRow = -1;
+		}
+	}
 	public class ItemListGridItem : GridItem, IScrollableUIItem {
 		public IEnumerable<Item> items;
 		public int scroll;
@@ -1298,6 +1407,7 @@ namespace ItemSourceHelper {
 								if (doubleClickTime > 0) {
 									ItemSourceHelper.Instance.BrowserWindow.FilterItem.SetItem(item);
 									ItemSourceBrowser.isItemBrowser = false;
+									ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>();
 								} else {
 									doubleClickTime = 15;
 									doubleClickItem = item.type;
@@ -1470,13 +1580,60 @@ namespace ItemSourceHelper {
 			item.TurnToAir();
 		}
 	}
-	public class WindowElement : UIElement {
+	public abstract class WindowElement : UIElement, ILoadable, ILocalizedModType, IComparable<WindowElement> {
+		#region other
+		public virtual string Texture => (GetType().Namespace + "." + Name).Replace('.', '/');
+		protected Asset<Texture2D> texture;
+		public virtual Texture2D TextureValue => texture.Value;
+		protected DrawAnimation animation;
+		public virtual DrawAnimation TextureAnimation => animation;
+		public string LocalizationCategory => "BrowserMode";
+		public virtual LocalizedText DisplayName => Mod is null ? ItemSourceHelper.GetLocalization(this) : this.GetLocalization("DisplayName");
+		public virtual int DisplayNameRarity => ItemRarityID.White;
+		public virtual string DisplayNameText => DisplayName.Value;
+		public void Load(Mod mod) {
+			MinWidth = new(180, 0);
+			MinHeight = new(242, 0);
+			MarginTop = 6; MarginLeft = 4; MarginBottom = 4; MarginRight = 4;
+			Mod = mod;
+			ItemSourceBrowser.Windows.Add(this);
+			if (!ModContent.RequestIfExists(Texture, out texture)) {
+				texture = Asset<Texture2D>.Empty;
+			}
+			SetDefaults();
+			Initialize();
+		}
+		public abstract Color BackgroundColor { get; }
+		public void Unload() {}
+		public abstract void SetDefaults();
+		public virtual void OnLostFocus() { }
+		///<summary>
+		/// The mod this belongs to.
+		/// </summary>
+		public Mod Mod { get; internal set; }
+		///<summary>
+		/// The index of this mode in.
+		/// </summary>
+		public int Index { get; internal set; }
+
+		/// <summary>
+		/// The internal name of this.
+		/// </summary>
+		public virtual string Name => GetType().Name;
+
+		/// <summary>
+		/// The internal name of this, including the mod it is from.
+		/// </summary>
+		public string FullName => $"{Mod?.Name ?? "Terraria"}/{Name}";
+		public float sortOrder = 0;
+		public int CompareTo(WindowElement other) => Comparer<float>.Default.Compare(sortOrder, other.sortOrder);
+		#endregion
 		#region resize
-		public RectangleHandles handles;
+		public RectangleHandles handles = RectangleHandles.Top | RectangleHandles.Left;
 		bool heldHandleStretch;
 		RectangleHandles heldHandle;
 		Vector2 heldHandleOffset;
-		public Color color;
+		public Color color => BackgroundColor;
 		bool lastFrameHover = false;
 		public override void OnInitialize() {
 			heights = new float[HeightWeights.Length];
@@ -1554,7 +1711,7 @@ namespace ItemSourceHelper {
 				}
 			}
 			bool hoveringSomewhere = false;
-			foreach (var segment in UIMethods.rectangleSegments) {
+			foreach (var segment in UIMethods.RectangleSegments) {
 				Rectangle bounds = segment.GetBounds(area);
 				bool matches = segment.Matches(handles);
 				Color partColor = color;
@@ -1771,7 +1928,8 @@ namespace ItemSourceHelper {
 		public static implicit operator ObservableArray<T>(T[] values) => new(values);
 	}
 	public class GridItem {
-		public Color color;
+		public Color color => colorFunc();
+		public Func<Color> colorFunc;
 		public virtual void Update(WindowElement parent, Range x, Range y) { }
 		public virtual void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
 			Color color = this.color;
@@ -1789,8 +1947,20 @@ namespace ItemSourceHelper {
 		public static void DrawRoundedRetangle(this SpriteBatch spriteBatch, Rectangle rectangle, Color color, Texture2D texture = null) {
 			texture ??= TextureAssets.InventoryBack13.Value;
 			Rectangle textureBounds = texture.Bounds;
-			foreach (var segment in rectangleSegments) {
+			foreach (var segment in RectangleSegments) {
 				spriteBatch.Draw(
+					texture,
+					segment.GetBounds(rectangle),
+					segment.GetBounds(textureBounds),
+					color
+				);
+			}
+		}
+		public static void DrawPartialRoundedRetangle(this SpriteBatch spriteBatch, Rectangle rectangle, Color color, Texture2D texture = null, params RectangleHandles[] sides) {
+			texture ??= TextureAssets.InventoryBack13.Value;
+			Rectangle textureBounds = texture.Bounds;
+			foreach (var segment in RectangleSegments) {
+				if (sides.Contains(segment.Handles)) spriteBatch.Draw(
 					texture,
 					segment.GetBounds(rectangle),
 					segment.GetBounds(textureBounds),
@@ -1858,7 +2028,7 @@ namespace ItemSourceHelper {
 			}
 
 		}
-		public static StretchSegment[] rectangleSegments = [
+		public static StretchSegment[] RectangleSegments { get; private set; } = [
 			new(StretchLength.Position, StretchLength.Position, new(0, 0, 10), new(0, 0, 10), RectangleHandles.Top | RectangleHandles.Left),
 			new(StretchLength.Position, new(1, 1, -10), new(0, 0, 10), new(0, 0, 10), RectangleHandles.Bottom | RectangleHandles.Left),
 			new(new(1, 1, -10), StretchLength.Position, new(0, 0, 10), new(0, 0, 10), RectangleHandles.Top | RectangleHandles.Right),
@@ -1873,7 +2043,7 @@ namespace ItemSourceHelper {
 			new(new(1, 0, 10), new(1, 0, 10), new(0, 1, -10 * 2), new(0, 1, -10 * 2), 0)
 		];
 		internal static void Unload() {
-			rectangleSegments = null;
+			RectangleSegments = null;
 		}
 		public record struct StretchSegment(StretchLength Left, StretchLength Top, StretchLength Width, StretchLength Height, RectangleHandles Handles = 0) {
 			public readonly Rectangle GetBounds(Rectangle parent) => new(
@@ -1929,6 +2099,11 @@ namespace ItemSourceHelper {
 		private static IEnumerable<TResult> TryCastIterator<TResult>(IEnumerable source) {
 			foreach (object obj in source) {
 				if (obj is TResult result) yield return result;
+			}
+		}
+		public static IEnumerable<string> GetLines(this ItemTooltip tooltip) {
+			for (int i = 0; i < tooltip.Lines; i++) {
+				yield return tooltip.GetLine(i);
 			}
 		}
 	}

@@ -900,10 +900,9 @@ public class MasterFilter : ItemFilter {
 #endregion filters
 #region search types
 public class LiteralSearchFilter(string text) : SearchFilter {
-	public override bool Matches(Item item) {
-		if (item.Name.Contains(text, StringComparison.InvariantCultureIgnoreCase)) return true;
-		for (int i = 0; i < item.ToolTip.Lines; i++) {
-			if (item.ToolTip.GetLine(i).Contains(text, StringComparison.InvariantCultureIgnoreCase)) return true;
+	public override bool Matches(Dictionary<string, string> data) {
+		foreach (string item in data.Values) {
+			if (item.Contains(text, StringComparison.InvariantCultureIgnoreCase)) return true;
 		}
 		return false;
 	}
@@ -913,9 +912,9 @@ public class ModNameSearchProvider : SearchProvider {
 	public override SearchFilter GetSearchFilter(string filterText) => new ModNameSearchFilter(filterText);
 }
 public class ModNameSearchFilter(string text) : SearchFilter {
-	public override bool Matches(Item item) {
-		if (item.ModItem?.Mod is null) return false;
-		return item.ModItem.Mod.DisplayNameClean.Contains(text, StringComparison.InvariantCultureIgnoreCase) || item.ModItem.Mod.Name.Contains(text, StringComparison.InvariantCultureIgnoreCase);
+	public override bool Matches(Dictionary<string, string> data) {
+		if (data.TryGetValue("ModName", out string name) && name.Contains(text, StringComparison.InvariantCultureIgnoreCase)) return true;
+		return data.TryGetValue("ModInternalName", out name) && name.Contains(text, StringComparison.InvariantCultureIgnoreCase);
 	}
 }
 public class ItemNameSearchProvider : SearchProvider {
@@ -923,8 +922,8 @@ public class ItemNameSearchProvider : SearchProvider {
 	public override SearchFilter GetSearchFilter(string filterText) => new ItemNameSearchFilter(filterText);
 }
 public class ItemNameSearchFilter(string text) : SearchFilter {
-	public override bool Matches(Item item) {
-		return item.Name.Contains(text, StringComparison.InvariantCultureIgnoreCase);
+	public override bool Matches(Dictionary<string, string> data) {
+		return data.TryGetValue("Name", out string name) && name.Contains(text, StringComparison.InvariantCultureIgnoreCase);
 	}
 }
 public class ItemTooltipSearchProvider : SearchProvider {
@@ -932,11 +931,8 @@ public class ItemTooltipSearchProvider : SearchProvider {
 	public override SearchFilter GetSearchFilter(string filterText) => new ItemTooltipSearchFilter(filterText);
 }
 public class ItemTooltipSearchFilter(string text) : SearchFilter {
-	public override bool Matches(Item item) {
-		for (int i = 0; i < item.ToolTip.Lines; i++) {
-			if (item.ToolTip.GetLine(i).Contains(text, StringComparison.InvariantCultureIgnoreCase)) return true;
-		}
-		return false;
+	public override bool Matches(Dictionary<string, string> data) {
+		return data.TryGetValue("Description", out string name) && name.Contains(text, StringComparison.InvariantCultureIgnoreCase);
 	}
 }
 #endregion search types
@@ -1072,3 +1068,87 @@ public class FlightTimeItemSorter : ItemSorter {
 	}
 }
 #endregion sorting methods
+#region tabs
+public class SourceBrowserWindow : WindowElement {
+	public FilterListGridItem<ItemSource> FilterList { get; private set; }
+	public ItemSourceListGridItem SourceList { get; private set; }
+	public IngredientListGridItem Ingredience { get; private set; }
+	public FilteredEnumerable<ItemSource> ActiveSourceFilters { get; private set; }
+	public SingleSlotGridItem FilterItem { get; private set; }
+	public ConditionsGridItem ConditionsItem { get; private set; }
+	public SearchGridItem SearchItem { get; private set; }
+	public override Color BackgroundColor => ItemSourceHelperConfig.Instance.SourceBrowserColor;
+	public override void SetDefaults() {
+		sortOrder = -1f;
+		MarginBottom = 0;
+		items = new() {
+			[1] = FilterList = new() {
+				filters = ItemSourceHelper.Instance.Filters,
+				activeFilters = ActiveSourceFilters = new(),
+				sorters = ItemSourceHelper.Instance.SourceSorters,
+				ResetScroll = () => SourceList.scroll = 0,
+				colorFunc = () => ItemSourceHelperConfig.Instance.SourceFilterListColor
+			},
+			[2] = SourceList = new() {
+				items = ActiveSourceFilters,
+				colorFunc = () => ItemSourceHelperConfig.Instance.SourcesListColor
+			},
+			[3] = Ingredience = new() {
+				items = [],
+				colorFunc = () => ItemSourceHelperConfig.Instance.IngredientListColor
+			},
+			[4] = FilterItem = new(),
+			[5] = ConditionsItem = new(),
+			[6] = SearchItem = new()
+		};
+		itemIDs = new int[3, 7] {
+			{ 6, 4, 4,-1, 2, 3, 5 },
+			{ 6, 1, 1, 1, 2, 3, 5 },
+			{ 6, 1, 1, 1, 2, 3, 5 }
+		};
+		WidthWeights = new([0f, 3, 3]);
+		HeightWeights = new([0f, 0f, 0f, 0f, 3f, 0f, 0f]);
+		MinWidths = new([43, 180, 180]);
+		MinHeights = new([31, 21, 16, 21, 132, 53, 20]);
+		Main.instance.LoadNPC(NPCID.Guide);
+		int index = NPC.TypeToDefaultHeadIndex(NPCID.Guide);
+		if (index != -1) texture = TextureAssets.NpcHead[index];
+	}
+}
+public class ItemBrowserWindow : WindowElement {
+	public SearchGridItem SearchItem { get; private set; }
+	public ItemListGridItem ItemList { get; private set; }
+	public FilterListGridItem<Item> ItemFilterList { get; private set; }
+	public FilteredEnumerable<Item> ActiveItemFilters { get; private set; }
+	public override Color BackgroundColor => ItemSourceHelperConfig.Instance.ItemBrowserColor;
+	public override void SetDefaults() {
+		sortOrder = -0.5f;
+		items = new() {
+			[1] = ItemFilterList = new() {
+				filters = ItemSourceHelper.Instance.Filters.TryCast<ItemFilter>(),
+				activeFilters = ActiveItemFilters = new(),
+				sorters = ItemSourceHelper.Instance.SourceSorters.TryCast<ItemSorter>(),
+				ResetScroll = () => ItemList.scroll = 0,
+				colorFunc = () => ItemSourceHelperConfig.Instance.ItemFilterListColor
+			},
+			[2] = ItemList = new() {
+				items = ActiveItemFilters,
+				colorFunc = () => ItemSourceHelperConfig.Instance.ItemsListColor
+			},
+			[4] = new CornerSlotGridItem(ItemFilterList),
+			[6] = SearchItem = new()
+		};
+		itemIDs = new int[3, 7] {
+			{ 6, 4, 4,-1, 2, 2, 2 },
+			{ 6, 1, 1, 1, 2, 2, 2 },
+			{ 6, 1, 1, 1, 2, 2, 2 }
+		};
+		WidthWeights = new([0f, 3, 3]);
+		HeightWeights = new([0f, 0f, 0f, 0f, 3f, 0f, 0f]);
+		MinWidths = new([43, 180, 180]);
+		MinHeights = new([31, 21, 16, 21, 132, 53, 2]);
+		Main.instance.LoadItem(ItemID.Chest);
+		texture = TextureAssets.Item[ItemID.Chest];
+	}
+}
+#endregion tabs

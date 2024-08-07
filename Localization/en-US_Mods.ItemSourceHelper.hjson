@@ -103,7 +103,7 @@ AmmoName: {
 
 Keybinds: {
 	"Open Browser To Hovered Item.DisplayName": Open {$Mods.ItemSourceHelper.SourceBrowser} To Hovered Item
-	"Open Browser.DisplayName": Open Browser
+	"Open Browser.DisplayName": Open/Close Browser
 	"Open Bestiary To Hovered Item.DisplayName": Open Bestiary To Hovered Item
 }
 
@@ -125,6 +125,8 @@ FilterList: {
 		Combined filters will match any entries that any filter in them matches
 		Hold control to invert filters
 		Clicking on the active sorting method will reverse it
+		The subfilter section will show the subfilters of the most recently selected filter with subfilters
+		Right click on a selected filter to switch to showing its subfilters
 		'''
 }
 
@@ -225,6 +227,16 @@ Configs: {
 		}
 
 		Headers.Colors: Colors
+
+		TabSize: {
+			Label: Tab Size
+			Tooltip: ""
+		}
+
+		TabWidth: {
+			Label: Tab Width
+			Tooltip: ""
+		}
 	}
 
 	ItemSourceHelperPositions: {
@@ -265,4 +277,10 @@ SourceSorter: {
 
 SourceBrowser: Source Browser
 ItemBrowser: Item Browser
-BrowserToggleTip: "{$Mods.ItemSourceHelper.SourceBrowser} <-> {$Mods.ItemSourceHelper.ItemBrowser}"
+
+BrowserMode: {
+	SourceBrowserWindow.DisplayName: "{$Mods.ItemSourceHelper.SourceBrowser}"
+	ItemBrowserWindow.DisplayName: "{$Mods.ItemSourceHelper.ItemBrowser}"
+}
+
+BrowserToggleTip: Mods.ItemSourceHelper.BrowserToggleTip

@@ -14,63 +14,45 @@ namespace ItemSourceHelper {
 	public class ItemSourceHelperConfig : ModConfig {
 		public override ConfigScope Mode => ConfigScope.ClientSide;
 		public static ItemSourceHelperConfig Instance;
+
 		[DefaultValue(12), Range(1, 18), Slider]
 		public int ScrollSensitivity { get; set; }
+
+		[DefaultValue(26), Range(26, 180)]
+		public int TabSize { get; set; }
+
+		[DefaultValue(24), Range(18, 52)]
+		public int TabWidth { get; set; }
+
 		[DefaultValue(15), Range(-1, 600)]
 		public int AutoSearchTime { get; set; }
+
 		[DefaultValue(true)]
 		public bool AnimatedRecipeGroups { get; set; }
 
 		[Header("Colors")]
 		[DefaultValue(typeof(Color), "100, 149, 237, 255")]
-		public Color SourceBrowserColor {
-			get => ItemSourceHelper.Instance.BrowserWindow.SourceBrowser.color;
-			set => ItemSourceHelper.Instance.BrowserWindow.SourceBrowser.color = value;
-		}
+		public Color SourceBrowserColor { get; set; }
 		[DefaultValue(typeof(Color), "240, 128, 128, 255")]
-		public Color SourceFilterListColor {
-			get => ItemSourceHelper.Instance.BrowserWindow.SourceBrowser.items[1].color;
-			set => ItemSourceHelper.Instance.BrowserWindow.SourceBrowser.items[1].color = value;
-		}
+		public Color SourceFilterListColor { get; set; }
 		[DefaultValue(typeof(Color), "80, 144, 255, 255")]
-		public Color IngredientListColor {
-			get => ItemSourceHelper.Instance.BrowserWindow.SourceBrowser.items[3].color;
-			set => ItemSourceHelper.Instance.BrowserWindow.SourceBrowser.items[3].color = value;
-		}
+		public Color IngredientListColor { get; set; }
 		[DefaultValue(typeof(Color), "80, 144, 255, 255")]
-		public Color SourcesListColor {
-			get => ItemSourceHelper.Instance.BrowserWindow.SourceBrowser.items[2].color;
-			set => ItemSourceHelper.Instance.BrowserWindow.SourceBrowser.items[2].color = value;
-		}
+		public Color SourcesListColor { get; set; }
 		[DefaultValue(typeof(Color), "230, 230, 230, 255")]
-		public Color SearchBarColor {
-			get => ItemSourceHelper.Instance.BrowserWindow.SearchItem.color;
-			set => ItemSourceHelper.Instance.BrowserWindow.SearchItem.color = value;
-		}
+		public Color SearchBarColor { get; set; }
 		[DefaultValue(typeof(Color), "0, 0, 0, 255")]
-		public Color SearchBarTextColor {
-			get => ItemSourceHelper.Instance.BrowserWindow.SearchItem.textColor;
-			set => ItemSourceHelper.Instance.BrowserWindow.SearchItem.textColor = value;
-		}
+		public Color SearchBarTextColor { get; set; }
 		[DefaultValue(typeof(Color), "72, 67, 159, 255")]
 		public Color ItemSlotColor { get; set; }
 		[DefaultValue(typeof(Color), "80, 144, 255, 255")]
 		public Color HoveredItemSlotColor { get; set; }
 		[DefaultValue(typeof(Color), "80, 207, 129, 255")]
-		public Color ItemBrowserColor {
-			get => ItemSourceHelper.Instance.BrowserWindow.ItemBrowser.color;
-			set => ItemSourceHelper.Instance.BrowserWindow.ItemBrowser.color = value;
-		}
+		public Color ItemBrowserColor { get; set; }
 		[DefaultValue(typeof(Color), "40, 128, 64, 255")]
-		public Color ItemFilterListColor {
-			get => ItemSourceHelper.Instance.BrowserWindow.ItemBrowser.items[1].color;
-			set => ItemSourceHelper.Instance.BrowserWindow.ItemBrowser.items[1].color = value;
-		}
+		public Color ItemFilterListColor { get; set; }
 		[DefaultValue(typeof(Color), "40, 160, 100, 255")]
-		public Color ItemsListColor {
-			get => ItemSourceHelper.Instance.BrowserWindow.ItemBrowser.items[2].color;
-			set => ItemSourceHelper.Instance.BrowserWindow.ItemBrowser.items[2].color = value;
-		}
+		public Color ItemsListColor { get; set; }
 	}
 	public class ItemSourceHelperPositions : ModConfig {
 		public override ConfigScope Mode => ConfigScope.ClientSide;

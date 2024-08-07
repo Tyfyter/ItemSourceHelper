@@ -16,6 +16,8 @@ Hold shift to combine normally incompatible filters
 Combined filters will match any entries that any filter in them matches
 Hold control to invert filters
 Clicking on the active sorting method will reverse it
+The subfilter section will show the subfilters of the most recently selected filter with subfilters
+Right click on a selected filter to switch to showing its subfilters
 
 Search Bar:
 Searches in item names and tooltips by default
@@ -23,6 +25,14 @@ Start query with ^ to only search in names
 Start query with # to only search in tooltips
 Use commas to separate search queries
 This field supports arrow keys and all vanilla chat controls
+
+Source Browser:
+Double click on an item to see recipes that result in it or that it's an ingredient in
+Double right-click on a recipe group in the ingredient list to switch to the item browser and view the contents of that recipe group
+
+Item Browser:
+Double click on an item to switch to the source browser and see recipes that result in it or that it's an ingredient in
+The slot in the top left functions as both a key for the symbols in the item slots and buttons to filter by the listed traits
 
 Hold shift while hovering over the filter list or search bar to view their respective controls and information in-game
 
