@@ -1185,8 +1185,13 @@ public class ItemBrowserWindow : WindowElement {
 public class ItemListGridItem : ThingListGridItem<Item> {
 	public override bool ClickThing(Item item, bool doubleClick) {
 		if (!doubleClick) return false;
-		ItemSourceHelper.Instance.BrowserWindow.FilterItem.SetItem(item);
-		ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>();
+		if (Main.mouseLeft) {
+			ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>(true);
+			ModContent.GetInstance<SourceBrowserWindow>().FilterItem.SetItem(item);
+		} else {
+			ItemSourceHelper.Instance.BrowserWindow.SetTab<LootBrowserWindow>(true);
+			ModContent.GetInstance<LootBrowserWindow>().FilterItem.SetItem(item);
+		}
 		return true;
 	}
 	public override void DrawThing(SpriteBatch spriteBatch, Item item, Vector2 position, bool hovering) {

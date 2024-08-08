@@ -247,10 +247,9 @@ public class ScrollingPlayer : ModPlayer {
 		if (ItemSourceHelper.OpenToItemHotkey.JustPressed) {
 			if (Main.HoverItem?.IsAir == false) {
 				ItemSourceHelper.Instance.BrowserWindow.Open();
-				ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>();
-				ItemSourceBrowser browserWindow = ItemSourceHelper.Instance.BrowserWindow;
-				browserWindow.Reset();
-				browserWindow.FilterItem.SetItem(Main.HoverItem);
+				ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>(true);
+				ModContent.GetInstance<SourceBrowserWindow>().ResetItems();
+				ModContent.GetInstance<SourceBrowserWindow>().FilterItem.SetItem(Main.HoverItem);
 				return;
 			}
 		}

@@ -91,6 +91,14 @@ ItemSourceFilter: {
 	CraftableFilter.DisplayName: Crafted
 	ItemLootFilter.DisplayName: Item Loot
 	NPCLootFilter.DisplayName: NPC Loot
+	RarityFilter_CalamityMod/PureGreen.DisplayName: Pure Green
+	RarityFilter_CalamityMod/HotPink.DisplayName: Hot Pink
+	RarityFilter_CalamityMod/DarkBlue.DisplayName: Dark Blue
+	RarityFilter_CalamityMod/Violet.DisplayName: Violet
+	RarityFilter_CalamityMod/Turquoise.DisplayName: Turquoise
+	RarityFilter_CalamityMod/CalamityRed.DisplayName: Calamity Red
+	RarityFilter_CalamityMod/DarkOrange.DisplayName: Dark Orange
+	RarityFilter_UnofficialCalamityWhips/SkyBlue.DisplayName: Sky Blue
 }
 
 AmmoName: {

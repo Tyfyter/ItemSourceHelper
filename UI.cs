@@ -69,7 +69,7 @@ namespace ItemSourceHelper {
 				browser.blockUseHandles |= new Rectangle(
 					(int)(ItemSourceHelperPositions.Instance.SourceBrowserLeft - ItemSourceHelperConfig.Instance.TabWidth),
 					(int)(ItemSourceHelperPositions.Instance.SourceBrowserTop + tabHeight * (selectedTab - tabScroll)),
-					ItemSourceHelperConfig.Instance.TabWidth + 12,
+					ItemSourceHelperConfig.Instance.TabWidth,
 					(int)tabHeight
 				).Contains(Main.mouseX, Main.mouseY);
 			}
@@ -93,7 +93,7 @@ namespace ItemSourceHelper {
 						(int)tabHeight
 					);
 					Color highlighted = Color.White;
-					if (area.Contains(Main.mouseX, Main.mouseY)) {
+					if (area.Contains(Main.mouseX, Main.mouseY) && Main.mouseX < ItemSourceHelperPositions.Instance.SourceBrowserLeft) {
 						this.CaptureScroll();
 						Main.LocalPlayer.mouseInterface = true;
 						UIMethods.TryMouseText(Windows[tab].DisplayNameText, Windows[tab].DisplayNameRarity);
@@ -149,6 +149,7 @@ namespace ItemSourceHelper {
 			Windows[selectedTab].OnLostFocus();
 			selectedTab = index;
 			if (clearFilters) Windows[selectedTab].ResetItems();
+			Windows[selectedTab].Resize();
 		}
 		public void SetTab<T>(bool clearFilters = false) where T : WindowElement {
 			SetTab(ModContent.GetInstance<T>().Index, clearFilters);
@@ -537,14 +538,14 @@ namespace ItemSourceHelper {
 								if (items[i].type != doubleClickItem) doubleClickTime = 0;
 								if (doubleClickTime > 0) {
 									if (Main.mouseLeft) {
+										ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>(true);
 										ItemSourceHelper.Instance.BrowserWindow.FilterItem.SetItem(items[i]);
-										ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>();
 									} else {
 										if (items[i].TryGetGlobalItem(out AnimatedRecipeGroupGlobalItem global) && global.recipeGroup != -1) {
 											MaterialFilter materialFilter = ModContent.GetInstance<MaterialFilter>();
 											foreach (IFilter<Item> filter in materialFilter.ChildItemFilters()) {
 												if (filter is RecipeGroupFilter recipeGroupFilter && recipeGroupFilter.RecipeGroup.RegisteredId == global.recipeGroup) {
-													ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>();
+													ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>(true);
 													ItemSourceHelper.Instance.BrowserWindow.ItemFilterList.SetFilter(materialFilter, true);
 													ItemSourceHelper.Instance.BrowserWindow.ItemFilterList.SetFilter(filter, true);
 													break;
@@ -1333,7 +1334,7 @@ namespace ItemSourceHelper {
 						bool hovering = canHover && Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size;
 						DrawThing(spriteBatch, thing, position, hovering);
 						if (hovering && ((Main.mouseLeft && Main.mouseLeftRelease) || (Main.mouseRight && Main.mouseRightRelease))) {
-							if (ReferenceEquals(thing, doubleClickThing)) doubleClickTime = 0;
+							if (!Equals(thing, doubleClickThing)) doubleClickTime = 0;
 							if (doubleClickTime > 0) {
 								ClickThing(thing, true);
 							} else {
@@ -1354,6 +1355,7 @@ namespace ItemSourceHelper {
 		}
 		public abstract void DrawThing(SpriteBatch spriteBatch, Thing thing, Vector2 position, bool hovering);
 		public abstract bool ClickThing(Thing thing, bool doubleClick);
+		//public abstract bool IsSameThing(Thing thing1, Thing thing2);
 		public void Scroll(int direction) {
 			if (!cutOff && direction > 0) return;
 			if (scroll <= 0 && direction < 0) return;
