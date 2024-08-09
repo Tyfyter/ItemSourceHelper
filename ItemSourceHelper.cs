@@ -40,12 +40,14 @@ public class ItemSourceHelper : Mod {
 	public HashSet<int> NPCLootItems { get; private set; }
 	public HashSet<int> ItemLootItems { get; private set; }
 	public static ModKeybind OpenToItemHotkey { get; private set; }
+	public static ModKeybind OpenDropsToItemHotkey { get; private set; }
 	public static ModKeybind OpenMenuHotkey { get; private set; }
 	public static ModKeybind OpenBestiaryHotkey { get; private set; }
 	internal static UISearchBar BestiarySearchBar;
 	public static Asset<Texture2D> InventoryBackOutline { get; private set; }
 	public static Asset<Texture2D> SortArrows { get; private set; }
 	public static Asset<Texture2D> ItemIndicators { get; private set; }
+	public static Asset<Texture2D> NPCDropBack { get; private set; }
 	public ItemSourceHelper() {
 		Instance = this;
 		Sources = [];
@@ -114,12 +116,14 @@ public class ItemSourceHelper : Mod {
 		
 	}
 	public override void Load() {
-		OpenToItemHotkey = KeybindLoader.RegisterKeybind(this, "Open Browser To Hovered Item", nameof(Keys.OemOpenBrackets));
+		OpenToItemHotkey = KeybindLoader.RegisterKeybind(this, "Open Source Browser To Hovered Item", nameof(Keys.OemOpenBrackets));
+		OpenDropsToItemHotkey = KeybindLoader.RegisterKeybind(this, "Open Drops Browser To Hovered Item", nameof(Keys.OemPipe));
 		OpenMenuHotkey = KeybindLoader.RegisterKeybind(this, "Open Browser", nameof(Keys.OemCloseBrackets));
-		if (ModLoader.HasMod("GlobalLootViewer")) OpenBestiaryHotkey = KeybindLoader.RegisterKeybind(this, "Open Bestiary To Hovered Item", nameof(Keys.OemPipe));
+		if (ModLoader.HasMod("GlobalLootViewer")) OpenBestiaryHotkey = KeybindLoader.RegisterKeybind(this, "Open Bestiary To Hovered Item", nameof(Keys.Insert));
 		InventoryBackOutline = Assets.Request<Texture2D>("Inventory_Back_Outline");
 		SortArrows = Assets.Request<Texture2D>("Sort_Arrows");
 		ItemIndicators = Assets.Request<Texture2D>("Item_Indicators");
+		NPCDropBack = Assets.Request<Texture2D>("NPC_Drop_Back");
 		MonoModHooks.Add(
 			typeof(ModContent).GetMethod("ResizeArrays", BindingFlags.NonPublic | BindingFlags.Static),
 			(Action<bool> orig, bool unloading) => {
@@ -149,6 +153,7 @@ public class ItemSourceHelper : Mod {
 		Data.Unload();
 		Instance = null;
 		OpenToItemHotkey = null;
+		OpenDropsToItemHotkey = null;
 		OpenMenuHotkey = null;
 	}
 	public static LocalizedText GetLocalization(ILocalizedModType self, string suffix = "DisplayName", Func<string> makeDefaultValue = null) =>
@@ -247,9 +252,18 @@ public class ScrollingPlayer : ModPlayer {
 		if (ItemSourceHelper.OpenToItemHotkey.JustPressed) {
 			if (Main.HoverItem?.IsAir == false) {
 				ItemSourceHelper.Instance.BrowserWindow.Open();
-				ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>(true);
-				ModContent.GetInstance<SourceBrowserWindow>().ResetItems();
-				ModContent.GetInstance<SourceBrowserWindow>().FilterItem.SetItem(Main.HoverItem);
+				SourceBrowserWindow window = ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>(true);
+				window.ResetItems();
+				window.FilterItem.SetItem(Main.HoverItem);
+				return;
+			}
+		}
+		if (ItemSourceHelper.OpenDropsToItemHotkey.JustPressed) {
+			if (Main.HoverItem?.IsAir == false) {
+				ItemSourceHelper.Instance.BrowserWindow.Open();
+				LootBrowserWindow window = ItemSourceHelper.Instance.BrowserWindow.SetTab<LootBrowserWindow>(true);
+				window.ResetItems();
+				window.FilterItem.SetItem(Main.HoverItem);
 				return;
 			}
 		}

@@ -54,7 +54,7 @@ public abstract class ItemSourceType : ModTexturedType, ILocalizedModType {
 	public virtual IEnumerable<ItemSourceFilter> ChildFilters() => [];
 }
 public abstract class LootSourceType : ModTexturedType, ILocalizedModType {
-	public string LocalizationCategory => "ItemSourceType";
+	public string LocalizationCategory => "LootSourceType";
 	public virtual LocalizedText DisplayName => this.GetLocalization("DisplayName");
 	public abstract IEnumerable<LootSource> FillSourceList();
 	public int Type { get; private set; }

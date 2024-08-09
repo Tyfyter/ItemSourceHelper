@@ -91,14 +91,6 @@ ItemSourceFilter: {
 	CraftableFilter.DisplayName: Crafted
 	ItemLootFilter.DisplayName: Item Loot
 	NPCLootFilter.DisplayName: NPC Loot
-	RarityFilter_CalamityMod/PureGreen.DisplayName: Pure Green
-	RarityFilter_CalamityMod/HotPink.DisplayName: Hot Pink
-	RarityFilter_CalamityMod/DarkBlue.DisplayName: Dark Blue
-	RarityFilter_CalamityMod/Violet.DisplayName: Violet
-	RarityFilter_CalamityMod/Turquoise.DisplayName: Turquoise
-	RarityFilter_CalamityMod/CalamityRed.DisplayName: Calamity Red
-	RarityFilter_CalamityMod/DarkOrange.DisplayName: Dark Orange
-	RarityFilter_UnofficialCalamityWhips/SkyBlue.DisplayName: Sky Blue
 }
 
 AmmoName: {
@@ -113,14 +105,19 @@ Keybinds: {
 	"Open Browser To Hovered Item.DisplayName": Open {$Mods.ItemSourceHelper.SourceBrowser} To Hovered Item
 	"Open Browser.DisplayName": Open/Close Browser
 	"Open Bestiary To Hovered Item.DisplayName": Open Bestiary To Hovered Item
+	"Open Source Browser To Hovered Item.DisplayName": Open  Source  Browser  To  Hovered  Item
+	"Open Drops Browser To Hovered Item.DisplayName": Open  Drops  Browser  To  Hovered  Item
 }
 
 ItemSourceType: {
 	CraftingItemSourceType.DisplayName: Crafting
 	ShimmerItemSourceType.DisplayName: Shimmer Transformation
 	ShopItemSourceType.DisplayName: NPC Shops
-	ItemLootSourceType.DisplayName: Mods.ItemSourceHelper.ItemSourceType.ItemLootSourceType.DisplayName
-	NPCLootSourceType.DisplayName: Mods.ItemSourceHelper.ItemSourceType.NPCLootSourceType.DisplayName
+}
+
+LootSourceType: {
+	ItemLootSourceType.DisplayName: "{$Mods.ItemSourceHelper.ItemSourceFilter.ItemLootFilter.DisplayName}"
+	NPCLootSourceType.DisplayName: "{$Mods.ItemSourceHelper.ItemSourceFilter.NPCLootFilter.DisplayName}"
 }
 
 Close: Close
@@ -316,3 +313,4 @@ BrowserMode: {
 }
 
 BrowserToggleTip: Mods.ItemSourceHelper.BrowserToggleTip
+DropChanceExact: "{0:P} drop chance"

@@ -146,13 +146,15 @@ namespace ItemSourceHelper {
 			if (tabOverflow && direction > 0 || tabScroll > 0 && direction < 0) tabScroll += direction;
 		}
 		public void SetTab(int index, bool clearFilters = false) {
-			Windows[selectedTab].OnLostFocus();
+			if (selectedTab != -1) Windows[selectedTab].OnLostFocus();
 			selectedTab = index;
 			if (clearFilters) Windows[selectedTab].ResetItems();
-			Windows[selectedTab].Resize();
+			Windows[selectedTab].CheckSizes();
 		}
-		public void SetTab<T>(bool clearFilters = false) where T : WindowElement {
-			SetTab(ModContent.GetInstance<T>().Index, clearFilters);
+		public T SetTab<T>(bool clearFilters = false) where T : WindowElement {
+			T tab = ModContent.GetInstance<T>();
+			SetTab(tab.Index, clearFilters);
+			return tab;
 		}
 		public bool IsTabActive<T>() where T : WindowElement => selectedTab == ModContent.GetInstance<T>().Index;
 		bool isActive = false;
@@ -538,20 +540,19 @@ namespace ItemSourceHelper {
 								if (items[i].type != doubleClickItem) doubleClickTime = 0;
 								if (doubleClickTime > 0) {
 									if (Main.mouseLeft) {
-										ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>(true);
-										ItemSourceHelper.Instance.BrowserWindow.FilterItem.SetItem(items[i]);
-									} else {
-										if (items[i].TryGetGlobalItem(out AnimatedRecipeGroupGlobalItem global) && global.recipeGroup != -1) {
-											MaterialFilter materialFilter = ModContent.GetInstance<MaterialFilter>();
-											foreach (IFilter<Item> filter in materialFilter.ChildItemFilters()) {
-												if (filter is RecipeGroupFilter recipeGroupFilter && recipeGroupFilter.RecipeGroup.RegisteredId == global.recipeGroup) {
-													ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>(true);
-													ItemSourceHelper.Instance.BrowserWindow.ItemFilterList.SetFilter(materialFilter, true);
-													ItemSourceHelper.Instance.BrowserWindow.ItemFilterList.SetFilter(filter, true);
-													break;
-												}
+										ModContent.GetInstance<SourceBrowserWindow>().FilterItem.SetItem(items[i]);
+									} else if (items[i].TryGetGlobalItem(out AnimatedRecipeGroupGlobalItem global) && global.recipeGroup != -1) {
+										MaterialFilter materialFilter = ModContent.GetInstance<MaterialFilter>();
+										foreach (IFilter<Item> filter in materialFilter.ChildItemFilters()) {
+											if (filter is RecipeGroupFilter recipeGroupFilter && recipeGroupFilter.RecipeGroup.RegisteredId == global.recipeGroup) {
+												ItemBrowserWindow window = ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>(true);
+												window.ItemFilterList.SetFilter(materialFilter, true);
+												window.ItemFilterList.SetFilter(filter, true);
+												break;
 											}
 										}
+									} else {
+										ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>(true).ScrollToItem(items[i].type);
 									}
 								} else {
 									doubleClickTime = 15;
@@ -626,18 +627,27 @@ namespace ItemSourceHelper {
 						position.X = x;
 						position.Y = y;
 						//ItemSlot.Draw(spriteBatch, items, ItemSlot.Context.CraftingMaterial, i, position);
-						Item item = ContentSamples.ItemsByType[drops[i].itemId];
+						DropRateInfo info = drops[i];
+						bool hide = false;
+						if ((info.conditions?.Count ?? 0) > 0) {
+							for (int j = 0; j < info.conditions.Count && !hide; j++) {
+								if (!info.conditions[j].CanShowItemDropInUI()) hide = true;
+							}
+						}
+						if (hide) continue;
+						Item item = ContentSamples.ItemsByType[info.itemId];
 						if (canHover && Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size) {
 							UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, texture, hoverColor);
-							tooltipModifier.info = drops[i];
+							tooltipModifier.info = info;
 							TooltipAdderGlobal.TooltipModifiers.Add(tooltipModifier);
 							ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
 							if ((Main.mouseLeft && Main.mouseLeftRelease) || (Main.mouseRight && Main.mouseRightRelease)) {
-								if (drops[i].itemId != doubleClickItem) doubleClickTime = 0;
+								if (info.itemId != doubleClickItem) doubleClickTime = 0;
 								if (doubleClickTime > 0) {
 									if (Main.mouseLeft) {
-										//ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>();
-										//ModContent.GetInstance<ItemBrowserWindow>().ItemList.ScrollToItem(item.type);
+										ModContent.GetInstance<LootBrowserWindow>().FilterItem.SetItem(info.itemId);
+									} else {
+										ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>(true).ScrollToItem(info.itemId);
 									}
 								} else {
 									doubleClickTime = 15;
@@ -648,10 +658,10 @@ namespace ItemSourceHelper {
 							UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, texture, normalColor);
 						}
 						string chanceText;
-						if (drops[i].dropRate >= 0.1f) {
-							chanceText = $"{drops[i].dropRate:P0}";
+						if (info.dropRate >= 0.1f) {
+							chanceText = $"{info.dropRate:P0}";
 						} else {
-							chanceText = $"{drops[i].dropRate:0.##}%";
+							chanceText = $"{(info.dropRate * 100):0.##}%";
 						}
 						ChatManager.DrawColorCodedStringWithShadow(
 							spriteBatch,
@@ -699,9 +709,24 @@ namespace ItemSourceHelper {
 					amountText = info.stackMin.ToString();
 				}
 				if (amountText is not null) tooltips[0].Text += $" ({amountText})";
-				if (info.conditions is not null) for (int i = 0; i < info.conditions.Count; i++) {
-					string description = info.conditions[i].GetConditionDescription();
-					if (description is not null) tooltips.Add(new(ItemSourceHelper.Instance, "Condition" + i, description));
+				if (info.conditions is not null) {
+					DropAttemptInfo dropInfo = default(DropAttemptInfo);
+					dropInfo.player = Main.LocalPlayer;
+					dropInfo.npc = ContentSamples.NpcsByNetId[NPCID.Guide];
+					dropInfo.IsExpertMode = Main.expertMode;
+					dropInfo.IsMasterMode = Main.masterMode;
+					dropInfo.IsInSimulation = false;
+					dropInfo.rng = Main.rand;
+					for (int i = 0; i < info.conditions.Count; i++) {
+						string description = info.conditions[i].GetConditionDescription();
+						if (description is not null) tooltips.Add(new(ItemSourceHelper.Instance, "Condition" + i, description) {
+							IsModifier = true,
+							IsModifierBad = !info.conditions[i].CanDrop(dropInfo)
+						});
+					}
+				}
+				if ($"{info.dropRate * 100:0.##}" == "0") {
+					tooltips.Add(new(ItemSourceHelper.Instance, "DropRateExact", Language.GetOrRegister("Mods.ItemSourceHelper.DropChanceExact").Format(info.dropRate)));
 				}
 			}
 		}
@@ -847,7 +872,7 @@ namespace ItemSourceHelper {
 		public int FindFilterIndex(Predicate<IFilter<T>> match) => filters.FindIndex(match);
 		public IFilter<T> GetFilter(int index) => filters[index];
 		public void ClearSelectedFilters() {
-			SetSortMethod(defaultSortMethod);
+			if (defaultSortMethod is not null) SetSortMethod(defaultSortMethod);
 			inverted = false;
 			filters.Clear();
 			ClearCache();
@@ -1572,6 +1597,8 @@ namespace ItemSourceHelper {
 
 			Rectangle area = GetOuterDimensions().ToRectangle();
 			Point mousePos = Main.MouseScreen.ToPoint();
+			if (Left > Main.screenWidth - Width) Left = Main.screenWidth - Width;
+			if (Top > Main.screenHeight - Height) Top = Main.screenHeight - Height;
 			if (heldHandle != 0) {
 				Main.LocalPlayer.mouseInterface = true;
 				bool changed = false;
@@ -1596,10 +1623,10 @@ namespace ItemSourceHelper {
 					}
 				} else {
 					Vector2 pos = Main.MouseScreen + heldHandleOffset;
-					if (pos.X > Main.screenWidth - Width) pos.X = Main.screenWidth - Width;
-					if (pos.Y > Main.screenHeight - Height) pos.X = Main.screenHeight - Height;
 					Left = (int)pos.X;
 					Top = (int)pos.Y;
+					if (Left > Main.screenWidth - Width) Left = Main.screenWidth - Width;
+					if (Top > Main.screenHeight - Height) Top = Main.screenHeight - Height;
 				}
 				if (!Main.mouseLeft) {
 					heldHandle = 0;
@@ -1682,8 +1709,8 @@ namespace ItemSourceHelper {
 		float calculatedMinHeight;
 		public Dictionary<int, GridItem> items;
 		public int[,] itemIDs;
-		float[] widths;
-		float[] heights;
+		protected float[] widths;
+		protected float[] heights;
 		float unweightedWidth;
 		float unweightedHeight;
 		public ObservableArray<float> WidthWeights;
@@ -1985,6 +2012,32 @@ namespace ItemSourceHelper {
 				ScissorTestEnable = true
 			};
 		}
+		/*public class ClippingStencil : IDisposable {
+			readonly DepthStencilState stencil;
+			readonly RasterizerState rasterizerState;
+			readonly SpriteBatch spriteBatch;
+			public ClippingStencil(SpriteBatch spriteBatch, params DrawData[] stencilData) {
+				this.spriteBatch = spriteBatch;
+				stencil = spriteBatch.GraphicsDevice.DepthStencilState;
+				rasterizerState = spriteBatch.GraphicsDevice.RasterizerState;
+
+				spriteBatch.End();
+				Rectangle adjustedClippingRectangle = Rectangle.Intersect(area.Scale(), spriteBatch.GraphicsDevice.ScissorRectangle);
+				spriteBatch.GraphicsDevice.ScissorRectangle = adjustedClippingRectangle;
+				spriteBatch.GraphicsDevice.RasterizerState = OverflowHiddenRasterizerState;
+				spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.AnisotropicClamp, DepthStencilState.None, OverflowHiddenRasterizerState, null, Main.UIScaleMatrix);
+			}
+			public void Dispose() {
+				spriteBatch.End();
+				spriteBatch.GraphicsDevice.DepthStencilState = stencil;
+				spriteBatch.GraphicsDevice.RasterizerState = rasterizerState;
+				spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.AnisotropicClamp, DepthStencilState.None, rasterizerState, null, Main.UIScaleMatrix);
+			}
+			private static readonly RasterizerState OverflowHiddenRasterizerState = new() {
+				CullMode = CullMode.None,
+				ScissorTestEnable = true
+			};
+		}*/
 		public static void CaptureScroll(this IScrollableUIItem scrollable) {
 			ScrollingPlayer.scrollable = scrollable;
 		}
