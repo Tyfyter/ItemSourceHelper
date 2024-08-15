@@ -73,6 +73,10 @@ public abstract class LootSourceType : ModTexturedType, ILocalizedModType {
 	public abstract List<DropRateInfo> GetDrops(int type);
 	public abstract void DrawSource(SpriteBatch spriteBatch, int type, Vector2 position, bool hovering);
 	public abstract Dictionary<string, string> GetSearchData(int type);
+	/// <summary>
+	/// return true if something was done
+	/// </summary>
+	public virtual bool DoubleClick(int type) => false;
 }
 public interface IFilterBase { }
 public interface IFilter<T> : IFilterBase {

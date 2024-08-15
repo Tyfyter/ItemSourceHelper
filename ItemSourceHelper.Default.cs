@@ -1126,10 +1126,10 @@ public class ItemSourceListGridItem : ThingListGridItem<ItemSource> {
 		if (!doubleClick) {
 			ItemSourceHelper.Instance.BrowserWindow.Ingredience.SetItems(itemSource.GetSourceItems().ToArray());
 			ItemSourceHelper.Instance.BrowserWindow.ConditionsItem.SetConditionsFrom(itemSource);
-		} else if (Main.mouseLeft) {
-			ModContent.GetInstance<SourceBrowserWindow>().FilterItem.SetItem(itemSource.Item);
-		} else {
+		} else if (Main.mouseRight) {
 			ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>().ScrollToItem(itemSource.Item.type);
+		} else {
+			ModContent.GetInstance<SourceBrowserWindow>().FilterItem.SetItem(itemSource.Item);
 		}
 		return false;
 	}
@@ -1207,10 +1207,10 @@ public class ItemBrowserWindow : WindowElement {
 public class ItemListGridItem : ThingListGridItem<Item> {
 	public override bool ClickThing(Item item, bool doubleClick) {
 		if (!doubleClick) return false;
-		if (Main.mouseLeft) {
-			ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>(true).FilterItem.SetItem(item);
-		} else {
+		if (Main.mouseRight) {
 			ItemSourceHelper.Instance.BrowserWindow.SetTab<LootBrowserWindow>(true).FilterItem.SetItem(item);
+		} else {
+			ItemSourceHelper.Instance.BrowserWindow.SetTab<SourceBrowserWindow>(true).FilterItem.SetItem(item);
 		}
 		return true;
 	}
@@ -1303,6 +1303,7 @@ public class LootBrowserWindow : WindowElement {
 }
 public class LootListGridItem : ThingListGridItem<LootSource> {
 	public override bool ClickThing(LootSource lootSource, bool doubleClick) {
+		if (doubleClick && lootSource.SourceType.DoubleClick(lootSource.Type)) return false;
 		ModContent.GetInstance<LootBrowserWindow>().Drops.SetDrops(lootSource.SourceType.GetDrops(lootSource.Type));
 		return false;
 	}
@@ -1331,6 +1332,13 @@ public class ItemLootSourceType : LootSourceType {
 		return drops;
 	}
 	public override Dictionary<string, string> GetSearchData(int type) => SearchLoader.GetSearchData(ContentSamples.ItemsByType[type]);
+	public override bool DoubleClick(int type) {
+		if (Main.mouseRight) {
+			ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>(true).ScrollToItem(type);
+			return true;
+		}
+		return false;
+	}
 }
 public class NPCLootSourceType : LootSourceType {
 	public override string Texture => "Terraria/Images/Item_" + ItemID.Gel;

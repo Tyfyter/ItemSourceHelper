@@ -766,8 +766,11 @@ namespace ItemSourceHelper {
 				for (; i > 0; i--) {
 					T source = sourceSource[i];
 					if (!MatchesSlot(source)) goto cont;
-					for (int j = 0; j < searchFilter.Count; j++) if (!searchFilter[j].Matches(SearchLoader.GetSearchData(source))) goto cont;
 					for (int j = 0; j < filters.Count; j++) if (!filters[j].MatchesAll(source)) goto cont;
+					if (searchFilter.Count > 0) {
+						Dictionary<string, string> data = SearchLoader.GetSearchData(source);
+						for (int j = 0; j < searchFilter.Count; j++) if (!searchFilter[j].Matches(data)) goto cont;
+					}
 					cache.Add((source, i));
 					yield return source;
 					cont:;
@@ -784,8 +787,11 @@ namespace ItemSourceHelper {
 				for (; i < sourceSource.Count; i++) {
 					T source = sourceSource[i];
 					if (!MatchesSlot(source)) goto cont;
-					for (int j = 0; j < searchFilter.Count; j++) if (!searchFilter[j].Matches(SearchLoader.GetSearchData(source))) goto cont;
 					for (int j = 0; j < filters.Count; j++) if (!filters[j].MatchesAll(source)) goto cont;
+					if (searchFilter.Count > 0) {
+						Dictionary<string, string> data = SearchLoader.GetSearchData(source);
+						for (int j = 0; j < searchFilter.Count; j++) if (!searchFilter[j].Matches(data)) goto cont;
+					}
 					cache.Add((source, i));
 					yield return source;
 					cont:;
@@ -1126,6 +1132,15 @@ namespace ItemSourceHelper {
 						while (cursorIndex < text.Length && text[cursorIndex] != ' ') {
 							cursorIndex++;
 						}
+					} else if (UIMethods.JustPressed(Keys.Back)) {
+						if (cursorIndex <= 0) goto specialControls;
+						int length = 1;
+						cursorIndex--;
+						while (cursorIndex > 0 && text[cursorIndex - 1] != ' ') {
+							cursorIndex--;
+							length++;
+						}
+						text.Remove(cursorIndex, length);
 					}
 					typed = true;
 					goto specialControls;

@@ -1,5 +1,5 @@
 displayName = Item Source Helper
 author = Moonlight Glint
-version = 1.0
+version = 1.0.1
 side = Client
 sortAfter = ThoriumMod

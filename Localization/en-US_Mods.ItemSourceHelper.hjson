@@ -144,6 +144,7 @@ Search.HelpText:
 	Start query with # to only search in tooltips
 	Use commas to separate search queries
 	This field supports arrow keys and all vanilla chat controls
+	This field also supports Ctrl+Backspace
 	'''
 
 Configs: {

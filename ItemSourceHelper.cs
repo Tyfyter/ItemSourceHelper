@@ -21,6 +21,7 @@ using Terraria.GameContent.ItemDropRules;
 using ItemSourceHelper.Default;
 using Tyfyter.Utils;
 using Terraria.GameContent.Bestiary;
+using System.Text;
 
 namespace ItemSourceHelper;
 public class ItemSourceHelper : Mod {
@@ -73,18 +74,27 @@ public class ItemSourceHelper : Mod {
 		CraftableItems = [];
 		NPCLootItems = [];
 		ItemLootItems = [];
-		SearchLoader.RegisterSearchable<ItemSource>(source => new Dictionary<string, string>() {
-			["Name"] = source.Item.Name,
-			["Description"] = string.Join('\n', source.Item.ToolTip.GetLines()),
-			["ModName"] = source.Item?.ModItem?.Mod?.DisplayNameClean ?? "Terraria",
-			["ModInternalName"] = source.Item?.ModItem?.Mod?.Name ?? "Terraria",
-			["Conditions"] = string.Join('\n', (source.GetConditions() ?? []).Select(c => c.Description.Value).Concat((source.GetExtraConditionText() ?? []).Select(c => c.Value))),
+		SearchLoader.RegisterSearchable<ItemSource>(source => {
+			Dictionary<string, string> data = SearchLoader.GetSearchData(source.Item);
+			data["Conditions"] = string.Join('\n', (source.GetConditions() ?? []).Select(c => c.Description.Value).Concat((source.GetExtraConditionText() ?? []).Select(c => c.Value)));
+			return data;
 		});
-		SearchLoader.RegisterSearchable<Item>(item => new Dictionary<string, string>(){
-			["Name"] = item.Name,
-			["Description"] = string.Join('\n', item.ToolTip.GetLines()),
-			["ModName"] = item?.ModItem?.Mod?.DisplayNameClean ?? "Terraria",
-			["ModInternalName"] = item?.ModItem?.Mod?.Name ?? "Terraria",
+		SearchLoader.RegisterSearchable<Item>(item => {
+			Dictionary<string, string> data = new() {
+				["Name"] = item.Name,
+				["ModName"] = item?.ModItem?.Mod?.DisplayNameClean ?? "Terraria",
+				["ModInternalName"] = item?.ModItem?.Mod?.Name ?? "Terraria",
+			};
+			int yoyoLogo = -1; int researchLine = -1; float oldKB = item.knockBack; int numLines = 1; string[] toolTipLine = new string[30]; bool[] preFixLine = new bool[30]; bool[] badPreFixLine = new bool[30]; string[] toolTipNames = new string[30];
+			Main.MouseText_DrawItemTooltip_GetLinesInfo(item, ref yoyoLogo, ref researchLine, oldKB, ref numLines, toolTipLine, preFixLine, badPreFixLine, toolTipNames, out int prefixlineIndex);
+
+			List<TooltipLine> lines = ItemLoader.ModifyTooltips(item, ref numLines, toolTipNames, ref toolTipLine, ref preFixLine, ref badPreFixLine, ref yoyoLogo, out _, prefixlineIndex);
+			StringBuilder builder = new();
+			for (int j = 1; j < lines.Count; j++) {
+				builder.AppendLine(lines[j].Text);
+			}
+			data["Description"] = builder.ToString();
+			return data;
 		});
 		SearchLoader.RegisterSearchable<LootSource>(LootSource.GetSearchData);
 		FilteredEnumerable<ItemSource>.SlotMatcher = (source, filterItem) => {
