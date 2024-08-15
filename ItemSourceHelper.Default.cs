@@ -1389,7 +1389,7 @@ public class NPCLootSourceType : LootSourceType {
 			};
 			bestiaryEntry.Icon.Update(info, screenPos, settings);
 			spriteBatch.End();
-			spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.AnisotropicClamp, DepthStencilState.None, Main.Rasterizer, null, Main.UIScaleMatrix);
+			spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, SamplerState.AnisotropicClamp, DepthStencilState.None, Main.Rasterizer, null, Main.UIScaleMatrix);
 			Main.graphics.GraphicsDevice.SetRenderTarget(renderTarget);
 			Main.graphics.GraphicsDevice.Clear(Color.Transparent);//rectangle.Contains(Main.mouseX, Main.mouseY) ? Color.Blue : Color.Red
 			bestiaryEntry.Icon.Draw(info, spriteBatch, settings);
@@ -1412,8 +1412,8 @@ public class NPCLootSourceType : LootSourceType {
 			rectangle.Height -= padding * 2;
 			float alignment = 1;
 			float npcScale = 1;
-			if (type >= 0 && NPCID.Sets.ShouldBeCountedAsBoss[type] || ContentSamples.NpcsByNetId[type].boss) alignment = 0.5f;
-			screenPos = new((int)((screenPos.X - screenPos.Width * 0.5f) * Main.UIScale), (int)((screenPos.Y - screenPos.Height * alignment) * Main.UIScale), (int)(screenPos.Width * Main.UIScale * 2 * npcScale), (int)(screenPos.Height * Main.UIScale * 2 * npcScale));
+			if (type >= 0 && NPCID.Sets.ShouldBeCountedAsBoss[type] || ContentSamples.NpcsByNetId[type].boss || type == NPCID.DungeonGuardian) alignment = 0.5f;
+			screenPos = new((int)((screenPos.X - screenPos.Width * 0.5f)), (int)((screenPos.Y - screenPos.Height * alignment)), (int)(screenPos.Width * 2 * npcScale), (int)(screenPos.Height * 2 * npcScale));
 			{
 				float pixelScale = (screenPos.Height / (float)rectangle.Height);
 				rectangle.X -= shrinkage;
