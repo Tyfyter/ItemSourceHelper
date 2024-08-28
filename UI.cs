@@ -163,6 +163,11 @@ namespace ItemSourceHelper {
 			else Open();
 		}
 		public void Open() {
+			if (selectedTab == -1) {
+				Windows.Sort();
+				selectedTab = 0;
+				for (int i = 0; i < Windows.Count; i++) Windows[i].Index = i;
+			}
 			isActive = true;
 		}
 		public void Close() {
