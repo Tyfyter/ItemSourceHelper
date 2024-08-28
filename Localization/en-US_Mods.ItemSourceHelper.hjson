@@ -105,8 +105,8 @@ Keybinds: {
 	"Open Browser To Hovered Item.DisplayName": Open {$Mods.ItemSourceHelper.SourceBrowser} To Hovered Item
 	"Open Browser.DisplayName": Open/Close Browser
 	"Open Bestiary To Hovered Item.DisplayName": Open Bestiary To Hovered Item
-	"Open Source Browser To Hovered Item.DisplayName": Open  Source  Browser  To  Hovered  Item
-	"Open Drops Browser To Hovered Item.DisplayName": Open  Drops  Browser  To  Hovered  Item
+	"Open Source Browser To Hovered Item.DisplayName": Open Source Browser To Hovered Item
+	"Open Drops Browser To Hovered Item.DisplayName": Open Drops Browser To Hovered Item
 }
 
 ItemSourceType: {
