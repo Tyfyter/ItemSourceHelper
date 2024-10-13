@@ -752,6 +752,7 @@ namespace ItemSourceHelper {
 		Item filterItem;
 		bool inverted;
 		bool reachedEnd;
+		bool altered;
 		public bool Inverted {
 			get => inverted;
 			set {
@@ -760,6 +761,7 @@ namespace ItemSourceHelper {
 			}
 		}
 		public IEnumerator<T> GetEnumerator() {
+			altered = false;
 			if (Inverted) {
 				int i = sourceSource.Count - 1;
 				for (int j = 0; j < cache.Count; j++) {
@@ -769,6 +771,7 @@ namespace ItemSourceHelper {
 				}
 				if (reachedEnd) yield break;
 				for (; i > 0; i--) {
+					if (altered) yield break;
 					T source = sourceSource[i];
 					if (!MatchesSlot(source)) goto cont;
 					for (int j = 0; j < filters.Count; j++) if (!filters[j].MatchesAll(source)) goto cont;
@@ -790,6 +793,7 @@ namespace ItemSourceHelper {
 				}
 				if (reachedEnd) yield break;
 				for (; i < sourceSource.Count; i++) {
+					if (altered) yield break;
 					T source = sourceSource[i];
 					if (!MatchesSlot(source)) goto cont;
 					for (int j = 0; j < filters.Count; j++) if (!filters[j].MatchesAll(source)) goto cont;
@@ -877,6 +881,7 @@ namespace ItemSourceHelper {
 		public void ClearCache() {
 			cache.Clear();
 			reachedEnd = false;
+			altered = true;
 		}
 		public IEnumerable<IFilter<T>> SelectedFilters => filters;
 		public int FilterCount => filters.Count;
