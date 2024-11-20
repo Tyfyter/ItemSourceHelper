@@ -24,6 +24,7 @@ using Terraria.GameContent.Creative;
 using Terraria.GameContent.ItemDropRules;
 using Terraria.GameContent.Bestiary;
 using System.Reflection;
+using Terraria.ModLoader.UI;
 
 namespace ItemSourceHelper.Default;
 #region shop
@@ -91,13 +92,8 @@ public class ShopItemSource(ItemSourceType sourceType, AbstractNPCShop.Entry ent
 	}
 	public static bool HasCoin(int price, int level, out int levelAmount, int amountPerLevel = 100) => (levelAmount = (price / (int)Math.Pow(amountPerLevel, level)) % 100) > 0;
 	public override IEnumerable<LocalizedText> GetExtraConditionText() => [GetShopName(Shop)];
-	static string GetNameKey(AbstractNPCShop shop) => $"{Lang.GetNPCName(shop.NpcType).Key.Replace(".DisplayName", "")}.ShopName.{shop.Name}";
-	public static LocalizedText GetShopName(AbstractNPCShop shop) => Language.GetOrRegister(GetNameKey(shop), () => {
-		if (shop.Name == "Shop") {
-			return Lang.GetNPCNameValue(shop.NpcType);
-		}
-		return $"{Lang.GetNPCNameValue(shop.NpcType)}: {shop.Name}";
-	});
+	static string GetNameKey(AbstractNPCShop shop) => Lang.GetNPCName(shop.NpcType).Key;
+	public static LocalizedText GetShopName(AbstractNPCShop shop) => Lang.GetNPCName(shop.NpcType);
 }
 [Autoload(false)]
 public class ShopTypeSourceFilter(AbstractNPCShop shop) : ItemSourceFilter {
@@ -1441,6 +1437,41 @@ public class NPCLootSourceType : LootSourceType {
 		return data;
 	}
 }
+/*public class ChestLootSourceType : LootSourceType {
+	public override string Texture => "Terraria/Images/Item_" + ItemID.Chest;
+	public List<(string name, List<IItemDropRule> drops)> Entries { get; } = [];
+	public override void DrawSource(SpriteBatch spriteBatch, int type, Vector2 position, bool hovering) {
+		Item item = ContentSamples.ItemsByType[ItemID.Chest];
+		UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, TextureAssets.InventoryBack13.Value, hovering ? ItemSourceHelperConfig.Instance.HoveredItemSlotColor : ItemSourceHelperConfig.Instance.ItemSlotColor);
+		if (hovering) UICommon.TooltipMouseText(Entries[type].name);
+	}
+	public override IEnumerable<LootSource> FillSourceList() {
+		FieldInfo field = typeof(ItemLoader).Assembly.GetType("Terraria.ModLoader.ChestLootLoader")?.GetField("lootPools", BindingFlags.NonPublic | BindingFlags.Static);
+		if (field is null) yield break;
+		int i = 0;
+		foreach (KeyValuePair<string, List<IItemDropRule>> item in (Dictionary<string, List<IItemDropRule>>)field.GetValue(null)) {
+			Entries.Add((item.Key, item.Value));
+			yield return new(this, i);
+			i++;
+		}
+	}
+	public override List<DropRateInfo> GetDrops(int type) {
+		List<DropRateInfo> drops = [];
+		DropRateInfoChainFeed ratesInfo = new(1f);
+		foreach (IItemDropRule rule in Entries[type].drops) {
+			rule.ReportDroprates(drops, ratesInfo);
+		}
+		return drops;
+	}
+	public override Dictionary<string, string> GetSearchData(int type) => [];
+	public override bool DoubleClick(int type) {
+		if (Main.mouseRight) {
+			//ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>(true).ScrollToItem(type);
+			return true;
+		}
+		return false;
+	}
+}*/
 public record struct LootSource(LootSourceType SourceType, int Type) {
 	public static Dictionary<string, string> GetSearchData(LootSource lootSource) => lootSource.SourceType.GetSearchData(lootSource.Type);
 }

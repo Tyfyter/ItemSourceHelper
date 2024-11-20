@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.GameContent;
+using Terraria.GameContent.Bestiary;
 using Terraria.GameContent.ItemDropRules;
 using Terraria.GameInput;
 using Terraria.Graphics.Effects;
@@ -1233,6 +1234,7 @@ namespace ItemSourceHelper {
 		}
 		public override void Reset() {
 			Clear();
+			receiver.SetSearchFilters([]);
 			cursorIndex = 0;
 			lastSearch = "";
 			focused = false;
