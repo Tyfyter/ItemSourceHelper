@@ -2,7 +2,7 @@ Item Source Helper lets you see how to get any† item, whether it's crafted, pu
 
 [h1]How To Use:[/h1]
 [h3]To Open:[/h3]
-Bind keys to "Open Browser" and/or "Open Source Browser To Hovered Item"
+Bind keys to "Open Browser", "Open Source Browser To Hovered Item", and/or "Open Drops Browser To Hovered Item"
 Use a hotkey
 
 [h3]Window:[/h3]

@@ -1,8 +1,8 @@
-Item Source Helper lets you see how to get any*† item, whether it's crafted, purchased, or even transformed by shimmer!
+Item Source Helper lets you see how to get any† item, whether it's crafted, purchased, or even transformed by shimmer!
 
 How To Use:
 To Open:
-Bind keys to "Open Browser" and/or "Open Source Browser To Hovered Item"
+Bind keys to "Open Browser", "Open Source Browser To Hovered Item", and/or "Open Drops Browser To Hovered Item"
 Use a hotkey
 
 Window:
@@ -49,6 +49,5 @@ Isn't Recipe Browser just a rip-off of the guide?
 Why should I use this over [other mod here]?:
 It probably has features [other mod here] doesn't have, although — similarly — [other mod here] may have features this doesn't have
 
-*Grab bag loot viewing will come in a future update, enemy loot viewing currently only implemented through Bestiary Utils version 1.2.4 and higher, but will be properly added in the same update
 †Source types not listed here are not inherently supported, but support for missing vanilla source types will be added in future updates, and support for modded source types may be added from other mods
 ‡These questions have not been asked, and were included preemptively

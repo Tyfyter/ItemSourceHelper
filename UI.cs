@@ -491,6 +491,8 @@ namespace ItemSourceHelper {
 		public void Scroll(int direction) {
 			if (cutOffTop && direction > 0 || scrollTop > 0 && direction < 0) scrollTop += direction;
 			if (cutOffBottom && direction > 0 || scrollBottom > 0 && direction < 0) scrollBottom += direction;
+			if (scrollTop < 0) scrollTop = 0;
+			if (scrollBottom < 0) scrollBottom = 0;
 		}
 		public override void Reset() {
 			scrollTop = 0;
@@ -1590,6 +1592,7 @@ namespace ItemSourceHelper {
 		public override void OnInitialize() {
 			heights = new float[HeightWeights.Length];
 			widths = new float[WidthWeights.Length];
+			//this.onu
 		}
 		public void Resize() {
 			float margins = MarginLeft + MarginRight;
@@ -1626,44 +1629,6 @@ namespace ItemSourceHelper {
 			Point mousePos = Main.MouseScreen.ToPoint();
 			if (Left > Main.screenWidth - Width) Left = Main.screenWidth - Width;
 			if (Top > Main.screenHeight - Height) Top = Main.screenHeight - Height;
-			if (heldHandle != 0) {
-				Main.LocalPlayer.mouseInterface = true;
-				bool changed = false;
-				if (heldHandleStretch) {
-					if (heldHandle.HasFlag(RectangleHandles.Left)) {
-						Vector2 pos = Main.MouseScreen + heldHandleOffset;
-						Width += Left - (int)pos.X;
-						Left = (int)pos.X;
-						changed = true;
-					} else if (heldHandle.HasFlag(RectangleHandles.Right)) {
-						Width = (int)Main.MouseScreen.X + heldHandleOffset.X - area.X;
-						changed = true;
-					}
-					if (heldHandle.HasFlag(RectangleHandles.Top)) {
-						Vector2 pos = Main.MouseScreen + heldHandleOffset;
-						Height += Top - (int)pos.Y;
-						Top = (int)pos.Y;
-						changed = true;
-					} else if (heldHandle.HasFlag(RectangleHandles.Bottom)) {
-						Height = (int)Main.MouseScreen.Y + heldHandleOffset.Y - area.Y;
-						changed = true;
-					}
-				} else {
-					Vector2 pos = Main.MouseScreen + heldHandleOffset;
-					Left = (int)pos.X;
-					Top = (int)pos.Y;
-					if (Left > Main.screenWidth - Width) Left = Main.screenWidth - Width;
-					if (Top > Main.screenHeight - Height) Top = Main.screenHeight - Height;
-				}
-				if (!Main.mouseLeft) {
-					heldHandle = 0;
-				}
-				if (changed) {
-					Resize();
-					Recalculate();
-					area = GetOuterDimensions().ToRectangle();
-				}
-			}
 			bool hoveringSomewhere = false;
 			foreach (var segment in UIMethods.RectangleSegments) {
 				Rectangle bounds = segment.GetBounds(area);
@@ -1750,6 +1715,44 @@ namespace ItemSourceHelper {
 			}
 		}
 		public override void Update(GameTime gameTime) {
+			if (heldHandle != 0) {
+				Main.LocalPlayer.mouseInterface = true;
+				bool changed = false;
+				if (heldHandleStretch) {
+					Rectangle area = GetOuterDimensions().ToRectangle();
+					if (heldHandle.HasFlag(RectangleHandles.Left)) {
+						Vector2 pos = Main.MouseScreen + heldHandleOffset;
+						Width += Left - (int)pos.X;
+						Left = (int)pos.X;
+						changed = true;
+					} else if (heldHandle.HasFlag(RectangleHandles.Right)) {
+						Width = (int)Main.MouseScreen.X + heldHandleOffset.X - area.X;
+						changed = true;
+					}
+					if (heldHandle.HasFlag(RectangleHandles.Top)) {
+						Vector2 pos = Main.MouseScreen + heldHandleOffset;
+						Height += Top - (int)pos.Y;
+						Top = (int)pos.Y;
+						changed = true;
+					} else if (heldHandle.HasFlag(RectangleHandles.Bottom)) {
+						Height = (int)Main.MouseScreen.Y + heldHandleOffset.Y - area.Y;
+						changed = true;
+					}
+				} else {
+					Vector2 pos = Main.MouseScreen + heldHandleOffset;
+					Left = (int)pos.X;
+					Top = (int)pos.Y;
+					if (Left > Main.screenWidth - Width) Left = Main.screenWidth - Width;
+					if (Top > Main.screenHeight - Height) Top = Main.screenHeight - Height;
+				}
+				if (!Main.mouseLeft) {
+					heldHandle = 0;
+				}
+				if (changed) {
+					Resize();
+					Recalculate();
+				}
+			}
 			CheckSizes();
 			int hCells = itemIDs.GetLength(0);
 			int vCells = itemIDs.GetLength(1);

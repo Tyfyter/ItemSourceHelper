@@ -22,6 +22,7 @@ using ItemSourceHelper.Default;
 using Tyfyter.Utils;
 using Terraria.GameContent.Bestiary;
 using System.Text;
+using Terraria.WorldBuilding;
 
 namespace ItemSourceHelper;
 public class ItemSourceHelper : Mod {
@@ -35,6 +36,7 @@ public class ItemSourceHelper : Mod {
 	public int ChildFilterCount { get; internal set; }
 	public ItemSourceBrowser BrowserWindow { get; private set; }
 	public Dictionary<int, int> IconicWeapons { get; private set; }
+	public List<BlockedSource> BlockedSources { get; private set; } = [];
 	public List<string> PreOrderedFilterChannels { get; private set; }
 	public List<SourceSorter> SourceSorters { get; private set; }
 	public HashSet<int> CraftableItems { get; private set; }
@@ -76,7 +78,7 @@ public class ItemSourceHelper : Mod {
 		ItemLootItems = [];
 		SearchLoader.RegisterSearchable<ItemSource>(source => {
 			Dictionary<string, string> data = SearchLoader.GetSearchData(source.Item);
-			data["Conditions"] = string.Join('\n', (source.GetConditions() ?? []).Select(c => c.Description.Value).Concat((source.GetExtraConditionText() ?? []).Select(c => c.Value)));
+			data["Conditions"] = string.Join('\n', source.GetAllConditions().Select(t => t.Value));
 			return data;
 		});
 		SearchLoader.RegisterSearchable<Item>(item => {
@@ -156,6 +158,10 @@ public class ItemSourceHelper : Mod {
 			case "ADDICONICWEAPON":
 			IconicWeapons.Add((int)args[1], (int)args[2]);
 			break;
+			case "ADDBLOCKEDSOURCE":
+			BlockedSource blockedSource = BlockedSource.FromDictionary((Dictionary<string, object>)args[1]);
+			if (blockedSource.Valid) BlockedSources.Add(blockedSource);
+			break;
 		}
 		return null;
 	}
@@ -179,14 +185,25 @@ public class FilterOrderComparer : IComparer<ItemSourceFilter> {
 		return Comparer<float>.Default.Compare(x.SortPriority, y.SortPriority);
 	}
 }
+public class LootFilterOrderComparer : IComparer<LootSourceFilter> {
+	public int Compare(LootSourceFilter x, LootSourceFilter y) {
+		int xChannel = x.FilterChannel, yChannel = y.FilterChannel;
+		if (xChannel == -1) xChannel = 1000;
+		if (yChannel == -1) yChannel = 1000;
+		int channelComp = Comparer<int>.Default.Compare(xChannel, yChannel);
+		if (channelComp != 0) return channelComp;
+		return Comparer<float>.Default.Compare(x.SortPriority, y.SortPriority);
+	}
+}
 file class SorterComparer : IComparer<SourceSorter> {
 	public int Compare(SourceSorter x, SourceSorter y) => Comparer<float>.Default.Compare(x.SortPriority, y.SortPriority);
 }
 public class ItemSourceHelperSystem : ModSystem {
 	public override void PostSetupRecipes() {
 		foreach (ItemSourceType sourceType in ItemSourceHelper.Instance.SourceTypes) sourceType.PostSetupRecipes();
+		foreach (LootSourceType sourceType in ItemSourceHelper.Instance.LootSourceTypes) sourceType.PostSetupRecipes();
 
-		ItemSourceHelper.Instance.Sources.AddRange(ItemSourceHelper.Instance.SourceTypes.SelectMany(s => s.FillSourceList()));
+		ItemSourceHelper.Instance.Sources.AddRange(ItemSourceHelper.Instance.SourceTypes.SelectMany(s => s.FillSourceList().Where(ItemSourceHelper.Instance.BlockedSources.Passes)));
 		ItemSourceHelper.Instance.LootSources.AddRange(ItemSourceHelper.Instance.LootSourceTypes.SelectMany(s => s.FillSourceList()));
 		ItemSourceHelper.BestiarySearchBar = (UISearchBar)Main.BestiaryUI.Descendants().First(c => c is UISearchBar);
 		ItemSourceHelper.Instance.SourceSorters.Sort(new SorterComparer());
@@ -301,5 +318,40 @@ public class TooltipAdderGlobal : GlobalItem {
 	public override void ModifyTooltips(Item item, List<TooltipLine> tooltips) {
 		for (int i = 0; i < TooltipModifiers.Count; i++) TooltipModifiers[i].ModifyTooltips(item, tooltips);
 		TooltipModifiers.Clear();
+	}
+}
+public record class BlockedSource(int CreateItem, (int type, int? count)[] SourceItems, LocalizedText[] Conditions) {
+	public bool Valid { get; private set; } = true;
+	public static BlockedSource FromDictionary(Dictionary<string, object> dictionary) {
+		bool hasCreateItem = dictionary.TryGetValue("CreateItem", out object _createItem);
+		bool hasSourceItems = dictionary.TryGetValue("SourceItems", out object _sourceItems);
+		bool hasConditions = dictionary.TryGetValue("Conditions", out object _conditions);
+		if (!hasCreateItem) return new(0, null, null) { Valid = false };
+		if (_createItem.GetType() == typeof(short)) _createItem = (int)(short)_createItem;
+		int createItem = (int)(_createItem ?? 0);
+		(int, int?)[] sourceItems = _sourceItems as (int, int?)[];
+		LocalizedText[] conditions = _conditions as LocalizedText[];
+		if (!hasSourceItems) sourceItems = [];
+		if (!hasConditions) conditions = [];
+		return new(createItem, sourceItems, conditions);
+	}
+	public bool Matches(ItemSource itemSource) {
+		if (CreateItem != itemSource.Item.type) return false;
+		if (SourceItems is not null) {
+			Item[] sourceSourceItems = itemSource.GetSourceItems().ToArray();
+			if (SourceItems.Length != sourceSourceItems.Length) return false;
+			for (int i = 0; i < SourceItems.Length; i++) {
+				if (SourceItems[i].type != sourceSourceItems[i].type) return false;
+				if (SourceItems[i].count is int count && count != sourceSourceItems[i].stack) return false;
+			}
+		}
+		if (Conditions is not null) {
+			LocalizedText[] sourceConditions = itemSource.GetAllConditions().ToArray();
+			if (Conditions.Length != sourceConditions.Length) return false;
+			for (int i = 0; i < Conditions.Length; i++) {
+				if (Conditions[i].Key != sourceConditions[i].Key) return false;
+			}
+		}
+		return true;
 	}
 }

@@ -316,3 +316,10 @@ BrowserMode: {
 
 BrowserToggleTip: Mods.ItemSourceHelper.BrowserToggleTip
 DropChanceExact: "{0:P} drop chance"
+
+LootSourceFilter: {
+	BossBagLootItemTypeFilter.DisplayName: "{$Mods.ItemSourceHelper.ItemSourceFilter.ToolTypeFilter_BossBag.DisplayName}"
+	PrehardmodeCrateLootItemTypeFilter.DisplayName: "{$Mods.ItemSourceHelper.ItemSourceFilter.ToolTypeFilter_PrehardmodeCrate.DisplayName}"
+	HardmodeCrateLootItemTypeFilter.DisplayName: "{$Mods.ItemSourceHelper.ItemSourceFilter.ToolTypeFilter_HardmodeCrate.DisplayName}"
+	OtherLootItemTypeFilter.DisplayName: "{$Mods.ItemSourceHelper.ItemSourceFilter.ToolTypeFilter_LootBag_Misc.DisplayName}"
+}

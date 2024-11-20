@@ -25,6 +25,8 @@ using Terraria.GameContent.ItemDropRules;
 using Terraria.GameContent.Bestiary;
 using System.Reflection;
 using Terraria.ModLoader.UI;
+using Terraria.DataStructures;
+using Terraria.GameContent.UI.Elements;
 
 namespace ItemSourceHelper.Default;
 #region shop
@@ -1308,6 +1310,7 @@ public class LootListGridItem : ThingListGridItem<LootSource> {
 	}
 }
 public class ItemLootSourceType : LootSourceType {
+	public static List<LootSourceFilter> Children { get; private set; } = [];
 	public override string Texture => "Terraria/Images/Item_" + ItemID.Present;
 	public override void DrawSource(SpriteBatch spriteBatch, int type, Vector2 position, bool hovering) {
 		Item item = ContentSamples.ItemsByType[type];
@@ -1335,8 +1338,27 @@ public class ItemLootSourceType : LootSourceType {
 		}
 		return false;
 	}
+	public override void Unload() {
+		Children = null;
+	}
+	public override IEnumerable<LootSourceFilter> ChildFilters() => Children;
 }
+public abstract class LootItemTypeFilter(Predicate<LootSource> condition, int iconicItem, float priority) : LootSourceFilter {
+	public override void SetStaticDefaults() {
+		UseItemTexture(iconicItem);
+		ItemLootSourceType.Children.InsertOrdered(this, new LootFilterOrderComparer());
+	}
+	protected override string FilterChannelName => "LootItemType";
+	protected override bool IsChildFilter => true;
+	public override float SortPriority => priority;
+	public override bool Matches(LootSource lootSource) => condition(lootSource);
+}
+public class BossBagLootItemTypeFilter() : LootItemTypeFilter(lootSource => ItemID.Sets.BossBag[lootSource.Type], ItemID.MoonLordBossBag, 1f) { }
+public class PrehardmodeCrateLootItemTypeFilter() : LootItemTypeFilter(lootSource => ItemID.Sets.IsFishingCrate[lootSource.Type] && !ItemID.Sets.IsFishingCrateHardmode[lootSource.Type], ItemID.IronCrate, 2) { }
+public class HardmodeCrateLootItemTypeFilter() : LootItemTypeFilter(lootSource => ItemID.Sets.IsFishingCrateHardmode[lootSource.Type], ItemID.HallowedFishingCrateHard, 3f) { }
+public class OtherLootItemTypeFilter() : LootItemTypeFilter(lootSource => !ItemLootSourceType.Children.Any(f => f is not OtherLootItemTypeFilter && f.Matches(lootSource)), ItemID.GoodieBag, 99f) { }
 public class NPCLootSourceType : LootSourceType {
+	public static List<LootSourceFilter> Children { get; private set; } = [];
 	public override string Texture => "Terraria/Images/Item_" + ItemID.Gel;
 	RenderTarget2D renderTarget;
 	public override IEnumerable<LootSource> FillSourceList() {
@@ -1436,6 +1458,52 @@ public class NPCLootSourceType : LootSourceType {
 
 		return data;
 	}
+	public override void Unload() {
+		Children = null;
+	}
+	public override void PostSetupRecipes() {
+		LootSource[] sources = FillSourceList().ToArray();
+		for (int i = 0; i < Main.BestiaryDB.Filters.Count; i++) {
+			for (int j = 0; j < sources.Length; j++) {
+				if (Main.BestiaryDB.Filters[i].FitsFilter(BestiaryDatabaseNPCsPopulator.FindEntryByNPCID(sources[j].Type))) {
+					AddChild(new BestiaryFilter(Main.BestiaryDB.Filters[i], i / (Main.BestiaryDB.Filters.Count + 1f)));
+					break;
+				}
+			}
+		}
+	}
+	public static void AddChild(LootSourceFilter child) {
+		Children.Add(child);
+		child.LateRegister();
+	}
+	public override IEnumerable<LootSourceFilter> ChildFilters() => Children;
+}
+public class BestiaryFilter(IEntryFilter<BestiaryEntry> entry, float progress) : LootSourceFilter {
+	static FastFieldInfo<UIImageFramed, Asset<Texture2D>> Framed_texture = new("_texture", BindingFlags.NonPublic);
+	static FastFieldInfo<UIImageFramed, Rectangle> _frame = new("_frame", BindingFlags.NonPublic);
+	static FastFieldInfo<UIImage, Asset<Texture2D>> _texture = new("_texture", BindingFlags.NonPublic);
+	public override void SetStaticDefaults() {
+		UIElement _image = entry.GetImage();
+		if (_image is UIImageFramed framedImage) {
+			texture = Framed_texture.GetValue(framedImage);
+			if (texture.State == AssetState.Loading) {
+				texture.Wait();
+				framedImage = (UIImageFramed)entry.GetImage();
+			}
+			animation = new SingleFrameAnimation(_frame.GetValue(framedImage));
+		} else if (_image is UIImage image) {
+			texture = _texture.GetValue(image);
+			if (texture.State == AssetState.NotLoaded) {
+				texture = ModContent.Request<Texture2D>(texture.Name);
+			}
+		}
+	}
+	protected override string FilterChannelName => "NPCBestiaryFilter";
+	public override string Name => $"{base.Name}_{entry.GetDisplayNameKey()}";
+	public override LocalizedText DisplayName => Language.GetOrRegister(entry.GetDisplayNameKey());
+	protected override bool IsChildFilter => true;
+	public override float SortPriority => 10 + progress;
+	public override bool Matches(LootSource lootSource) => entry.FitsFilter(Main.BestiaryDB.FindEntryByNPCID(lootSource.Type));
 }
 /*public class ChestLootSourceType : LootSourceType {
 	public override string Texture => "Terraria/Images/Item_" + ItemID.Chest;

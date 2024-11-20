@@ -1,6 +1,7 @@
 ﻿using ItemSourceHelper.Default;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Mono.Cecil;
 using ReLogic.Content;
 using System;
 using System.Collections;
@@ -34,6 +35,7 @@ public abstract class ItemSource(ItemSourceType sourceType, int itemType) {
 	public virtual IEnumerable<HashSet<int>> GetSourceGroups() {
 		yield break;
 	}
+	public IEnumerable<LocalizedText> GetAllConditions() => (GetConditions() ?? []).Select(c => c.Description).Concat((GetExtraConditionText() ?? []).Select(c => c));
 }
 public abstract class ItemSourceType : ModTexturedType, ILocalizedModType {
 	public string LocalizationCategory => "ItemSourceType";
@@ -397,6 +399,10 @@ public class SubCollection<T, B>(ICollection<B> Parent) : ICollection<T> {
 	public bool Remove(T _item) => _item is B item ? Parent.Remove(item) : rejects.Remove(_item);
 	IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
 }
+public class SingleFrameAnimation(Rectangle frame) : DrawAnimation {
+	public SingleFrameAnimation(int frameX = 0, int frameY = 0, int width = 0, int height = 0) : this(new(frameX, frameY, width, height)) { }
+	public override Rectangle GetFrame(Texture2D texture, int frameCounterOverride = -1) => frame;
+}
 public static class CoreExtenstions {
 	public static bool MatchesAll<T>(this IFilter<T> filter, T item) {
 		if (!filter.Matches(item)) return false;
@@ -409,5 +415,11 @@ public static class CoreExtenstions {
 		} else {
 			if (active != false) filter.ActiveChildren.Add(child);
 		}
+	}
+	public static bool Passes(this List<BlockedSource> self, ItemSource itemSource) {
+		for (int i = 0; i < self.Count; i++) {
+			if (self[i].Matches(itemSource)) return false;
+		}
+		return true;
 	}
 }
