@@ -8,6 +8,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.GameContent;
@@ -15,12 +16,14 @@ using Terraria.GameContent.ItemDropRules;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
+using Tyfyter.Utils;
 
 namespace ItemSourceHelper.Core;
 public abstract class ItemSource(ItemSourceType sourceType, int itemType) {
 	public ItemSourceType SourceType => sourceType;
 	public int ItemType => itemType;
-	Item item;
+	protected Item item;
 	public Item Item => item ??= ContentSamples.ItemsByType[ItemType];
 	public ItemSource(ItemSourceType sourceType, Item item) : this(sourceType, item.type) {
 		this.item = item;
@@ -36,8 +39,14 @@ public abstract class ItemSource(ItemSourceType sourceType, int itemType) {
 		yield break;
 	}
 	public IEnumerable<LocalizedText> GetAllConditions() => (GetConditions() ?? []).Select(c => c.Description).Concat((GetExtraConditionText() ?? []).Select(c => c));
+	public SourceMatcher ToSourceMatcher() => new(
+		ItemType,
+		GetSourceItems().Select<Item, (int, int?)>(static i => (i.type, i.stack)).ToArray(),
+		GetAllConditions().ToArray()
+	);
 }
 public abstract class ItemSourceType : ModTexturedType, ILocalizedModType {
+	FastStaticFieldInfo<Recipe, Dictionary<int, int>> _ownedItems = new("_ownedItems", BindingFlags.Public | BindingFlags.NonPublic);
 	public string LocalizationCategory => "ItemSourceType";
 	public virtual LocalizedText DisplayName => this.GetLocalization("DisplayName");
 	public abstract IEnumerable<ItemSource> FillSourceList();
@@ -54,6 +63,21 @@ public abstract class ItemSourceType : ModTexturedType, ILocalizedModType {
 	}
 	public virtual void PostSetupRecipes() { }
 	public virtual IEnumerable<ItemSourceFilter> ChildFilters() => [];
+	public virtual bool OwnsItem(Item item) {
+		int countsAs = item.GetGlobalItem<AnimatedRecipeGroupGlobalItem>().recipeGroup;
+		if (countsAs == -1) {
+			countsAs = item.type;
+		} else {
+			countsAs += 1000000;
+		}
+		return _ownedItems.GetValue().TryGetValue(countsAs, out int ownedCount) && ownedCount >= item.stack;
+	}
+	public virtual bool OwnsAllItems(ItemSource itemSource) {
+		foreach (Item item in itemSource.GetSourceItems()) {
+			if (!OwnsItem(item)) return false;
+		}
+		return true;
+	}
 }
 public abstract class LootSourceType : ModTexturedType, ILocalizedModType {
 	public string LocalizationCategory => "LootSourceType";
@@ -416,7 +440,7 @@ public static class CoreExtenstions {
 			if (active != false) filter.ActiveChildren.Add(child);
 		}
 	}
-	public static bool Passes(this List<BlockedSource> self, ItemSource itemSource) {
+	public static bool Passes(this List<SourceMatcher> self, ItemSource itemSource) {
 		for (int i = 0; i < self.Count; i++) {
 			if (self[i].Matches(itemSource)) return false;
 		}

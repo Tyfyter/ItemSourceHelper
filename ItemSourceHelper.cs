@@ -24,6 +24,7 @@ using Terraria.GameContent.Bestiary;
 using System.Text;
 using Terraria.WorldBuilding;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Xna.Framework;
 
 namespace ItemSourceHelper;
 public class ItemSourceHelper : Mod {
@@ -37,7 +38,7 @@ public class ItemSourceHelper : Mod {
 	public int ChildFilterCount { get; internal set; }
 	public ItemSourceBrowser BrowserWindow { get; private set; }
 	public Dictionary<int, int> IconicWeapons { get; private set; }
-	public List<BlockedSource> BlockedSources { get; private set; } = [];
+	public List<SourceMatcher> BlockedSources { get; private set; } = [];
 	public List<string> PreOrderedFilterChannels { get; private set; }
 	public List<SourceSorter> SourceSorters { get; private set; }
 	public HashSet<int> CraftableItems { get; private set; }
@@ -171,7 +172,7 @@ public class ItemSourceHelper : Mod {
 			IconicWeapons.Add((int)args[1], (int)args[2]);
 			break;
 			case "ADDBLOCKEDSOURCE":
-			BlockedSource blockedSource = BlockedSource.FromDictionary((Dictionary<string, object>)args[1]);
+			SourceMatcher blockedSource = SourceMatcher.FromDictionary((Dictionary<string, object>)args[1]);
 			if (blockedSource.Valid) BlockedSources.Add(blockedSource);
 			break;
 		}
@@ -211,6 +212,7 @@ file class SorterComparer : IComparer<SourceSorter> {
 	public int Compare(SourceSorter x, SourceSorter y) => Comparer<float>.Default.Compare(x.SortPriority, y.SortPriority);
 }
 public class ItemSourceHelperSystem : ModSystem {
+	public readonly FavoriteUI favoriteUI = new();
 	public override void PostSetupRecipes() {
 		foreach (ItemSourceType sourceType in ItemSourceHelper.Instance.SourceTypes) sourceType.PostSetupRecipes();
 		foreach (LootSourceType sourceType in ItemSourceHelper.Instance.LootSourceTypes) sourceType.PostSetupRecipes();
@@ -264,6 +266,11 @@ public class ItemSourceHelperSystem : ModSystem {
 		int inventoryIndex = layers.FindIndex(layer => layer.Name.Equals("Vanilla: Inventory"));
 		if (inventoryIndex != -1) {
 			layers.Insert(inventoryIndex + 1, ItemSourceHelper.Instance.BrowserWindow);
+			layers.Insert(inventoryIndex + 2, new LegacyGameInterfaceLayer($"{nameof(ItemSourceHelper)}: Favorites", () => {
+				favoriteUI.Update(new GameTime());
+				 if (FavoriteUI.Favorites.Count > 0) favoriteUI.Draw(Main.spriteBatch);
+				return true;
+			}, InterfaceScaleType.UI));
 		}
 	}
 	public override void PreSaveAndQuit() {
@@ -332,13 +339,13 @@ public class TooltipAdderGlobal : GlobalItem {
 		TooltipModifiers.Clear();
 	}
 }
-public record class BlockedSource(int CreateItem, (int type, int? count)[] SourceItems, LocalizedText[] Conditions) {
-	public bool Valid { get; private set; } = true;
-	public static BlockedSource FromDictionary(Dictionary<string, object> dictionary) {
+public record class SourceMatcher(int CreateItem, (int type, int? count)[] SourceItems, LocalizedText[] Conditions) {
+	public bool Valid { get; private set; } = CreateItem != -1;
+	public static SourceMatcher FromDictionary(Dictionary<string, object> dictionary) {
 		bool hasCreateItem = dictionary.TryGetValue("CreateItem", out object _createItem);
+		if (!hasCreateItem) return new(-1, null, null);
 		bool hasSourceItems = dictionary.TryGetValue("SourceItems", out object _sourceItems);
 		bool hasConditions = dictionary.TryGetValue("Conditions", out object _conditions);
-		if (!hasCreateItem) return new(0, null, null) { Valid = false };
 		if (_createItem.GetType() == typeof(short)) _createItem = (int)(short)_createItem;
 		int createItem = (int)(_createItem ?? 0);
 		(int, int?)[] sourceItems = _sourceItems as (int, int?)[];
@@ -365,5 +372,36 @@ public record class BlockedSource(int CreateItem, (int type, int? count)[] Sourc
 			}
 		}
 		return true;
+	}
+}
+public class SourceMatcherSerializer : TagSerializer<SourceMatcher, TagCompound> {
+	public override TagCompound Serialize(SourceMatcher value) {
+		TagCompound tag = new() {
+			["CreateItem"] = ItemID.Search.GetName(value.CreateItem)
+		};
+		if (value.SourceItems is not null) {
+			List<TagCompound> sourceItems = new(value.SourceItems.Length);
+			for (int i = 0; i < value.SourceItems.Length; i++) {
+				TagCompound sourceItem = new() {
+					["Type"] = ItemID.Search.GetName(value.SourceItems[i].type)
+				};
+				if (value.SourceItems[i].count.HasValue) sourceItem["Count"] = value.SourceItems[i].count.Value;
+				sourceItems.Add(sourceItem);
+			}
+			tag["SourceItems"] = sourceItems;
+		}
+		if (value.Conditions is not null) {
+			tag["Conditions"] = value.Conditions.Select(c => c.Key).ToList();
+		}
+		return tag;
+	}
+	public override SourceMatcher Deserialize(TagCompound tag) {
+		return new(
+			ItemID.Search.TryGetId(tag.Get<string>("CreateItem"), out int createItem) ? createItem : -1,
+			(tag.TryGet("SourceItems", out List<TagCompound> sourceItems) ? sourceItems : []).Select<TagCompound, (int, int?)>(
+				i => (ItemID.Search.TryGetId(i.Get<string>("Type"), out int sourceItemType) ? sourceItemType : -1, i.TryGet("Count", out int sourceItemCount) ? sourceItemCount : null)
+			).ToArray(),
+			(tag.TryGet("Conditions", out List<string> conditions) ? conditions : []).Select(Language.GetText).ToArray()
+		);
 	}
 }

@@ -266,6 +266,11 @@ Configs: {
 			Label: Drop List Color
 			Tooltip: ""
 		}
+
+		FavoriteListCraftableColor: {
+			Label: Favorite List Craftable Color
+			Tooltip: ""
+		}
 	}
 
 	ItemSourceHelperPositions: {
@@ -288,6 +293,16 @@ Configs: {
 
 		SourceBrowserHeight: {
 			Label: Browser Height
+			Tooltip: ""
+		}
+
+		FavoritesLeft: {
+			Label: Favorites Left
+			Tooltip: ""
+		}
+
+		FavoritesTop: {
+			Label: Favorites Top
 			Tooltip: ""
 		}
 	}

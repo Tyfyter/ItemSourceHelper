@@ -1,4 +1,5 @@
 ﻿#pragma warning disable CA1822
+using Humanizer;
 using Microsoft.Xna.Framework;
 using Newtonsoft.Json;
 using System;
@@ -8,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Terraria.ModLoader;
 using Terraria.ModLoader.Config;
 
 namespace ItemSourceHelper {
@@ -63,6 +65,8 @@ namespace ItemSourceHelper {
 		public Color LootListColor { get; set; }
 		[DefaultValue(typeof(Color), "255, 144, 80, 255")]
 		public Color DropListColor { get; set; }
+		[DefaultValue(typeof(Color), "230, 230, 40, 255")]
+		public Color FavoriteListCraftableColor { get; set; }
 	}
 	public class ItemSourceHelperPositions : ModConfig {
 		public override ConfigScope Mode => ConfigScope.ClientSide;
@@ -75,6 +79,11 @@ namespace ItemSourceHelper {
 		public float SourceBrowserWidth;
 		[DefaultValue(360f)]
 		public float SourceBrowserHeight;
+
+		[DefaultValue(700f)]
+		public float FavoritesLeft;
+		[DefaultValue(100f)]
+		public float FavoritesTop;
 		public void Save() {
 			Directory.CreateDirectory(ConfigManager.ModConfigPath);
 			string filename = Mod.Name + "_" + Name + ".json";

@@ -27,6 +27,7 @@ using System.Reflection;
 using Terraria.ModLoader.UI;
 using Terraria.DataStructures;
 using Terraria.GameContent.UI.Elements;
+using Terraria.Audio;
 
 namespace ItemSourceHelper.Default;
 #region shop
@@ -67,25 +68,36 @@ public class ShopItemSourceType : ItemSourceType {
 	}
 	List<ItemSourceFilter> childFilters = [];
 	public override IEnumerable<ItemSourceFilter> ChildFilters() => childFilters;
+	public override bool OwnsAllItems(ItemSource itemSource) {
+		Main.LocalPlayer.GetItemExpectedPrice(itemSource.Item, out _, out long calcForBuying);
+		return Main.LocalPlayer.CanAfford(calcForBuying, itemSource.Item.shopSpecialCurrency);
+	}
+	public override bool OwnsItem(Item item) => false;
 }
-public class ShopItemSource(ItemSourceType sourceType, AbstractNPCShop.Entry entry, AbstractNPCShop shop) : ItemSource(sourceType, entry.Item.type) {
-	public AbstractNPCShop Shop => shop;
+public class ShopItemSource : ItemSource {
+	public ShopItemSource(ItemSourceType sourceType, AbstractNPCShop.Entry entry, AbstractNPCShop shop) : base(sourceType, entry.Item.type) {
+		item = entry.Item;
+		Shop = shop;
+		this.entry = entry;
+	}
+	readonly AbstractNPCShop.Entry entry;
+	public AbstractNPCShop Shop { get; init; }
 	public override IEnumerable<Condition> GetConditions() => entry.Conditions;
 	public override IEnumerable<Item> GetSourceItems() {
-		if (entry.Item.shopSpecialCurrency != -1 && CustomCurrencyManager.TryGetCurrencySystem(entry.Item.shopSpecialCurrency, out CustomCurrencySystem customCurrency)) {
-			if (ShopItemSourceType.EntryPrices.TryGetValue(customCurrency.GetType(), out var func)) {
-				foreach (Item item in func(customCurrency, entry.Item)) {
+		if (Item.shopSpecialCurrency != -1 && CustomCurrencyManager.TryGetCurrencySystem(Item.shopSpecialCurrency, out CustomCurrencySystem customCurrency)) {
+			if (ShopItemSourceType.EntryPrices.TryGetValue(customCurrency.GetType(), out Func<CustomCurrencySystem, Item, IEnumerable<Item>> func)) {
+				foreach (Item item in func(customCurrency, Item)) {
 					yield return item;
 				}
 				yield break;
 			}
 
-			Item noIdea = new(ModContent.ItemType<UnloadedItem>(), entry.Item.GetStoreValue());
+			Item noIdea = new(ModContent.ItemType<UnloadedItem>(), Item.GetStoreValue());
 			noIdea.SetNameOverride(Language.GetOrRegister($"Mods.{nameof(ItemSourceHelper)}.UnknownCurrency").Value);
 			yield return noIdea;
 			yield break;
 		}
-		int price = entry.Item.GetStoreValue();
+		int price = Item.GetStoreValue();
 		int levelAmount;
 		if (HasCoin(price, 3, out levelAmount)) yield return new Item(ItemID.PlatinumCoin, levelAmount);
 		if (HasCoin(price, 2, out levelAmount)) yield return new Item(ItemID.GoldCoin, levelAmount);
@@ -1121,7 +1133,12 @@ public class SourceBrowserWindow : WindowElement {
 }
 public class ItemSourceListGridItem : ThingListGridItem<ItemSource> {
 	public override bool ClickThing(ItemSource itemSource, bool doubleClick) {
-		if (!doubleClick) {
+		if (Main.cursorOverride == CursorOverrideID.FavoriteStar) {
+			if (!FavoriteUI.Favorites.Remove(itemSource)) {
+				FavoriteUI.Favorites.Add(itemSource);
+			}
+			SoundEngine.PlaySound(SoundID.MenuTick);
+		} else if (!doubleClick) {
 			ItemSourceHelper.Instance.BrowserWindow.Ingredience.SetItems(itemSource.GetSourceItems().ToArray());
 			ItemSourceHelper.Instance.BrowserWindow.ConditionsItem.SetConditionsFrom(itemSource);
 		} else if (Main.mouseRight) {
@@ -1137,6 +1154,9 @@ public class ItemSourceListGridItem : ThingListGridItem<ItemSource> {
 		if (hovering) {
 			if (things is FilteredEnumerable<ItemSource> filteredEnum) filteredEnum.FillTooltipAdders(TooltipAdderGlobal.TooltipModifiers);
 			ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
+		}
+		if (hovering && Main.keyState.IsKeyDown(Main.FavoriteKey)) {
+			Main.cursorOverride = CursorOverrideID.FavoriteStar;//Main.drawingPlayerChat ? CursorOverrideID.Magnifiers : CursorOverrideID.FavoriteStar;
 		}
 	}
 }
