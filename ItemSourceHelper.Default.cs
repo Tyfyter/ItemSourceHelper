@@ -1505,7 +1505,8 @@ public class BestiaryFilter(IEntryFilter<BestiaryEntry> entry, float progress) :
 	public override float SortPriority => 10 + progress;
 	public override bool Matches(LootSource lootSource) => entry.FitsFilter(Main.BestiaryDB.FindEntryByNPCID(lootSource.Type));
 }
-/*public class ChestLootSourceType : LootSourceType {
+/*
+public class ChestLootSourceType : LootSourceType {
 	public override string Texture => "Terraria/Images/Item_" + ItemID.Chest;
 	public List<(string name, List<IItemDropRule> drops)> Entries { get; } = [];
 	public override void DrawSource(SpriteBatch spriteBatch, int type, Vector2 position, bool hovering) {
@@ -1539,7 +1540,41 @@ public class BestiaryFilter(IEntryFilter<BestiaryEntry> entry, float progress) :
 		}
 		return false;
 	}
-}*/
+}
+public class ItemPoolLootSourceType : LootSourceType {
+	public override string Texture => "Terraria/Images/Item_" + ItemID.Aglet;
+	public List<(string name, List<ItemPoolEntry> drops)> Entries { get; } = [];
+	public override void DrawSource(SpriteBatch spriteBatch, int type, Vector2 position, bool hovering) {
+		Item item = ContentSamples.ItemsByType[Entries[type].drops[0].Type];
+		UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, TextureAssets.InventoryBack13.Value, hovering ? ItemSourceHelperConfig.Instance.HoveredItemSlotColor : ItemSourceHelperConfig.Instance.ItemSlotColor);
+		if (hovering) UICommon.TooltipMouseText(Entries[type].name);
+	}
+	public override IEnumerable<LootSource> FillSourceList() {
+		FieldInfo field = typeof(ItemLoader).Assembly.GetType("Terraria.ModLoader.ChestLootLoader")?.GetField("lootPools", BindingFlags.NonPublic | BindingFlags.Static);
+		if (field is null) yield break;
+		int i = 0;
+		foreach (string name in ChestLootLoader.GetItemPools()) {
+			Entries.Add((name, ChestLootLoader.GetItemPool(name)));
+			yield return new(this, i);
+			i++;
+		}
+	}
+	public override List<DropRateInfo> GetDrops(int type) {
+		List<DropRateInfo> drops = [];
+		DropRateInfoChainFeed ratesInfo = new(1f);
+		new DropFromItemPoolRule(Entries[type].name).ReportDroprates(drops, ratesInfo);
+		return drops;
+	}
+	public override Dictionary<string, string> GetSearchData(int type) => [];
+	public override bool DoubleClick(int type) {
+		if (Main.mouseRight) {
+			//ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>(true).ScrollToItem(type);
+			return true;
+		}
+		return false;
+	}
+}
+//*/
 public record struct LootSource(LootSourceType SourceType, int Type) {
 	public static Dictionary<string, string> GetSearchData(LootSource lootSource) => lootSource.SourceType.GetSearchData(lootSource.Type);
 }

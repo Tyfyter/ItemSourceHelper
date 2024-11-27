@@ -23,6 +23,7 @@ using Tyfyter.Utils;
 using Terraria.GameContent.Bestiary;
 using System.Text;
 using Terraria.WorldBuilding;
+using Microsoft.Extensions.Primitives;
 
 namespace ItemSourceHelper;
 public class ItemSourceHelper : Mod {
@@ -96,6 +97,17 @@ public class ItemSourceHelper : Mod {
 				builder.AppendLine(lines[j].Text);
 			}
 			data["Description"] = builder.ToString();
+			builder.Clear();
+			void AddTag(string tag) {
+				builder.Append(tag);
+				builder.Append(';');
+			}
+			if (ItemID.Sets.ItemsThatCountAsBombsForDemolitionistToSpawn[item.type]) AddTag("Bomb");
+			if (ItemID.Sets.IsAKite[item.type]) AddTag("Kite");
+			if (ItemID.Sets.IsDrill[item.type]) AddTag("Drill");
+			if (ItemID.Sets.IsChainsaw[item.type]) AddTag("Chainsaw");
+			if (ItemID.Sets.Spears[item.type]) AddTag("Spear");
+			if (builder.Length > 0) data["Tags"] = builder.ToString();
 			return data;
 		});
 		SearchLoader.RegisterSearchable<LootSource>(LootSource.GetSearchData);
