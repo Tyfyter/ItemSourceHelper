@@ -23,7 +23,6 @@ using Tyfyter.Utils;
 using Terraria.GameContent.Bestiary;
 using System.Text;
 using Terraria.WorldBuilding;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Xna.Framework;
 
 namespace ItemSourceHelper;
@@ -134,7 +133,7 @@ public class ItemSourceHelper : Mod {
 		FilteredEnumerable<LootSource>.SlotMatcher = (lootSource, filterItem) => {
 			if (lootSource.SourceType == ModContent.GetInstance<ItemLootSourceType>() && lootSource.Type == filterItem.type) return true;
 			foreach (DropRateInfo info in lootSource.SourceType.GetDrops(lootSource.Type)) {
-				if (info.itemId == filterItem.type) return true;
+				if (info.itemId == filterItem.type && (info.conditions ?? []).All(c => c.CanShowItemDropInUI())) return true;
 			}
 			return false;
 		};

@@ -1354,7 +1354,8 @@ public class ItemLootSourceType : LootSourceType {
 	public override bool DoubleClick(int type) {
 		if (Main.mouseRight) {
 			ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>(true).ScrollToItem(type);
-			return true;
+		} else {
+			ItemSourceHelper.Instance.BrowserWindow.SetTab<LootBrowserWindow>(true).FilterItem.SetItem(type);
 		}
 		return false;
 	}
@@ -1522,7 +1523,8 @@ public class BestiaryFilter(IEntryFilter<BestiaryEntry> entry, float progress) :
 	public override string Name => $"{base.Name}_{entry.GetDisplayNameKey()}";
 	public override LocalizedText DisplayName => Language.GetOrRegister(entry.GetDisplayNameKey());
 	protected override bool IsChildFilter => true;
-	public override float SortPriority => 10 + progress;
+	public override float SortPriority => progress;
+	protected override int? FilterChannelTargetPlacement => 10;
 	public override bool Matches(LootSource lootSource) => entry.FitsFilter(Main.BestiaryDB.FindEntryByNPCID(lootSource.Type));
 }
 /*

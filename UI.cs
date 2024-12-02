@@ -751,7 +751,7 @@ namespace ItemSourceHelper {
 		List<T> sourceSource;
 		List<IFilter<T>> filters = [];
 		List<SearchFilter> searchFilter = [];
-		List<(T, int)> cache = [];
+		List<(T value, int index)> cache = [];
 		Item filterItem;
 		bool inverted;
 		bool reachedEnd;
@@ -814,7 +814,7 @@ namespace ItemSourceHelper {
 		public void SetSearchFilters(IEnumerable<SearchFilter> filters) {
 			if (searchFilter.Count != 0) ClearCache();
 			searchFilter = filters.ToList();
-			if (cache.Count != 0) cache.RemoveAll(i => filters.Any(f => f.DoesntMatch(SearchLoader.GetSearchData(i))));
+			if (cache.Count != 0) cache.RemoveAll(i => filters.Any(f => f.DoesntMatch(SearchLoader.GetSearchData(i.value))));
 		}
 		public void SetDefaultSortMethod(ISorter<T> sortMethod) {
 			defaultSortMethod = sortMethod;

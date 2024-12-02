@@ -119,6 +119,7 @@ LootSourceType: {
 	ItemLootSourceType.DisplayName: "{$Mods.ItemSourceHelper.ItemSourceFilter.ItemLootFilter.DisplayName}"
 	NPCLootSourceType.DisplayName: "{$Mods.ItemSourceHelper.ItemSourceFilter.NPCLootFilter.DisplayName}"
 	ChestLootSourceType.DisplayName: Mods.ItemSourceHelper.LootSourceType.ChestLootSourceType.DisplayName
+	ItemPoolLootSourceType.DisplayName: Mods.ItemSourceHelper.LootSourceType.ItemPoolLootSourceType.DisplayName
 }
 
 Close: Close
