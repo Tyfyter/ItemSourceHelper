@@ -174,6 +174,15 @@ public class ItemSourceHelper : Mod {
 			SourceMatcher blockedSource = SourceMatcher.FromDictionary((Dictionary<string, object>)args[1]);
 			if (blockedSource.Valid) BlockedSources.Add(blockedSource);
 			break;
+			case "ADDFAKERECIPECONDITION":
+			CraftingItemSourceType.FakeRecipeConditions.Add((Condition)args[1]);
+			break;
+			case "ADDFAKERECIPETILE":
+			CraftingItemSourceType.FakeRecipeTiles.Add(args[1] is ushort fakeTile ? fakeTile : (int)args[1]);
+			break;
+			case "ADDSHIMMERFAKECONDITION":
+			ShimmerItemSourceType.ShimmerRecipeConditions.Add((Condition)args[1]);
+			break;
 		}
 		return null;
 	}
@@ -212,6 +221,11 @@ file class SorterComparer : IComparer<SourceSorter> {
 }
 public class ItemSourceHelperSystem : ModSystem {
 	public readonly FavoriteUI favoriteUI = new();
+	public override void PostAddRecipes() {
+		if (ModLoader.TryGetMod("ShimmerQoL", out Mod ShimmerQoL) && ShimmerQoL.TryFind("ShimmerWellTile", out ModTile well)) {
+			Mod.Call("ADDFAKERECIPETILE", (int)well.Type);
+		}
+	}
 	public override void PostSetupRecipes() {
 		foreach (ItemSourceType sourceType in ItemSourceHelper.Instance.SourceTypes) sourceType.PostSetupRecipes();
 		foreach (LootSourceType sourceType in ItemSourceHelper.Instance.LootSourceTypes) sourceType.PostSetupRecipes();

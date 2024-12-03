@@ -128,16 +128,18 @@ public class ShopTypeSourceFilter(AbstractNPCShop shop) : ItemSourceFilter {
 public class CraftingItemSourceType : ItemSourceType {
 	public override string Texture => "Terraria/Images/Item_" + ItemID.WorkBench;
 	public static HashSet<Condition> FakeRecipeConditions { get; private set; } = [];
+	public static HashSet<int> FakeRecipeTiles { get; private set; } = [];
 	public static Dictionary<int, Item> CachedRecipeGroupItems { get; private set; } = [];
 	public override void Unload() {
 		FakeRecipeConditions = null;
+		FakeRecipeTiles = null;
 		CachedRecipeGroupItems = null;
 	}
 	public override IEnumerable<ItemSource> FillSourceList() {
 		Dictionary<int, ItemSourceFilter> stations = [];
 		for (int i = 0; i < Main.recipe.Length; i++) {
 			Recipe recipe = Main.recipe[i];
-			if (!recipe.Disabled && !recipe.createItem.IsAir && !recipe.Conditions.Any(FakeRecipeConditions.Contains)) {
+			if (!recipe.Disabled && !recipe.createItem.IsAir && !recipe.Conditions.Any(FakeRecipeConditions.Contains) && !recipe.Conditions.Any(ShimmerItemSourceType.ShimmerRecipeConditions.Contains) && !recipe.requiredTile.Any(FakeRecipeTiles.Contains)) {
 				for (int j = 0; j < recipe.requiredTile.Count; j++) {
 					int tileType = recipe.requiredTile[j];
 					if (!stations.ContainsKey(tileType)) {
@@ -229,10 +231,20 @@ public class CraftingStationSourceFilter(int tileType) : ItemSourceFilter {
 #region shimmer
 public class ShimmerItemSourceType : ItemSourceType {
 	public override string Texture => "Terraria/Images/Item_" + ItemID.ShimmerBlock;
+	public static HashSet<Condition> ShimmerRecipeConditions { get; private set; } = [];
+	public override void Unload() {
+		ShimmerRecipeConditions = null;
+	}
 	public override IEnumerable<ItemSource> FillSourceList() {
 		for (int i = 0; i < ItemID.Sets.ShimmerTransformToItem.Length; i++) {
 			int result = ItemID.Sets.ShimmerTransformToItem[i];
 			if (result != -1) yield return new ShimmerItemSource(this, result, i);
+		}
+		for (int i = 0; i < Main.recipe.Length; i++) {
+			Recipe recipe = Main.recipe[i];
+			if (!recipe.Disabled && !recipe.createItem.IsAir && recipe.Conditions.Any(ShimmerRecipeConditions.Contains)) {
+				yield return new CraftingItemSource(this, recipe);
+			}
 		}
 	}
 }
