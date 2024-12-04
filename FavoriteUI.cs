@@ -103,9 +103,9 @@ namespace ItemSourceHelper {
 				Main.inventoryScale = 0.85f;
 				int size = (int)(52 * Main.inventoryScale);
 				Vector2 position = GetDimensions().ToRectangle().TopLeft();
-				bool hasAllIngredients = source.SourceType.OwnsAllItems(source);
+				bool hasAllIngredients = source.OwnsAllItems();
 				for (int i = 0; i < sourceItems.Length; i++) {
-					bool hasIngredient = hasAllIngredients || source.SourceType.OwnsItem(sourceItems[i]);
+					bool hasIngredient = hasAllIngredients || source.OwnsItem(sourceItems[i]);
 					//ItemSlot.Draw(spriteBatch, items, ItemSlot.Context.CraftingMaterial, i, position);
 					if (Main.mouseX >= position.X && Main.mouseX <= position.X + size && Main.mouseY >= position.Y && Main.mouseY <= position.Y + size) {
 						UIMethods.DrawColoredItemSlot(spriteBatch, sourceItems, i, position, texture, hasIngredient ? craftableColor : normalColor);

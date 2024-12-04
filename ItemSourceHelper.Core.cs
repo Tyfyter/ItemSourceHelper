@@ -44,9 +44,24 @@ public abstract class ItemSource(ItemSourceType sourceType, int itemType) {
 		GetSourceItems().Select<Item, (int, int?)>(static i => (i.type, i.stack)).ToArray(),
 		GetAllConditions().ToArray()
 	);
+	public virtual bool OwnsItem(Item item) {
+		int countsAs = item.GetGlobalItem<AnimatedRecipeGroupGlobalItem>().recipeGroup;
+		if (countsAs == -1) {
+			countsAs = item.type;
+		} else {
+			countsAs += 1000000;
+		}
+		return Reflection._ownedItems.GetValue().TryGetValue(countsAs, out int ownedCount) && ownedCount >= item.stack;
+	}
+	public virtual bool OwnsAllItems() {
+		foreach (Item item in GetSourceItems()) {
+			if (!OwnsItem(item)) return false;
+		}
+		return true;
+	}
+	public virtual void Click() { }
 }
 public abstract class ItemSourceType : ModTexturedType, ILocalizedModType {
-	FastStaticFieldInfo<Recipe, Dictionary<int, int>> _ownedItems = new("_ownedItems", BindingFlags.Public | BindingFlags.NonPublic);
 	public string LocalizationCategory => "ItemSourceType";
 	public virtual LocalizedText DisplayName => this.GetLocalization("DisplayName");
 	public abstract IEnumerable<ItemSource> FillSourceList();
@@ -63,21 +78,6 @@ public abstract class ItemSourceType : ModTexturedType, ILocalizedModType {
 	}
 	public virtual void PostSetupRecipes() { }
 	public virtual IEnumerable<ItemSourceFilter> ChildFilters() => [];
-	public virtual bool OwnsItem(Item item) {
-		int countsAs = item.GetGlobalItem<AnimatedRecipeGroupGlobalItem>().recipeGroup;
-		if (countsAs == -1) {
-			countsAs = item.type;
-		} else {
-			countsAs += 1000000;
-		}
-		return _ownedItems.GetValue().TryGetValue(countsAs, out int ownedCount) && ownedCount >= item.stack;
-	}
-	public virtual bool OwnsAllItems(ItemSource itemSource) {
-		foreach (Item item in itemSource.GetSourceItems()) {
-			if (!OwnsItem(item)) return false;
-		}
-		return true;
-	}
 }
 public abstract class LootSourceType : ModTexturedType, ILocalizedModType {
 	public string LocalizationCategory => "LootSourceType";

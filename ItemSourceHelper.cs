@@ -41,6 +41,7 @@ public class ItemSourceHelper : Mod {
 	public List<string> PreOrderedFilterChannels { get; private set; }
 	public List<SourceSorter> SourceSorters { get; private set; }
 	public HashSet<int> CraftableItems { get; private set; }
+	public HashSet<int> MaterialItems { get; private set; }
 	public HashSet<int> NPCLootItems { get; private set; }
 	public HashSet<int> ItemLootItems { get; private set; }
 	public static ModKeybind OpenToItemHotkey { get; private set; }
@@ -75,6 +76,7 @@ public class ItemSourceHelper : Mod {
 		BrowserWindow = new();
 		ChildFilterCount = 1;
 		CraftableItems = [];
+		MaterialItems = [];
 		NPCLootItems = [];
 		ItemLootItems = [];
 		SearchLoader.RegisterSearchable<ItemSource>(source => {
@@ -246,6 +248,9 @@ public class ItemSourceHelperSystem : ModSystem {
 		AnimatedRecipeGroupGlobalItem.PostSetupRecipes();
 		foreach (ItemSource item in ItemSourceHelper.Instance.Sources) {
 			ItemSourceHelper.Instance.CraftableItems.Add(item.ItemType);
+			foreach (Item ingredient in item.GetSourceItems()) {
+				ItemSourceHelper.Instance.MaterialItems.Add(ingredient.type);
+			}
 		}
 
 		static void DoAddDropGroup(List<IItemDropRule> rules, HashSet<int> dropSet, DropGroup group) {

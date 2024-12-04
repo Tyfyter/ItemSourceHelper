@@ -68,11 +68,6 @@ public class ShopItemSourceType : ItemSourceType {
 	}
 	List<ItemSourceFilter> childFilters = [];
 	public override IEnumerable<ItemSourceFilter> ChildFilters() => childFilters;
-	public override bool OwnsAllItems(ItemSource itemSource) {
-		Main.LocalPlayer.GetItemExpectedPrice(itemSource.Item, out _, out long calcForBuying);
-		return Main.LocalPlayer.CanAfford(calcForBuying, itemSource.Item.shopSpecialCurrency);
-	}
-	public override bool OwnsItem(Item item) => false;
 }
 public class ShopItemSource : ItemSource {
 	public ShopItemSource(ItemSourceType sourceType, AbstractNPCShop.Entry entry, AbstractNPCShop shop) : base(sourceType, entry.Item.type) {
@@ -108,6 +103,12 @@ public class ShopItemSource : ItemSource {
 	public override IEnumerable<LocalizedText> GetExtraConditionText() => [GetShopName(Shop)];
 	static string GetNameKey(AbstractNPCShop shop) => Lang.GetNPCName(shop.NpcType).Key;
 	public static LocalizedText GetShopName(AbstractNPCShop shop) => Lang.GetNPCName(shop.NpcType);
+	public override bool OwnsItem(Item item) => false;
+	public override bool OwnsAllItems() {
+		if (Shop.NpcType != NPCID.TravellingMerchant && ContentSamples.NpcsByNetId[Shop.NpcType].townNPC && !NPC.AnyNPCs(Shop.NpcType)) return false;
+		Main.LocalPlayer.GetItemExpectedPrice(Item, out _, out long calcForBuying);
+		return Main.LocalPlayer.CanAfford(calcForBuying, Item.shopSpecialCurrency);
+	}
 }
 [Autoload(false)]
 public class ShopTypeSourceFilter(AbstractNPCShop shop) : ItemSourceFilter {
@@ -197,6 +198,17 @@ public class CraftingItemSource(ItemSourceType sourceType, Recipe recipe) : Item
 		//if (recipe.needLava) yield return Lang.inter[56];
 		//if (recipe.needSnowBiome) yield return Lang.inter[123];
 		//if (recipe.needGraveyardBiome) yield return Lang.inter[124];
+	}
+	public override bool OwnsAllItems() => Main.availableRecipe.Contains(Recipe.RecipeIndex);
+	public override void Click() {
+		for (int i = 0; i < Main.availableRecipe.Length; i++) {
+			if (Main.availableRecipe[i] == Recipe.RecipeIndex) {
+				Main.focusRecipe = i;
+				Main.recFastScroll = true;
+				Main.recBigList = false;
+				break;
+			}
+		}
 	}
 }
 [Autoload(false)]
@@ -718,7 +730,7 @@ public class MaterialFilter : ItemFilter {
 	}
 	public override float SortPriority => 98f;
 	public override string Texture => "Terraria/Images/Item_" + ItemID.Topaz;
-	public override bool Matches(Item item) => item.material;
+	public override bool Matches(Item item) => ItemSourceHelper.Instance.MaterialItems.Contains(item.type);
 	public override IEnumerable<ItemFilter> ChildItemFilters() => children;
 	public override bool ShouldHide() => ItemSourceBrowser.isItemBrowser;
 }
@@ -1153,6 +1165,7 @@ public class ItemSourceListGridItem : ThingListGridItem<ItemSource> {
 		} else if (!doubleClick) {
 			ItemSourceHelper.Instance.BrowserWindow.Ingredience.SetItems(itemSource.GetSourceItems().ToArray());
 			ItemSourceHelper.Instance.BrowserWindow.ConditionsItem.SetConditionsFrom(itemSource);
+			itemSource.Click();
 		} else if (Main.mouseRight) {
 			ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>().ScrollToItem(itemSource.Item.type);
 		} else {
@@ -1162,7 +1175,14 @@ public class ItemSourceListGridItem : ThingListGridItem<ItemSource> {
 	}
 	public override void DrawThing(SpriteBatch spriteBatch, ItemSource itemSource, Vector2 position, bool hovering) {
 		Item item = itemSource.Item;
-		UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, TextureAssets.InventoryBack13.Value, hovering ? ItemSourceHelperConfig.Instance.HoveredItemSlotColor : ItemSourceHelperConfig.Instance.ItemSlotColor);
+		Color color;
+		if (!ItemSourceHelperConfig.Instance.HideCraftableFor.Contains(itemSource.SourceType) && itemSource.OwnsAllItems()) {
+			color = hovering ? ItemSourceHelperConfig.Instance.HoveredCraftableColor : ItemSourceHelperConfig.Instance.FavoriteListCraftableColor;
+		} else {
+			color = hovering ? ItemSourceHelperConfig.Instance.HoveredItemSlotColor : ItemSourceHelperConfig.Instance.ItemSlotColor;
+		}
+		UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, TextureAssets.InventoryBack13.Value, color);
+		UIMethods.DrawIndicators(spriteBatch, item.type, ItemSourceHelperConfig.Instance.SourceListIndicators, position, (int)(52 * Main.inventoryScale));
 		if (hovering) {
 			if (things is FilteredEnumerable<ItemSource> filteredEnum) filteredEnum.FillTooltipAdders(TooltipAdderGlobal.TooltipModifiers);
 			ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
@@ -1245,44 +1265,12 @@ public class ItemListGridItem : ThingListGridItem<Item> {
 		return true;
 	}
 	public override void DrawThing(SpriteBatch spriteBatch, Item item, Vector2 position, bool hovering) {
-		int size = (int)(52 * Main.inventoryScale);
 		UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, TextureAssets.InventoryBack13.Value, hovering ? ItemSourceHelperConfig.Instance.HoveredItemSlotColor : ItemSourceHelperConfig.Instance.ItemSlotColor);
 		if (hovering) {
 			if (things is FilteredEnumerable<Item> filteredEnum) filteredEnum.FillTooltipAdders(TooltipAdderGlobal.TooltipModifiers);
 			ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
 		}
-		if (ItemSourceHelper.Instance.CraftableItems.Contains(item.type)) {
-			spriteBatch.Draw(
-				ItemSourceHelper.ItemIndicators.Value,
-				position + new Vector2(3, 3),
-				new Rectangle(0, 0, 8, 8),
-				Color.White
-			);
-		}
-		if (item.material) {
-			spriteBatch.Draw(
-				ItemSourceHelper.ItemIndicators.Value,
-				position + new Vector2(3, size - (8 + 3)),
-				new Rectangle(10, 0, 8, 8),
-				Color.White
-			);
-		}
-		if (ItemSourceHelper.Instance.NPCLootItems.Contains(item.type)) {
-			spriteBatch.Draw(
-				ItemSourceHelper.ItemIndicators.Value,
-				position + new Vector2(size - (8 + 3), 3),
-				new Rectangle(20, 0, 8, 8),
-				Color.White
-			);
-		}
-		if (ItemSourceHelper.Instance.ItemLootItems.Contains(item.type)) {
-			spriteBatch.Draw(
-				ItemSourceHelper.ItemIndicators.Value,
-				position + new Vector2(size - (8 + 3), size - (8 + 3)),
-				new Rectangle(30, 0, 8, 8),
-				Color.White
-			);
-		}
+		UIMethods.DrawIndicators(spriteBatch, item.type, ItemSourceHelperConfig.Instance.ItemListIndicators, position, (int)(52 * Main.inventoryScale));
 	}
 }
 #endregion item
@@ -1347,6 +1335,7 @@ public class ItemLootSourceType : LootSourceType {
 	public override void DrawSource(SpriteBatch spriteBatch, int type, Vector2 position, bool hovering) {
 		Item item = ContentSamples.ItemsByType[type];
 		UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, TextureAssets.InventoryBack13.Value, hovering ? ItemSourceHelperConfig.Instance.HoveredItemSlotColor : ItemSourceHelperConfig.Instance.ItemSlotColor);
+		UIMethods.DrawIndicators(spriteBatch, item.type, ItemSourceHelperConfig.Instance.LootListItemIndicators, position, (int)(52 * Main.inventoryScale));
 		if (hovering) ItemSlot.MouseHover(ref item, ItemSlot.Context.ChatItem);
 	}
 	public override IEnumerable<LootSource> FillSourceList() {

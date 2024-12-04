@@ -1,5 +1,6 @@
 ﻿#pragma warning disable CA1822
 using Humanizer;
+using ItemSourceHelper.Core;
 using Microsoft.Xna.Framework;
 using Newtonsoft.Json;
 using System;
@@ -9,8 +10,20 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Terraria.GameContent;
+using Terraria;
 using Terraria.ModLoader;
 using Terraria.ModLoader.Config;
+using Terraria.ModLoader.Config.UI;
+using Terraria.ModLoader.IO;
+using Terraria.UI;
+using Microsoft.Xna.Framework.Graphics;
+using Terraria.GameInput;
+using Terraria.Graphics.Effects;
+using ReLogic.Content;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Serialization;
 
 namespace ItemSourceHelper {
 	public class ItemSourceHelperConfig : ModConfig {
@@ -31,6 +44,21 @@ namespace ItemSourceHelper {
 
 		[DefaultValue(true)]
 		public bool AnimatedRecipeGroups { get; set; }
+
+		[CustomModConfigItem(typeof(InvertedItemSourceTypesConfigElement)), DefaultValue(typeof(ItemSourceTypesList), "")]
+		public ItemSourceTypesList HideCraftableFor { get; set; } = new();
+
+		/*[DefaultValue(true)]
+		public bool ShowCraftableIgnoreConditions { get; set; }*/
+
+		[DefaultValue(IndicatorTypes.All)]
+		public IndicatorTypes ItemListIndicators { get; set; }
+		[DefaultValue(IndicatorTypes.Material), IndicatorTypeMask(~IndicatorTypes.Craftable)]
+		public IndicatorTypes SourceListIndicators { get; set; }
+		[DefaultValue(~IndicatorTypes.Material), IndicatorTypeMask(~IndicatorTypes.Material)]
+		public IndicatorTypes IngredientListIndicators { get; set; }
+		[DefaultValue(IndicatorTypes.All)]
+		public IndicatorTypes LootListItemIndicators { get; set; }
 
 		[Header("Colors")]
 		[DefaultValue(typeof(Color), "100, 149, 237, 255")]
@@ -67,6 +95,139 @@ namespace ItemSourceHelper {
 		public Color DropListColor { get; set; }
 		[DefaultValue(typeof(Color), "230, 230, 40, 255")]
 		public Color FavoriteListCraftableColor { get; set; }
+		[DefaultValue(typeof(Color), "230, 230, 40, 255")]
+		public Color HoveredCraftableColor { get; set; }
+	}
+	[TypeConverter(typeof(ToFromStringConverter<ItemSourceTypesList>)), JsonConverter(typeof(ItemSourceTypesList.JsonConverter))]
+	public class ItemSourceTypesList {
+		HashSet<ItemSourceType> Values { get; init; } = [];
+		List<string> UnloadedValues { get; init; } = [];
+		public void Add(ItemSourceType value) => Values.Add(value);
+		public bool Remove(ItemSourceType value) => Values.Remove(value);
+		public void Toggle(ItemSourceType value) {
+			if (!Remove(value)) Add(value);
+		}
+		public bool Contains(ItemSourceType value) => Values.Contains(value);
+		public ItemSourceTypesList Clone() {
+			return new ItemSourceTypesList() {
+				Values = Values.ToHashSet(),
+				UnloadedValues = UnloadedValues.ToList()
+			};
+		}
+		public override string ToString() => string.Join(",", Values.Select(t => t.FullName).Concat(UnloadedValues));
+		public static ItemSourceTypesList FromString(string s) {
+			ItemSourceTypesList result = new();
+			foreach (string value in s.Split(',')) {
+				if (ModContent.TryFind(value, out ItemSourceType type)) {
+					result.Values.Add(type);
+				} else {
+					result.UnloadedValues.Add(value);
+				}
+			}
+			return result;
+		}
+		public class JsonConverter : Newtonsoft.Json.JsonConverter {
+			public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer) {
+				ItemSourceTypesList result = new();
+				reader.Read();
+				while (reader.TokenType != JsonToken.EndArray) {
+					string value = reader.Value.ToString();
+					if (ModContent.TryFind(value, out ItemSourceType type)) {
+						result.Values.Add(type);
+					} else {
+						result.UnloadedValues.Add(value);
+					}
+					reader.Read();
+				}
+				return result;
+			}
+
+			public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer) {
+				ItemSourceTypesList list = (ItemSourceTypesList)value;
+				writer.WriteStartArray();
+				foreach (ItemSourceType item in list.Values) {
+					writer.WriteValue(item.FullName);
+				}
+				foreach (string item in list.UnloadedValues) {
+					writer.WriteValue(item);
+				}
+				writer.WriteEndArray();
+			}
+			public override bool CanConvert(Type objectType) => objectType == typeof(ItemSourceType);
+		}
+	}
+	public class ItemSourceTypesConfigElement : ConfigElement<ItemSourceTypesList> {
+		protected bool inverted = false;
+		public override void OnBind() {
+			base.OnBind();
+			base.TextDisplayFunction = TextDisplayOverride ?? base.TextDisplayFunction;
+			SetupList();
+			Value ??= new();
+		}
+		public Func<string> TextDisplayOverride { get; set; }
+		protected void SetupList() {
+			RemoveAllChildren();
+			Main.UIScaleMatrix.Decompose(out Vector3 scale, out _, out _);
+			float left = MathF.Max(FontAssets.ItemStack.Value.MeasureString(TextDisplayFunction()).X * scale.X - 8, 4);
+			float top = 4;
+			Recalculate();
+			float width = GetDimensions().Width;
+			for (int i = 0; i < ItemSourceHelper.Instance.SourceTypes.Count; i++) {
+				if (left + 26 + 4 > width) {
+					left = 0;
+					top += 30;
+					Height.Pixels += 30;
+				}
+				Append(new ItemSourceTypeElement(this, ItemSourceHelper.Instance.SourceTypes[i], inverted) {
+					Left = new StyleDimension(left, 0),
+					Top = new StyleDimension(top, 0)
+				});
+				left += 26 + 4;
+			}
+			Recalculate();
+		}
+		public void Toggle(ItemSourceType itemSource) {
+			ItemSourceTypesList value = Value.Clone();
+			value.Toggle(itemSource);
+			Value = value;
+		}
+		public bool Contains(ItemSourceType value) => Value.Contains(value);
+	}
+	public class InvertedItemSourceTypesConfigElement : ItemSourceTypesConfigElement {
+		public InvertedItemSourceTypesConfigElement() {
+			inverted = true;
+		}
+	}
+	public class ItemSourceTypeElement(ItemSourceTypesConfigElement value, ItemSourceType sourceType, bool inverted) : UIElement {
+		readonly Asset<Texture2D> texture = ModContent.Request<Texture2D>(sourceType.Texture);
+		readonly Texture2D actuator = TextureAssets.Actuator.Value;
+		public override void OnInitialize() {
+			Width.Set(24, 0);
+			Height.Set(24, 0);
+		}
+		public override void Draw(SpriteBatch spriteBatch) {
+			Rectangle button = this.GetDimensions().ToRectangle();
+			Color color = new(0, 0, 0, 50);
+			Color hiColor = new(50, 50, 50, 0);
+			if (this.IsMouseHovering) {
+				UIMethods.DrawRoundedRetangle(spriteBatch, button, hiColor);
+			} else {
+				UIMethods.DrawRoundedRetangle(spriteBatch, button, color);
+			}
+			Rectangle iconPos = texture.Size().RectWithinCentered(button, 8);
+			spriteBatch.Draw(texture.Value, iconPos, null, Color.White);
+			if (value.Contains(sourceType)) {
+				Rectangle corner = button;
+				int halfWidth = corner.Width / 2;
+				corner.X += halfWidth;
+				corner.Width -= halfWidth;
+				corner.Height /= 2;
+				spriteBatch.Draw(actuator, corner, inverted ? Color.Red : Color.Green);
+			}
+		}
+		public override void LeftClick(UIMouseEvent evt) {
+			value.Toggle(sourceType);
+		}
 	}
 	public class ItemSourceHelperPositions : ModConfig {
 		public override ConfigScope Mode => ConfigScope.ClientSide;

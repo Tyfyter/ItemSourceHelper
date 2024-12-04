@@ -269,7 +269,47 @@ Configs: {
 		}
 
 		FavoriteListCraftableColor: {
-			Label: Favorite List Craftable Color
+			Label: Craftable/Owned Item Color
+			Tooltip: ""
+		}
+
+		HoveredCraftableColor: {
+			Label: Craftable/Owned Item Color (Hovered)
+			Tooltip: ""
+		}
+
+		ShowCraftable: {
+			Label: Show Craftable
+			Tooltip: ""
+		}
+
+		ShowCraftableIgnoreConditions: {
+			Label: Show Craftable Ignore Conditions
+			Tooltip: ""
+		}
+
+		HideCraftableFor: {
+			Label: Hide Craftable For
+			Tooltip: ""
+		}
+
+		ItemListIndicators: {
+			Label: Item List Indicators
+			Tooltip: ""
+		}
+
+		SourceListIndicators: {
+			Label: Source List Indicators
+			Tooltip: ""
+		}
+
+		IngredientListIndicators: {
+			Label: Ingredient List Indicators
+			Tooltip: ""
+		}
+
+		LootListItemIndicators: {
+			Label: Loot List Item Indicators
 			Tooltip: ""
 		}
 	}
@@ -307,6 +347,18 @@ Configs: {
 			Tooltip: ""
 		}
 	}
+
+	ItemSourceTypesList.Tooltip: ""
+
+	IndicatorTypes: {
+		Tooltip: ""
+		None.Label: None
+		Craftable.Label: Craftable
+		Material.Label: Material
+		NPCDrop.Label: N P C Drop
+		ItemDrop.Label: Item Drop
+		All.Label: All
+	}
 }
 
 SourceSorter: {
@@ -339,3 +391,5 @@ LootSourceFilter: {
 	HardmodeCrateLootItemTypeFilter.DisplayName: "{$Mods.ItemSourceHelper.ItemSourceFilter.ToolTypeFilter_HardmodeCrate.DisplayName}"
 	OtherLootItemTypeFilter.DisplayName: "{$Mods.ItemSourceHelper.ItemSourceFilter.ToolTypeFilter_LootBag_Misc.DisplayName}"
 }
+
+UnknownCurrency: Mods.ItemSourceHelper.UnknownCurrency

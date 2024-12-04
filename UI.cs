@@ -9,8 +9,11 @@ using ReLogic.OS;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data;
 using System.Linq;
+using System.Reflection;
+using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
 using Terraria;
@@ -23,20 +26,18 @@ using Terraria.Graphics.Effects;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
+using Terraria.ModLoader.Config;
+using Terraria.ModLoader.Config.UI;
+using Terraria.ModLoader.UI;
 using Terraria.UI;
 using Terraria.UI.Chat;
 
 namespace ItemSourceHelper {
 	public class ItemSourceBrowser : GameInterfaceLayer, IScrollableUIItem {
 		public SourceBrowserWindow SourceBrowser => ModContent.GetInstance<SourceBrowserWindow>();
-		public FilterListGridItem<ItemSource> FilterList => SourceBrowser.FilterList;
-		public ItemSourceListGridItem SourceList => SourceBrowser.SourceList;
 		public IngredientListGridItem Ingredience => SourceBrowser.Ingredience;
 		public FilteredEnumerable<ItemSource> ActiveSourceFilters => SourceBrowser.ActiveSourceFilters;
-		public SingleSlotGridItem FilterItem => SourceBrowser.FilterItem;
 		public ConditionsGridItem ConditionsItem => SourceBrowser.ConditionsItem;
-		public ItemListGridItem ItemList => ItemBrowser.ItemList;
-		public FilterListGridItem<Item> ItemFilterList => ItemBrowser.ItemFilterList;
 		public FilteredEnumerable<Item> ActiveItemFilters => ItemBrowser.ActiveItemFilters;
 		public ItemBrowserWindow ItemBrowser => ModContent.GetInstance<ItemBrowserWindow>();
 		public static bool isItemBrowser => ItemSourceHelper.Instance.BrowserWindow.selectedTab == ItemSourceHelper.Instance.BrowserWindow.ItemBrowser.Index;
@@ -570,6 +571,7 @@ namespace ItemSourceHelper {
 						} else {
 							UIMethods.DrawColoredItemSlot(spriteBatch, items, i, position, texture, normalColor);
 						}
+						UIMethods.DrawIndicators(spriteBatch, items[i].type, ItemSourceHelperConfig.Instance.IngredientListIndicators, position, size);
 					}
 					x += sizeWithPadding;
 					if (x >= maxX) {
@@ -2087,6 +2089,50 @@ namespace ItemSourceHelper {
 				yield return tooltip.GetLine(i);
 			}
 		}
+		public static void DrawIndicators(SpriteBatch spriteBatch, int itemType, IndicatorTypes mask, Vector2 position, int size) {
+			void DoMask(IndicatorTypes type, HashSet<int> set) {
+				if ((mask & type) != IndicatorTypes.None && !set.Contains(itemType)) mask ^= type;
+			}
+			DoMask(IndicatorTypes.Craftable, ItemSourceHelper.Instance.CraftableItems);
+			DoMask(IndicatorTypes.Material, ItemSourceHelper.Instance.MaterialItems);
+			DoMask(IndicatorTypes.NPCDrop, ItemSourceHelper.Instance.NPCLootItems);
+			DoMask(IndicatorTypes.ItemDrop, ItemSourceHelper.Instance.ItemLootItems);
+			DrawIndicators(spriteBatch, mask, position, size, Color.White);
+		}
+		public static void DrawIndicators(SpriteBatch spriteBatch, IndicatorTypes types, Vector2 position, int size, Color color) {
+			if (types.HasFlag(IndicatorTypes.Craftable)) {
+				spriteBatch.Draw(
+					ItemSourceHelper.ItemIndicators.Value,
+					position + new Vector2(3, 3),
+					new Rectangle(0, 0, 8, 8),
+					color
+				);
+			}
+			if (types.HasFlag(IndicatorTypes.Material)) {
+				spriteBatch.Draw(
+					ItemSourceHelper.ItemIndicators.Value,
+					position + new Vector2(3, size - (8 + 3)),
+					new Rectangle(10, 0, 8, 8),
+					color
+				);
+			}
+			if (types.HasFlag(IndicatorTypes.NPCDrop)) {
+				spriteBatch.Draw(
+					ItemSourceHelper.ItemIndicators.Value,
+					position + new Vector2(size - (8 + 3), 3),
+					new Rectangle(20, 0, 8, 8),
+					color
+				);
+			}
+			if (types.HasFlag(IndicatorTypes.ItemDrop)) {
+				spriteBatch.Draw(
+					ItemSourceHelper.ItemIndicators.Value,
+				position + new Vector2(size - (8 + 3), size - (8 + 3)),
+				new Rectangle(30, 0, 8, 8),
+					color
+				);
+			}
+		}
 	}
 	public interface IScrollableUIItem {
 		public void Scroll(int direction);
@@ -2097,5 +2143,121 @@ namespace ItemSourceHelper {
 		Left = 1 << 1,
 		Bottom = 1 << 2,
 		Right = 1 << 3,
+	}
+	[Flags, CustomModConfigItem(typeof(IndicatorTypesConfigElement))]
+	public enum IndicatorTypes {
+		None      = 0x0000,
+		Craftable = 0x0001,
+		Material  = 0x0010,
+		NPCDrop   = 0x0100,
+		ItemDrop  = 0x1000,
+		All       = 0x1111
+	}
+	[AttributeUsage(AttributeTargets.Property | AttributeTargets.Field, Inherited = false)]
+	public sealed class IndicatorTypeMaskAttribute(IndicatorTypes mask) : Attribute {
+		public IndicatorTypes Mask { get; } = mask;
+	}
+	public class IndicatorTypesConfigElement : ConfigElement<IndicatorTypes> {
+		protected bool inverted = false;
+		public IndicatorTypes allowedMask = IndicatorTypes.All;
+		public override void OnBind() {
+			base.OnBind();
+			base.TextDisplayFunction = TextDisplayOverride ?? base.TextDisplayFunction;
+			if (MemberInfo.MemberInfo.GetCustomAttribute<IndicatorTypeMaskAttribute>() is IndicatorTypeMaskAttribute indicatorTypeMask) {
+				allowedMask = indicatorTypeMask.Mask;
+			}
+			Append(new Slot(this) {
+				Width = new(52, 0),
+				Height = new(52, 0),
+				HAlign = 1
+			});
+			Height.Set(52, 0);
+		}
+		public Func<string> TextDisplayOverride { get; set; }
+		public new IndicatorTypes Value {
+			get => base.Value;
+			set => base.Value = value;
+		}
+		public class Slot(IndicatorTypesConfigElement parent) : UIElement {
+			IndicatorTypes hovered = IndicatorTypes.None;
+			public override void Draw(SpriteBatch spriteBatch) {
+				Rectangle bounds = this.GetDimensions().ToRectangle();
+				Vector2 size = new Vector2(bounds.Width) * 0.5f * 0.85f;
+				Vector2 pos = bounds.Center.ToVector2() - size;
+				pos.X += 2;
+				Texture2D backTexture = TextureAssets.InventoryBack13.Value;
+				Color normalColor = ItemSourceHelperConfig.Instance.ItemSlotColor;
+				Color hoverColor = ItemSourceHelperConfig.Instance.HoveredItemSlotColor;
+				hovered = IndicatorTypes.None;
+				IndicatorTypes value = parent.Value;
+				for (int i = 0; i < 2; i++) {
+					for (int j = 0; j < 2; j++) {
+						Vector2 offset = size * new Vector2(i, j);
+						Rectangle frame = new(26 * i, 26 * j, 26, 26);
+						bool hover = UIMethods.MouseInArea(pos + offset, size);
+						spriteBatch.Draw(
+							backTexture,
+							pos + offset,
+							frame,
+							hover ? hoverColor : normalColor,
+							0f,
+							Vector2.Zero,
+							0.85f,
+							SpriteEffects.None,
+						0f);
+
+						Vector2 tickOffset = new(3, 3);
+						frame = new Rectangle(0, 0, 8, 8);
+						IFilter<Item> filter = null;
+						IndicatorTypes type = IndicatorTypes.None;
+
+						switch ((i, j)) {
+							case (0, 0):
+							type = IndicatorTypes.Craftable;
+							filter = ModContent.GetInstance<CraftableFilter>();
+							break;
+
+							case (0, 1):
+							tickOffset.Y = size.Y - (8 + 3);
+							frame.X = 10;
+							type = IndicatorTypes.Material;
+							filter = ModContent.GetInstance<MaterialFilter>();
+							break;
+
+							case (1, 0):
+							tickOffset.X = size.X - (8 + 3);
+							frame.X = 20;
+							type = IndicatorTypes.NPCDrop;
+							filter = ModContent.GetInstance<NPCLootFilter>();
+							break;
+
+							case (1, 1):
+							tickOffset.X = size.X - (8 + 3);
+							tickOffset.Y = size.Y - (8 + 3);
+							frame.X = 30;
+							type = IndicatorTypes.ItemDrop;
+							filter = ModContent.GetInstance<ItemLootFilter>();
+							break;
+						}
+						if ((parent.allowedMask & type) == IndicatorTypes.None) continue;
+						Color tickColor = (value & type) != IndicatorTypes.None ? Color.White : Color.Gray;
+						spriteBatch.Draw(
+							ItemSourceHelper.ItemIndicators.Value,
+							pos + offset + tickOffset,
+							frame,
+							tickColor
+						);
+						if (hover && filter is not null) {
+							Main.LocalPlayer.mouseInterface = true;
+							UICommon.TooltipMouseText(filter.DisplayNameText);
+							hovered = type;
+						}
+					}
+				}
+			}
+			public override void LeftClick(UIMouseEvent evt) {
+				parent.Value ^= hovered;
+			}
+		}
 	}
 }
