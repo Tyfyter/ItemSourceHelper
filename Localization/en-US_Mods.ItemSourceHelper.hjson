@@ -312,6 +312,11 @@ Configs: {
 			Label: Loot List Item Indicators
 			Tooltip: ""
 		}
+
+		DropListIndicators: {
+			Label: Drop List Indicators
+			Tooltip: ""
+		}
 	}
 
 	ItemSourceHelperPositions: {
@@ -345,6 +350,11 @@ Configs: {
 		FavoritesTop: {
 			Label: Favorites Top
 			Tooltip: ""
+		}
+
+		ChangeIngameNotice: {
+			Label: NOTICE: it is recommended to change window positioning and size in-game rather than in this menu
+			Tooltip: it is recommended to change window positioning and size in-game rather than in this menu
 		}
 	}
 

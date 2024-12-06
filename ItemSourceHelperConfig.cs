@@ -59,6 +59,8 @@ namespace ItemSourceHelper {
 		public IndicatorTypes IngredientListIndicators { get; set; }
 		[DefaultValue(IndicatorTypes.All)]
 		public IndicatorTypes LootListItemIndicators { get; set; }
+		[DefaultValue(IndicatorTypes.Material), IndicatorTypeMask(~(IndicatorTypes.NPCDrop | IndicatorTypes.ItemDrop))]
+		public IndicatorTypes DropListIndicators { get; set; }
 
 		[Header("Colors")]
 		[DefaultValue(typeof(Color), "100, 149, 237, 255")]
@@ -232,6 +234,9 @@ namespace ItemSourceHelper {
 	public class ItemSourceHelperPositions : ModConfig {
 		public override ConfigScope Mode => ConfigScope.ClientSide;
 		public static ItemSourceHelperPositions Instance;
+
+		public readonly bool ChangeIngameNotice = true;
+
 		[DefaultValue(200f)]
 		public float SourceBrowserLeft;
 		[DefaultValue(200f)]

@@ -667,6 +667,7 @@ namespace ItemSourceHelper {
 						} else {
 							UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, texture, normalColor);
 						}
+						UIMethods.DrawIndicators(spriteBatch, item.type, ItemSourceHelperConfig.Instance.DropListIndicators, position, (int)(52 * Main.inventoryScale));
 						string chanceText;
 						if (info.dropRate >= 0.1f) {
 							chanceText = $"{info.dropRate:P0}";
