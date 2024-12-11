@@ -68,6 +68,7 @@ public class ShopItemSourceType : ItemSourceType {
 	}
 	List<ItemSourceFilter> childFilters = [];
 	public override IEnumerable<ItemSourceFilter> ChildFilters() => childFilters;
+	public override float FilterSortPriority => 2f;
 }
 public class ShopItemSource : ItemSource {
 	public ShopItemSource(ItemSourceType sourceType, AbstractNPCShop.Entry entry, AbstractNPCShop shop) : base(sourceType, entry.Item.type) {
@@ -156,6 +157,7 @@ public class CraftingItemSourceType : ItemSourceType {
 	}
 	List<ItemSourceFilter> childFilters = [];
 	public override IEnumerable<ItemSourceFilter> ChildFilters() => childFilters;
+	public override float FilterSortPriority => 1f;
 	public static bool GetRecipeGroup(List<int> groups, Item requiredItem, out Item item) {
 		for (int i = 0; i < groups.Count; i++) {
 			int group = groups[i];
@@ -259,6 +261,7 @@ public class ShimmerItemSourceType : ItemSourceType {
 			}
 		}
 	}
+	public override float FilterSortPriority => 3f;
 }
 public class ShimmerItemSource(ItemSourceType sourceType, int resultType, int ingredientType) : ItemSource(sourceType, resultType) {
 	public override IEnumerable<Item> GetSourceItems() {
@@ -899,7 +902,12 @@ public partial class RarityFilter(int rare, string name, int iconicItem) : ItemF
 	protected override string FilterChannelName => "Rarity";
 	public override string Name => $"{base.Name}_{name}";
 	public override int DisplayNameRarity => rare;
-	public override LocalizedText DisplayName => Mod is null ? ItemSourceHelper.GetLocalization(this, makeDefaultValue: makeDefaultValue) : this.GetLocalization("DisplayName", makeDefaultValue: makeDefaultValue);
+	public override LocalizedText DisplayName {
+		get {
+			if (RarityLoader.GetRarity(rare) is ModRarity modRare) return Language.GetOrRegister(modRare.Mod.GetLocalizationKey($"{LocalizationCategory}.{modRare.Name}.DisplayName"), makeDefaultValue);
+			return ItemSourceHelper.GetLocalization(this, makeDefaultValue: makeDefaultValue);
+		}
+	}
 	string makeDefaultValue() => Regex.Replace(name.Split("/")[^1].Replace("Rarity", "").Replace("_", ""), "([A-Z])", " $1").Trim();
 	public override bool Matches(Item item) => item.rare == rare;
 	public override bool ShouldHide() => !Craftable && ItemSourceHelper.Instance.BrowserWindow.IsTabActive<SourceBrowserWindow>();

@@ -1252,7 +1252,7 @@ namespace ItemSourceHelper {
 		bool cutOff = false;
 		public void SetConditionsFrom(ItemSource itemSource) {
 			SetConditions(itemSource.GetConditions(), itemSource.GetExtraConditionText());
-			if (!conditions.Any() && !conditionts.Any()) conditionts = [itemSource.SourceType.DisplayName];
+			if (!conditionts.Any()) conditionts = [itemSource.SourceType.DisplayName];
 		}
 		public void SetConditions(IEnumerable<Condition> conditions, IEnumerable<LocalizedText> conditionts = null) {
 			this.conditions = conditions ?? [];

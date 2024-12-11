@@ -77,6 +77,7 @@ public abstract class ItemSourceType : ModTexturedType, ILocalizedModType {
 		SetStaticDefaults();
 	}
 	public virtual void PostSetupRecipes() { }
+	public virtual float FilterSortPriority => 1f;
 	public virtual IEnumerable<ItemSourceFilter> ChildFilters() => [];
 }
 public abstract class LootSourceType : ModTexturedType, ILocalizedModType {
@@ -165,6 +166,7 @@ public class SourceTypeFilter(ItemSourceType sourceType) : ItemSourceFilter {
 	public override string Texture => SourceType.Texture;
 	protected override string FilterChannelName => "SourceType";
 	public override LocalizedText DisplayName => SourceType.DisplayName;
+	public override float SortPriority => SourceType.FilterSortPriority;
 	public override IEnumerable<ItemSourceFilter> ChildFilters() => SourceType.ChildFilters();
 	public override bool Matches(ItemSource source) => source.SourceType == SourceType;
 }
