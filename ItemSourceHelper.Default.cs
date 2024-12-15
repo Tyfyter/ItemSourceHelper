@@ -1344,7 +1344,7 @@ public class ItemLootSourceType : LootSourceType {
 		Item item = ContentSamples.ItemsByType[type];
 		UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, TextureAssets.InventoryBack13.Value, hovering ? ItemSourceHelperConfig.Instance.HoveredItemSlotColor : ItemSourceHelperConfig.Instance.ItemSlotColor);
 		UIMethods.DrawIndicators(spriteBatch, item.type, ItemSourceHelperConfig.Instance.LootListItemIndicators, position, (int)(52 * Main.inventoryScale));
-		if (hovering) ItemSlot.MouseHover(ref item, ItemSlot.Context.ChatItem);
+		if (hovering) ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
 	}
 	public override IEnumerable<LootSource> FillSourceList() {
 		for (int i = 0; i < ItemLoader.ItemCount; i++) {
