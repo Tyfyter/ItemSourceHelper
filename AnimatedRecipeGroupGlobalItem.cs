@@ -32,11 +32,12 @@ namespace ItemSourceHelper {
 				Texture2D texture = TextureAssets.Item[itemType].Value;
 				frame = (Main.itemAnimations[itemType] is DrawAnimation animation) ? animation.GetFrame(texture) : texture.Frame();
 				origin = frame.Size() * 0.5f;
+				Item otherItem = ContentSamples.ItemsByType[itemType];
 				spriteBatch.Draw(
 					texture,
 					position,
 					frame,
-					drawColor,
+					otherItem.color == Color.Transparent ? otherItem.GetAlpha(Color.White) : otherItem.GetColor(Color.White),
 					0f,
 					origin,
 					scale,
