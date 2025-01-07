@@ -28,6 +28,8 @@ using Terraria.ModLoader.UI;
 using Terraria.DataStructures;
 using Terraria.GameContent.UI.Elements;
 using Terraria.Audio;
+using Terraria.GameContent.UI.Chat;
+using Terraria.UI.Chat;
 
 namespace ItemSourceHelper.Default;
 #region shop
@@ -35,11 +37,11 @@ public class ShopItemSourceType : ItemSourceType {
 	public override string Texture => "Terraria/Images/Item_" + ItemID.GoldCoin;
 	public Dictionary<Type, Func<AbstractNPCShop, IEnumerable<AbstractNPCShop.Entry>>> ShopTypes { get; private set; } = new();
 	public static Dictionary<Type, Func<CustomCurrencySystem, Item, IEnumerable<Item>>> EntryPrices { get; private set; } = new();
+	public static FastFieldInfo<CustomCurrencySystem, Dictionary<int, int>> _valuePerUnit = new("_valuePerUnit", BindingFlags.NonPublic);
 	public override void Load() {
 		ShopTypes.Add(typeof(TravellingMerchantShop), shop => ((TravellingMerchantShop)shop).ActiveEntries);
 		ShopTypes.Add(typeof(NPCShop), shop => ((NPCShop)shop).Entries);
 
-		FastFieldInfo<CustomCurrencySingleCoin, Dictionary<int, int>> _valuePerUnit = new("_valuePerUnit", System.Reflection.BindingFlags.NonPublic);
 		EntryPrices.Add(typeof(CustomCurrencySingleCoin), (c, i) => {
 			KeyValuePair<int, int> value = _valuePerUnit.GetValue((CustomCurrencySingleCoin)c).First();
 			return [new Item(value.Key, i.shopCustomPrice.Value / value.Value)];
@@ -56,6 +58,7 @@ public class ShopItemSourceType : ItemSourceType {
 	}
 	public override void Unload() {
 		EntryPrices = null;
+		_valuePerUnit = null;
 	}
 	public override IEnumerable<ItemSource> FillSourceList() {
 		return NPCShopDatabase.AllShops.SelectMany<AbstractNPCShop, ItemSource>(shop => {
@@ -87,10 +90,16 @@ public class ShopItemSource : ItemSource {
 				}
 				yield break;
 			}
-
-			Item noIdea = new(ModContent.ItemType<UnloadedItem>(), Item.GetStoreValue());
-			noIdea.SetNameOverride(Language.GetOrRegister($"Mods.{nameof(ItemSourceHelper)}.UnknownCurrency").Value);
-			yield return noIdea;
+			(int type, int amount)[] amounts = ShopItemSourceType._valuePerUnit.GetValue(customCurrency).Select(kvp => (kvp.Key, kvp.Value)).OrderByDescending(v => v.Value).ToArray();
+			int remainingPrice = Item.GetStoreValue();
+			for (int i = 0; i < amounts.Length; i++) {
+				(int type, int amount) = amounts[i];
+				if (remainingPrice >= amount) {
+					int count = remainingPrice / amount;
+					remainingPrice -= count * amount;
+					yield return new Item(type, count);
+				}
+			}
 			yield break;
 		}
 		int price = Item.GetStoreValue();
@@ -1164,11 +1173,23 @@ public class SourceBrowserWindow : WindowElement {
 	}
 }
 public class ItemSourceListGridItem : ThingListGridItem<ItemSource> {
+	public static void AddSourceInChat(ItemSource itemSource) {
+		string conditionText = "";
+		LocalizedText[] conditions = itemSource.GetAllConditions().ToArray();
+		if (conditions.Length > 0) {
+			conditionText = " @ " + string.Join(", ", conditions.Select(c => c.Value));
+		}
+		string text = $"{string.Join("", itemSource.GetSourceItems().Select(ItemTagHandler.GenerateTag))}{conditionText} --> {ItemTagHandler.GenerateTag(itemSource.Item)}";
+		ChatManager.AddChatText(FontAssets.MouseText.Value, text, Vector2.One);
+	}
 	public override bool ClickThing(ItemSource itemSource, bool doubleClick) {
 		if (Main.cursorOverride == CursorOverrideID.FavoriteStar) {
 			if (!FavoriteUI.Favorites.Remove(itemSource)) {
 				FavoriteUI.Favorites.Add(itemSource);
 			}
+			SoundEngine.PlaySound(SoundID.MenuTick);
+		} else if (Main.cursorOverride == CursorOverrideID.Magnifiers) {
+			AddSourceInChat(itemSource);
 			SoundEngine.PlaySound(SoundID.MenuTick);
 		} else if (!doubleClick) {
 			ItemSourceHelper.Instance.BrowserWindow.Ingredience.SetItems(itemSource.GetSourceItems().ToArray());
@@ -1196,7 +1217,7 @@ public class ItemSourceListGridItem : ThingListGridItem<ItemSource> {
 			ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
 		}
 		if (hovering && Main.keyState.IsKeyDown(Main.FavoriteKey)) {
-			Main.cursorOverride = CursorOverrideID.FavoriteStar;//Main.drawingPlayerChat ? CursorOverrideID.Magnifiers : CursorOverrideID.FavoriteStar;
+			Main.cursorOverride = Main.drawingPlayerChat ? CursorOverrideID.Magnifiers : CursorOverrideID.FavoriteStar;
 		}
 	}
 }

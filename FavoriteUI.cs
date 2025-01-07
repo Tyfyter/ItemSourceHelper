@@ -129,10 +129,18 @@ namespace ItemSourceHelper {
 				position.X += 24;
 				if (Main.mouseX >= position.X && Main.mouseX <= position.X + size && Main.mouseY >= position.Y && Main.mouseY <= position.Y + size) {
 					if (Main.keyState.IsKeyDown(Main.FavoriteKey)) {
-						Main.cursorOverride = CursorOverrideID.FavoriteStar;//Main.drawingPlayerChat ? CursorOverrideID.Magnifiers : CursorOverrideID.FavoriteStar;
-						if (Main.mouseLeft && Main.mouseLeftRelease) {
-							FavoriteUI.Favorites.Remove(source);
-							SoundEngine.PlaySound(SoundID.MenuTick);
+						if (Main.drawingPlayerChat) {
+							Main.cursorOverride = CursorOverrideID.Magnifiers;
+							if (Main.mouseLeft && Main.mouseLeftRelease) {
+								ItemSourceListGridItem.AddSourceInChat(source);
+								SoundEngine.PlaySound(SoundID.MenuTick);
+							}
+						} else {
+							Main.cursorOverride = CursorOverrideID.FavoriteStar;
+							if (Main.mouseLeft && Main.mouseLeftRelease) {
+								FavoriteUI.Favorites.Remove(source);
+								SoundEngine.PlaySound(SoundID.MenuTick);
+							}
 						}
 					}
 					UIMethods.DrawColoredItemSlot(spriteBatch, ref createItem, position, texture, hasAllIngredients ? craftableColor : normalColor);
