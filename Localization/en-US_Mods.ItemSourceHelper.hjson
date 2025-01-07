@@ -403,3 +403,4 @@ LootSourceFilter: {
 }
 
 UnknownCurrency: Mods.ItemSourceHelper.UnknownCurrency
+Message.LootListError: Error while processing loot: {0}

@@ -28,6 +28,7 @@ using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.ModLoader.Config;
 using Terraria.ModLoader.Config.UI;
+using Terraria.ModLoader.Default;
 using Terraria.ModLoader.UI;
 using Terraria.UI;
 using Terraria.UI.Chat;
@@ -648,9 +649,14 @@ namespace ItemSourceHelper {
 						Item item = ContentSamples.ItemsByType[info.itemId];
 						if (canHover && Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size) {
 							UIMethods.DrawColoredItemSlot(spriteBatch, ref item, position, texture, hoverColor);
-							tooltipModifier.info = info;
-							TooltipAdderGlobal.TooltipModifiers.Add(tooltipModifier);
-							ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
+
+							if (item.ModItem is UnloadedItem unloadedItem && string.IsNullOrEmpty(unloadedItem.ItemName)) {
+								UICommon.TooltipMouseText(info.conditions[0].GetConditionDescription());
+							} else {
+								tooltipModifier.info = info;
+								TooltipAdderGlobal.TooltipModifiers.Add(tooltipModifier);
+								ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
+							}
 							if ((Main.mouseLeft && Main.mouseLeftRelease) || (Main.mouseRight && Main.mouseRightRelease)) {
 								if (info.itemId != doubleClickItem) doubleClickTime = 0;
 								if (doubleClickTime > 0) {
@@ -1107,6 +1113,7 @@ namespace ItemSourceHelper {
 			bounds.Width -= (int)helpSize.X + 8;
 			Color color = ItemSourceHelperConfig.Instance.SearchBarColor;
 			bool hoveringSearch = bounds.Contains(Main.mouseX, Main.mouseY) && !PlayerInput.IgnoreMouseInterface;
+			if (hoveringSearch && Main.mouseRight && Main.mouseRightRelease) Reset();
 			Main.LocalPlayer.mouseInterface |= hoveringSearch;
 			if (!focused) {
 				if (hoveringSearch && Main.mouseLeft && Main.mouseLeftRelease) {

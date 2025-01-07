@@ -1355,7 +1355,11 @@ public class ItemLootSourceType : LootSourceType {
 		List<DropRateInfo> drops = [];
 		DropRateInfoChainFeed ratesInfo = new(1f);
 		foreach (IItemDropRule rule in Main.ItemDropsDB.GetRulesForItemID(type)) {
-			rule.ReportDroprates(drops, ratesInfo);
+			try {
+				rule.ReportDroprates(drops, ratesInfo);
+			} catch(Exception e) {
+				drops.Add(new DropRateInfo(ModContent.ItemType<UnloadedItem>(), 0, 0, 1, [new Condition(Language.GetOrRegister("Mods.ItemSourceHelper.Message.LootListError").WithFormatArgs(e), () => false).ToDropCondition(ShowItemDropInUI.Always)]));
+			}
 		}
 		return drops;
 	}

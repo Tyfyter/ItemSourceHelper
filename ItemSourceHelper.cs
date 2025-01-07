@@ -257,6 +257,7 @@ public class ItemSourceHelperSystem : ModSystem {
 			foreach (IItemDropRule rule in rules) {
 				DropRateInfoChainFeed ratesInfo = new(1f);
 				List<DropRateInfo> dropInfoList = [];
+				if (rule is OneFromRulesRule _rule && _rule.options.Contains(null)) continue;
 				rule.ReportDroprates(dropInfoList, ratesInfo);
 				if (dropInfoList.Count > 0) {
 					for (int i = 0; i < dropInfoList.Count; i++) {
