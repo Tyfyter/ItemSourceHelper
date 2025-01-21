@@ -550,7 +550,9 @@ namespace ItemSourceHelper {
 								if (items[i].type != doubleClickItem) doubleClickTime = 0;
 								if (doubleClickTime > 0) {
 									if (Main.mouseLeft) {
-										ModContent.GetInstance<SourceBrowserWindow>().FilterItem.SetItem(items[i]);
+										SourceBrowserWindow window = ModContent.GetInstance<SourceBrowserWindow>();
+										window.ResetItems();
+										window.FilterItem.SetItem(items[i]);
 									} else if (items[i].TryGetGlobalItem(out AnimatedRecipeGroupGlobalItem global) && global.recipeGroup != -1) {
 										MaterialFilter materialFilter = ModContent.GetInstance<MaterialFilter>();
 										foreach (IFilter<Item> filter in materialFilter.ChildItemFilters()) {
@@ -661,7 +663,9 @@ namespace ItemSourceHelper {
 								if (info.itemId != doubleClickItem) doubleClickTime = 0;
 								if (doubleClickTime > 0) {
 									if (Main.mouseLeft) {
-										ModContent.GetInstance<LootBrowserWindow>().FilterItem.SetItem(info.itemId);
+										LootBrowserWindow window = ModContent.GetInstance<LootBrowserWindow>();
+										window.ResetItems();
+										window.FilterItem.SetItem(info.itemId);
 									} else {
 										ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>(true).ScrollToItem(info.itemId);
 									}

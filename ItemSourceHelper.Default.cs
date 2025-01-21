@@ -1198,7 +1198,9 @@ public class ItemSourceListGridItem : ThingListGridItem<ItemSource> {
 		} else if (Main.mouseRight) {
 			ItemSourceHelper.Instance.BrowserWindow.SetTab<ItemBrowserWindow>().ScrollToItem(itemSource.Item.type);
 		} else {
-			ModContent.GetInstance<SourceBrowserWindow>().FilterItem.SetItem(itemSource.Item);
+			SourceBrowserWindow window = ModContent.GetInstance<SourceBrowserWindow>();
+			window.ResetItems();
+			window.FilterItem.SetItem(itemSource.Item);
 		}
 		return false;
 	}
