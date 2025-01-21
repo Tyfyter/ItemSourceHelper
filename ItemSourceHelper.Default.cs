@@ -187,7 +187,7 @@ public class CraftingItemSourceType : ItemSourceType {
 }
 public class CraftingItemSource(ItemSourceType sourceType, Recipe recipe) : ItemSource(sourceType, recipe.createItem) {
 	public Recipe Recipe => recipe;
-	public override IEnumerable<Condition> GetConditions() => Recipe.Conditions;
+	public override IEnumerable<Condition> GetConditions() => SourceType is ShimmerItemSourceType ? Recipe.Conditions.Where(c => !ShimmerItemSourceType.ShimmerRecipeConditions.Contains(c)) : Recipe.Conditions;
 	public override IEnumerable<Item> GetSourceItems() {
 		for (int i = 0; i < Recipe.requiredItem.Count; i++) {
 			if (CraftingItemSourceType.GetRecipeGroup(Recipe.acceptedGroups, Recipe.requiredItem[i], out Item req)) {
