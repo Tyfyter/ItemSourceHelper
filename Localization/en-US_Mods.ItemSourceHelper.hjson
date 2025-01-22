@@ -317,6 +317,11 @@ Configs: {
 			Label: Drop List Indicators
 			Tooltip: ""
 		}
+
+		ShowSingleUserAmmoUseFilters: {
+			Label: Show Single User Ammo Use Filters
+			Tooltip: ""
+		}
 	}
 
 	ItemSourceHelperPositions: {

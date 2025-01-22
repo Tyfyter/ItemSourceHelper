@@ -51,6 +51,9 @@ namespace ItemSourceHelper {
 		/*[DefaultValue(true)]
 		public bool ShowCraftableIgnoreConditions { get; set; }*/
 
+		[DefaultValue(true)]
+		public bool ShowSingleUserAmmoUseFilters { get; set; } = true;
+
 		[DefaultValue(IndicatorTypes.All)]
 		public IndicatorTypes ItemListIndicators { get; set; }
 		[DefaultValue(IndicatorTypes.Material), IndicatorTypeMask(~IndicatorTypes.Craftable)]

@@ -551,8 +551,9 @@ namespace ItemSourceHelper {
 								if (doubleClickTime > 0) {
 									if (Main.mouseLeft) {
 										SourceBrowserWindow window = ModContent.GetInstance<SourceBrowserWindow>();
+										Item currentItem = items[i];
 										window.ResetItems();
-										window.FilterItem.SetItem(items[i]);
+										window.FilterItem.SetItem(currentItem);
 									} else if (items[i].TryGetGlobalItem(out AnimatedRecipeGroupGlobalItem global) && global.recipeGroup != -1) {
 										MaterialFilter materialFilter = ModContent.GetInstance<MaterialFilter>();
 										foreach (IFilter<Item> filter in materialFilter.ChildItemFilters()) {
@@ -574,7 +575,7 @@ namespace ItemSourceHelper {
 						} else {
 							UIMethods.DrawColoredItemSlot(spriteBatch, items, i, position, texture, normalColor);
 						}
-						UIMethods.DrawIndicators(spriteBatch, items[i].type, ItemSourceHelperConfig.Instance.IngredientListIndicators, position, size);
+						if (i < items.Length) UIMethods.DrawIndicators(spriteBatch, items[i].type, ItemSourceHelperConfig.Instance.IngredientListIndicators, position, size);
 					}
 					x += sizeWithPadding;
 					if (x >= maxX) {

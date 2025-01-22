@@ -30,6 +30,9 @@ using Terraria.GameContent.UI.Elements;
 using Terraria.Audio;
 using Terraria.GameContent.UI.Chat;
 using Terraria.UI.Chat;
+using Mono.Cecil;
+using static System.Net.Mime.MediaTypeNames;
+using System.Collections;
 
 namespace ItemSourceHelper.Default;
 #region shop
@@ -813,16 +816,16 @@ public class AmmoFilter : ItemFilter {
 				ammoUseTypes[item.useAmmo] = count + 1;
 			}
 		}
-		foreach (var item in ammoTypes.OrderByDescending(p => p.Value)) {
+		foreach (KeyValuePair<int, int> item in ammoTypes.OrderByDescending(p => p.Value)) {
 			if (item.Value > 1) {
 				AmmoTypeFilter child = new(item.Key);
 				children.Add(child);
 				child.LateRegister();
 			}
 		}
-		foreach (var item in ammoUseTypes.OrderByDescending(p => p.Value)) {
-			if (item.Value > 1) {
-				AmmoUseTypeFilter useChild = new(item.Key);
+		foreach (KeyValuePair<int, int> item in ammoUseTypes.OrderByDescending(p => p.Value)) {
+			if (item.Value > 0) {
+				AmmoUseTypeFilter useChild = new(item.Key, item.Value);
 				ammoUseFilter.children.Add(useChild);
 				useChild.LateRegister();
 			}
@@ -849,15 +852,23 @@ public class AmmoTypeFilter(int type) : ItemFilter {
 	public override bool Matches(Item item) => item.ammo == AmmoType;
 }
 public class AmmoUseFilter : ItemFilter {
-	internal List<ItemFilter> children;
+	internal List<AmmoUseTypeFilter> children;
 	public override float SortPriority => 1f;
 	public override string Texture => "Terraria/Images/Item_" + ItemID.Clentaminator;
 	protected override string FilterChannelName => "Ammo";
 	public override bool Matches(Item item) => item.useAmmo != AmmoID.None;
-	public override IEnumerable<ItemFilter> ChildItemFilters() => children;
+	public override IEnumerable<ItemFilter> ChildItemFilters() => GetEnumerator();
+	public IEnumerable<AmmoUseTypeFilter> GetEnumerator() {
+		int index = 0;
+		while (index < children.Count && (ItemSourceHelperConfig.Instance.ShowSingleUserAmmoUseFilters || children[index].UserCount > 1)) {
+			yield return children[index];
+			index++;
+		}
+	}
 }
 [Autoload(false)]
-public class AmmoUseTypeFilter(int type) : AmmoTypeFilter(type) {
+public class AmmoUseTypeFilter(int type, int count) : AmmoTypeFilter(type) {
+	public readonly int UserCount = count;
 	public override bool Matches(Item item) => item.useAmmo == AmmoType;
 }
 public class RarityParentFilter : ItemFilter {
@@ -1300,6 +1311,15 @@ public class ItemListGridItem : ThingListGridItem<Item> {
 		if (hovering) {
 			if (things is FilteredEnumerable<Item> filteredEnum) filteredEnum.FillTooltipAdders(TooltipAdderGlobal.TooltipModifiers);
 			ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
+			if (Main.keyState.IsKeyDown(Main.FavoriteKey)) {
+				if (Main.drawingPlayerChat) {
+					Main.cursorOverride = CursorOverrideID.Magnifiers;
+					if (Main.mouseLeft && Main.mouseLeftRelease) {
+						ChatManager.AddChatText(FontAssets.MouseText.Value, ItemTagHandler.GenerateTag(item), Vector2.One);
+						SoundEngine.PlaySound(SoundID.MenuTick);
+					}
+				}
+			}
 		}
 		UIMethods.DrawIndicators(spriteBatch, item.type, ItemSourceHelperConfig.Instance.ItemListIndicators, position, (int)(52 * Main.inventoryScale));
 	}
