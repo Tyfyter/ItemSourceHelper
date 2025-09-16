@@ -974,6 +974,7 @@ public class LiteralSearchFilter(string text) : SearchFilter {
 }
 public class ModNameSearchProvider : SearchProvider {
 	public override string Opener => "@";
+	public override float TooltipOrder => 3;
 	public override SearchFilter GetSearchFilter(string filterText) => new ModNameSearchFilter(filterText);
 	public class ModNameSearchFilter(string text) : SearchFilter {
 		public override bool Matches(Dictionary<string, string> data) {
@@ -984,6 +985,7 @@ public class ModNameSearchProvider : SearchProvider {
 }
 public class ItemNameSearchProvider : SearchProvider {
 	public override string Opener => "^";
+	public override float TooltipOrder => 1;
 	public override SearchFilter GetSearchFilter(string filterText) => new ItemNameSearchFilter(filterText);
 	public class ItemNameSearchFilter(string text) : SearchFilter {
 		public override bool Matches(Dictionary<string, string> data) {
@@ -993,6 +995,7 @@ public class ItemNameSearchProvider : SearchProvider {
 }
 public class ItemTooltipSearchProvider : SearchProvider {
 	public override string Opener => "#";
+	public override float TooltipOrder => 2;
 	public override SearchFilter GetSearchFilter(string filterText) => new ItemTooltipSearchFilter(filterText);
 	public class ItemTooltipSearchFilter(string text) : SearchFilter {
 		public override bool Matches(Dictionary<string, string> data) {
@@ -1000,8 +1003,19 @@ public class ItemTooltipSearchProvider : SearchProvider {
 		}
 	}
 }
+public class TagsSearchProvider : SearchProvider {
+	public override string Opener => ":";
+	public override float TooltipOrder => 4;
+	public override SearchFilter GetSearchFilter(string filterText) => new TagsSearchFilter(filterText);
+	public class TagsSearchFilter(string text) : SearchFilter {
+		public override bool Matches(Dictionary<string, string> data) {
+			return data.TryGetValue("Tags", out string name) && name.Split(';').Contains(text, StringComparer.InvariantCultureIgnoreCase);
+		}
+	}
+}
 public class NegativeSearchProvider : SearchProvider {
 	public override string Opener => "-";
+	public override float TooltipOrder => 10;
 	public override SearchFilter GetSearchFilter(string filterText) => new NegativeSearchFilter(filterText);
 	public class NegativeSearchFilter(string text) : SearchFilter {
 		readonly SearchFilter filter = string.IsNullOrEmpty(text) ? null : SearchLoader.Parse(text);

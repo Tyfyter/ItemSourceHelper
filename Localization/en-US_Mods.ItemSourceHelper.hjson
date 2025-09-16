@@ -142,8 +142,7 @@ FilterList: {
 Search.HelpText:
 	'''
 	Searches in item names and tooltips by default
-	Start query with ^ to only search in names
-	Start query with # to only search in tooltips
+	{0}
 	Use commas to separate search queries
 	This field supports arrow keys and all vanilla chat controls
 	This field also supports Ctrl+Backspace
@@ -409,3 +408,11 @@ LootSourceFilter: {
 
 UnknownCurrency: Mods.ItemSourceHelper.UnknownCurrency
 Message.LootListError: Error while processing loot: {0}
+
+SearchProvider: {
+	ItemNameSearchProvider.TooltipHint: Start query with {0} to only search in names
+	ItemTooltipSearchProvider.TooltipHint: Start query with {0} to only search in tooltips
+	ModNameSearchProvider.TooltipHint: Start query with {0} to only search in mod names
+	NegativeSearchProvider.TooltipHint: Start query with {0} to invert a the following query
+	TagsSearchProvider.TooltipHint: Start query with {0} to only search in tags
+}

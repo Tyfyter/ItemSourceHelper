@@ -1133,7 +1133,9 @@ namespace ItemSourceHelper {
 				}
 			}
 			if (Main.keyState.PressingShift() && bounds.Contains(Main.MouseScreen.ToPoint())) {
-				UICommon.TooltipMouseText(Language.GetOrRegister($"Mods.{nameof(ItemSourceHelper)}.Search.HelpText").Value);
+				UICommon.TooltipMouseText(Language.GetOrRegister($"Mods.{nameof(ItemSourceHelper)}.Search.HelpText").Format(
+					string.Join('\n', ModContent.GetContent<SearchProvider>().Order().Select(p => p.TooltipHint.Value))
+				));
 			}
 			spriteBatch.DrawRoundedRetangle(bounds, color);
 			bool typed = false;

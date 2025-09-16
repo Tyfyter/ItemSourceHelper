@@ -333,13 +333,19 @@ public class SearchLoader : ILoadable {
 internal static class SearchDataGetter<T> {
 	internal static Func<T, Dictionary<string, string>> function = _ => [];
 }
-public abstract class SearchProvider : ModType {
+public abstract class SearchProvider : ModType, IComparable<SearchProvider>, ILocalizedModType {
 	public abstract string Opener { get; }
+	public virtual float TooltipOrder => 100;
+	public string LocalizationCategory => nameof(SearchProvider);
+	LocalizedText _tooltipHint;
+	public virtual LocalizedText TooltipHint => _tooltipHint ??= this.GetLocalization(nameof(TooltipHint), () => "Start query with {0} to only search in").WithFormatArgs(Opener);
 	public abstract SearchFilter GetSearchFilter(string filterText);
 	protected sealed override void Register() {
 		ModTypeLookup<SearchProvider>.Register(this);
 		SearchLoader.RegisterSearchProvider(this);
+		_ = TooltipHint;
 	}
+	int IComparable<SearchProvider>.CompareTo(SearchProvider other) => TooltipOrder.CompareTo(other.TooltipOrder);
 }
 [Autoload(false)]
 public abstract class SearchFilter : IFilter<Dictionary<string, string>> {
