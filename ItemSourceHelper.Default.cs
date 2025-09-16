@@ -975,29 +975,37 @@ public class LiteralSearchFilter(string text) : SearchFilter {
 public class ModNameSearchProvider : SearchProvider {
 	public override string Opener => "@";
 	public override SearchFilter GetSearchFilter(string filterText) => new ModNameSearchFilter(filterText);
-}
-public class ModNameSearchFilter(string text) : SearchFilter {
-	public override bool Matches(Dictionary<string, string> data) {
-		if (data.TryGetValue("ModName", out string name) && name.Contains(text, StringComparison.InvariantCultureIgnoreCase)) return true;
-		return data.TryGetValue("ModInternalName", out name) && name.Contains(text, StringComparison.InvariantCultureIgnoreCase);
+	public class ModNameSearchFilter(string text) : SearchFilter {
+		public override bool Matches(Dictionary<string, string> data) {
+			if (data.TryGetValue("ModName", out string name) && name.Contains(text, StringComparison.InvariantCultureIgnoreCase)) return true;
+			return data.TryGetValue("ModInternalName", out name) && name.Contains(text, StringComparison.InvariantCultureIgnoreCase);
+		}
 	}
 }
 public class ItemNameSearchProvider : SearchProvider {
 	public override string Opener => "^";
 	public override SearchFilter GetSearchFilter(string filterText) => new ItemNameSearchFilter(filterText);
-}
-public class ItemNameSearchFilter(string text) : SearchFilter {
-	public override bool Matches(Dictionary<string, string> data) {
-		return data.TryGetValue("Name", out string name) && name.Contains(text, StringComparison.InvariantCultureIgnoreCase);
+	public class ItemNameSearchFilter(string text) : SearchFilter {
+		public override bool Matches(Dictionary<string, string> data) {
+			return data.TryGetValue("Name", out string name) && name.Contains(text, StringComparison.InvariantCultureIgnoreCase);
+		}
 	}
 }
 public class ItemTooltipSearchProvider : SearchProvider {
 	public override string Opener => "#";
 	public override SearchFilter GetSearchFilter(string filterText) => new ItemTooltipSearchFilter(filterText);
+	public class ItemTooltipSearchFilter(string text) : SearchFilter {
+		public override bool Matches(Dictionary<string, string> data) {
+			return data.TryGetValue("Description", out string name) && name.Contains(text, StringComparison.InvariantCultureIgnoreCase);
+		}
+	}
 }
-public class ItemTooltipSearchFilter(string text) : SearchFilter {
-	public override bool Matches(Dictionary<string, string> data) {
-		return data.TryGetValue("Description", out string name) && name.Contains(text, StringComparison.InvariantCultureIgnoreCase);
+public class NegativeSearchProvider : SearchProvider {
+	public override string Opener => "-";
+	public override SearchFilter GetSearchFilter(string filterText) => new NegativeSearchFilter(filterText);
+	public class NegativeSearchFilter(string text) : SearchFilter {
+		readonly SearchFilter filter = string.IsNullOrEmpty(text) ? null : SearchLoader.Parse(text);
+		public override bool Matches(Dictionary<string, string> data) => !(filter?.Matches(data) ?? false);
 	}
 }
 #endregion search types

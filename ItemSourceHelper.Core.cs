@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Mono.Cecil;
+using MonoMod.Utils;
 using ReLogic.Content;
 using System;
 using System.Collections;
@@ -308,7 +309,17 @@ public class SearchLoader : ILoadable {
 	}
 	public static Dictionary<string, string> GetSearchData<T>(T value) => SearchDataGetter<T>.function(value);
 	public static void RegisterSearchable<T>(Func<T, Dictionary<string, string>> function) {
-		SearchDataGetter<T>.function = function;
+		if (SearchDataGetter<T>.function is Func<T, Dictionary<string, string>> existing) {
+			SearchDataGetter<T>.function = (searchable) => {
+				Dictionary<string, string> prev = existing(searchable);
+				foreach ((string key, string value) in function(searchable)) {
+					prev[key] = value;
+				}
+				return prev;
+			};
+		} else {
+			SearchDataGetter<T>.function = function;
+		}
 	}
 	public static SearchFilter Parse(string text) {
 		int consumed = 0;

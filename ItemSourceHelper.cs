@@ -24,6 +24,7 @@ using Terraria.GameContent.Bestiary;
 using System.Text;
 using Terraria.WorldBuilding;
 using Microsoft.Xna.Framework;
+using MonoMod.Utils;
 
 namespace ItemSourceHelper;
 public class ItemSourceHelper : Mod {
@@ -53,6 +54,7 @@ public class ItemSourceHelper : Mod {
 	public static Asset<Texture2D> SortArrows { get; private set; }
 	public static Asset<Texture2D> ItemIndicators { get; private set; }
 	public static Asset<Texture2D> NPCDropBack { get; private set; }
+	public static List<Func<Item, IEnumerable<string>>> ItemTagProviders { get; private set; }
 	public ItemSourceHelper() {
 		Instance = this;
 		Sources = [];
@@ -84,6 +86,13 @@ public class ItemSourceHelper : Mod {
 			data["Conditions"] = string.Join('\n', source.GetAllConditions().Select(t => t.Value));
 			return data;
 		});
+		ItemTagProviders = [
+			item => ItemID.Sets.ItemsThatCountAsBombsForDemolitionistToSpawn[item.type] ? ["Bomb"] : [],
+			item => ItemID.Sets.IsAKite[item.type] ? ["Kite"] : [],
+			item => ItemID.Sets.IsDrill[item.type] ? ["Drill"] : [],
+			item => ItemID.Sets.IsChainsaw[item.type] ? ["Chainsaw"] : [],
+			item => ItemID.Sets.Spears[item.type] ? ["Spear"] : []
+		];
 		SearchLoader.RegisterSearchable<Item>(item => {
 			Dictionary<string, string> data = new() {
 				["Name"] = item.Name,
@@ -104,11 +113,10 @@ public class ItemSourceHelper : Mod {
 				builder.Append(tag);
 				builder.Append(';');
 			}
-			if (ItemID.Sets.ItemsThatCountAsBombsForDemolitionistToSpawn[item.type]) AddTag("Bomb");
-			if (ItemID.Sets.IsAKite[item.type]) AddTag("Kite");
-			if (ItemID.Sets.IsDrill[item.type]) AddTag("Drill");
-			if (ItemID.Sets.IsChainsaw[item.type]) AddTag("Chainsaw");
-			if (ItemID.Sets.Spears[item.type]) AddTag("Spear");
+			foreach (string tag in ItemTagProviders.SelectMany(provider => provider(item))) {
+				AddTag(tag);
+			}
+
 			if (builder.Length > 0) data["Tags"] = builder.ToString();
 			return data;
 		});
@@ -185,6 +193,16 @@ public class ItemSourceHelper : Mod {
 			case "ADDSHIMMERFAKECONDITION":
 			ShimmerItemSourceType.ShimmerRecipeConditions.Add((Condition)args[1]);
 			break;
+			case "ADDITEMTAGPROVIDER":
+			case "ADDITEMTAGPROVIDERS":
+			for (int i = 1; i < args.Length; i++) {
+				if (args[i] is Delegate del && del.TryCastDelegate(out Func<Item, IEnumerable<string>> provider)) {
+					ItemTagProviders.Add(provider);
+				} else {
+					Logger.Error($"Invalid cast, arguments of ADDITEMTAGPROVIDER must be convertible to Func<Item, IEnumerable<string>>, argument {i} was {args[i].GetType()}");
+				}
+			}
+			break;
 		}
 		return null;
 	}
@@ -249,7 +267,13 @@ public class ItemSourceHelperSystem : ModSystem {
 		foreach (ItemSource item in ItemSourceHelper.Instance.Sources) {
 			ItemSourceHelper.Instance.CraftableItems.Add(item.ItemType);
 			foreach (Item ingredient in item.GetSourceItems()) {
-				ItemSourceHelper.Instance.MaterialItems.Add(ingredient.type);
+				if (ingredient.TryGetGlobalItem(out AnimatedRecipeGroupGlobalItem group) && group.recipeGroup != -1) {
+					foreach (int option in RecipeGroup.recipeGroups[group.recipeGroup].ValidItems) {
+						ItemSourceHelper.Instance.MaterialItems.Add(option);
+					}
+				} else {
+					ItemSourceHelper.Instance.MaterialItems.Add(ingredient.type);
+				}
 			}
 		}
 

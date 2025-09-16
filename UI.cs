@@ -463,7 +463,7 @@ namespace ItemSourceHelper {
 				}
 			}
 			if (!Main.mouseText && Main.keyState.PressingShift() && bounds.Contains(Main.MouseScreen.ToPoint())) {
-				UIMethods.TryMouseText(Language.GetOrRegister($"Mods.{nameof(ItemSourceHelper)}.FilterList.HelpText").Value);
+				UICommon.TooltipMouseText(Language.GetOrRegister($"Mods.{nameof(ItemSourceHelper)}.FilterList.HelpText").Value);
 			}
 			if (shouldResetScroll && ResetScroll is not null) {
 				ResetScroll();
@@ -1133,7 +1133,7 @@ namespace ItemSourceHelper {
 				}
 			}
 			if (Main.keyState.PressingShift() && bounds.Contains(Main.MouseScreen.ToPoint())) {
-				UIMethods.TryMouseText(Language.GetOrRegister($"Mods.{nameof(ItemSourceHelper)}.Search.HelpText").Value);
+				UICommon.TooltipMouseText(Language.GetOrRegister($"Mods.{nameof(ItemSourceHelper)}.Search.HelpText").Value);
 			}
 			spriteBatch.DrawRoundedRetangle(bounds, color);
 			bool typed = false;
@@ -1307,16 +1307,18 @@ namespace ItemSourceHelper {
 						pos.X += commaWidth;
 					}
 					comma = true;
-					spriteBatch.DrawString(
+					ChatManager.DrawColorCodedString(
+						spriteBatch,
 						font,
-						text,
+						ChatManager.ParseMessage(text, color).ToArray(),
 						pos,
-						color,
+						Color.White,
 						0,
 						new(0, 0f),
-						0.75f,
-						0,
-					0);
+						new(0.75f),
+						out _,
+						-1
+					);
 					lastWidth = font.MeasureString(text).X * 0.75f;
 					pos.X += lastWidth;
 					if (pos.X > rightSide) {
@@ -1341,6 +1343,8 @@ namespace ItemSourceHelper {
 		}
 	}
 	public abstract class ThingListGridItem<Thing> : GridItem, IScrollableUIItem {
+		public virtual float ThingWidth => 52 * Main.inventoryScale;
+		public virtual float ThingHeight => 52 * Main.inventoryScale;
 		public IEnumerable<Thing> things;
 		public int scroll;
 		bool cutOff = false;
@@ -1364,17 +1368,18 @@ namespace ItemSourceHelper {
 			using (new UIMethods.ClippingRectangle(bounds, spriteBatch)) {
 				bool canHover = bounds.Contains(Main.mouseX, Main.mouseY);
 				Texture2D texture = TextureAssets.InventoryBack13.Value;
-				int size = (int)(52 * Main.inventoryScale);
+				int width = (int)ThingWidth;
+				int height = (int)ThingHeight;
 				const int padding = 2;
-				int sizeWithPadding = size + padding;
+				int widthWithPadding = width + padding;
 
 				int minX = bounds.X + 8;
 				int baseX = minX;
 				int x = baseX;
-				int maxX = bounds.X + bounds.Width - size;
+				int maxX = bounds.X + bounds.Width - width;
 				int y = bounds.Y + 6;
-				int maxY = bounds.Y + bounds.Height - size / 2;
-				int itemsPerRow = (int)(((maxX - padding) - minX - 1) / (float)sizeWithPadding) + 1;
+				int maxY = bounds.Y + bounds.Height - height / 2;
+				int itemsPerRow = (int)(((maxX - padding) - minX - 1) / (float)widthWithPadding) + 1;
 				if (lastItemsPerRow != -1 && itemsPerRow != lastItemsPerRow) {
 					int oldSkips = lastItemsPerRow * scroll;
 					int newSkips = itemsPerRow * scroll;
@@ -1389,18 +1394,18 @@ namespace ItemSourceHelper {
 				foreach (Thing thing in things.Skip(itemsPerRow * scroll)) {
 					if (x >= maxX - padding) {
 						x = baseX;
-						y += sizeWithPadding;
+						y += height + padding;
 						if (y >= maxY - padding) {
 							cutOff = true;
 							break;
 						}
 					}
 					hadAnyItems = true;
-					if (x >= minX - size) {
+					if (x >= minX - width) {
 						displayedAnyItems = true;
 						position.X = x;
 						position.Y = y;
-						bool hovering = canHover && Main.mouseX >= x && Main.mouseX <= x + size && Main.mouseY >= y && Main.mouseY <= y + size;
+						bool hovering = canHover && Main.mouseX >= x && Main.mouseX <= x + width && Main.mouseY >= y && Main.mouseY <= y + height;
 						DrawThing(spriteBatch, thing, position, hovering);
 						if (hovering && ((Main.mouseLeft && Main.mouseLeftRelease) || (Main.mouseRight && Main.mouseRightRelease))) {
 							if (!Equals(thing, doubleClickThing)) doubleClickTime = 0;
@@ -1413,7 +1418,7 @@ namespace ItemSourceHelper {
 							}
 						}
 					}
-					x += sizeWithPadding;
+					x += widthWithPadding;
 				}
 				if (hadAnyItems && !displayedAnyItems && ++overscrollFixerTries < 100) {
 					scroll--;
