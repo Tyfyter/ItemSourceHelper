@@ -3,26 +3,21 @@ using ItemSourceHelper.Default;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using PegasusLib;
 using ReLogic.Content;
 using ReLogic.Graphics;
-using ReLogic.OS;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
 using System.Linq;
 using System.Reflection;
-using System.Security.Policy;
 using System.Text;
-using System.Threading.Tasks;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.GameContent;
-using Terraria.GameContent.Bestiary;
 using Terraria.GameContent.ItemDropRules;
 using Terraria.GameInput;
-using Terraria.Graphics.Effects;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
@@ -1063,10 +1058,10 @@ namespace ItemSourceHelper {
 			item.TurnToAir();
 		}
 	}
-	public class SearchGridItem(ISearchFilterReceiver receiver) : GridItem {
+	public class SearchGridItem(ISearchFilterReceiver receiver) : GridItem, ITextInputContainer {
 		public bool focused = false;
-		public int cursorIndex = 0;
-		public StringBuilder text = new();
+		public int CursorIndex { get; set; } = 0;
+		public StringBuilder Text { get; } = new();
 		string lastSearch = "";
 		public int typingTimer = 0;
 		public void SetSearch(string search) {
@@ -1075,18 +1070,9 @@ namespace ItemSourceHelper {
 			List<SearchFilter> filters = search.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(SearchLoader.Parse).ToList();
 			receiver.SetSearchFilters(filters);
 		}
-		void Copy(bool cut = false) {
-			Platform.Get<IClipboard>().Value = text.ToString();
-			if (cut) Clear();
-		}
-		void Paste() {
-			string clipboard = Platform.Get<IClipboard>().Value;
-			text.Insert(cursorIndex, clipboard);
-			cursorIndex += clipboard.Length;
-		}
 		void Clear() {
-			text.Clear();
-			cursorIndex = 0;
+			Text.Clear();
+			CursorIndex = 0;
 		}
 		public override void DrawSelf(Rectangle bounds, SpriteBatch spriteBatch) {
 			int typingTimeoutTime = ItemSourceHelperConfig.Instance.AutoSearchTime + 1;
@@ -1123,7 +1109,7 @@ namespace ItemSourceHelper {
 			if (!focused) {
 				if (hoveringSearch && Main.mouseLeft && Main.mouseLeftRelease) {
 					focused = true;
-					cursorIndex = text.Length;
+					CursorIndex = Text.Length;
 				} else {
 					color *= 0.8f;
 				}
@@ -1140,99 +1126,19 @@ namespace ItemSourceHelper {
 			spriteBatch.DrawRoundedRetangle(bounds, color);
 			bool typed = false;
 			if (focused) {
-				Main.CurrentInputTextTakerOverride = this;
-				Main.chatRelease = false;
-				PlayerInput.WritingText = true;
-				Main.instance.HandleIME();
-				string input = Main.GetInputText(" ", allowMultiLine: true);
-				if (Main.inputText.PressingControl() || Main.inputText.PressingAlt()) {
-					if (UIMethods.JustPressed(Keys.Z)) Clear();
-					else if (UIMethods.JustPressed(Keys.X)) Copy(cut: true);
-					else if (UIMethods.JustPressed(Keys.C)) Copy();
-					else if (UIMethods.JustPressed(Keys.V)) Paste();
-					else if (UIMethods.JustPressed(Keys.Left)) {
-						if (cursorIndex <= 0) goto specialControls;
-						cursorIndex--;
-						while (cursorIndex > 0 && text[cursorIndex - 1] != ' ') {
-							cursorIndex--;
-						}
-					} else if (UIMethods.JustPressed(Keys.Right)) {
-						if (cursorIndex >= text.Length) goto specialControls;
-						cursorIndex++;
-						while (cursorIndex < text.Length && text[cursorIndex] != ' ') {
-							cursorIndex++;
-						}
-					} else if (UIMethods.JustPressed(Keys.Back)) {
-						if (cursorIndex <= 0) goto specialControls;
-						int length = 1;
-						cursorIndex--;
-						while (cursorIndex > 0 && text[cursorIndex - 1] != ' ') {
-							cursorIndex--;
-							length++;
-						}
-						text.Remove(cursorIndex, length);
-					}
-					typed = true;
-					goto specialControls;
-				}
-				if (Main.inputText.PressingShift()) {
-					if (UIMethods.JustPressed(Keys.Delete)) {
-						Copy(cut: true);
-						typed = true;
-						goto specialControls;
-					} else if (UIMethods.JustPressed(Keys.Insert)) {
-						Paste();
-						typed = true;
-						goto specialControls;
-					}
-				}
-				if (UIMethods.JustPressed(Keys.Left)) {
-					if (cursorIndex > 0) {
-						cursorIndex--;
-						typed = true;
-					}
-				} else if (UIMethods.JustPressed(Keys.Right)) {
-					if (cursorIndex < text.Length) {
-						cursorIndex++;
-						typed = true;
-					}
-				}
-
-				if (input.Length == 0 && cursorIndex > 0) {
-					text.Remove(--cursorIndex, 1);
-					typed = true;
-				} else if (input.Length == 2) {
-					text.Insert(cursorIndex++, input[1]);
-					typed = true;
-				} else if (UIMethods.JustPressed(Keys.Delete)) {
-					if (cursorIndex < text.Length) {
-						text.Remove(cursorIndex, 1);
-						typed = true;
-					}
-				}
-				if (UIMethods.JustPressed(Keys.Enter)) {
-					SetSearch(text.ToString());
-					focused = false;
-					typingTimer = 0;
-				} else if (Main.inputTextEscape) {
-					Clear();
-					text.Append(lastSearch);
-					focused = false;
-					typingTimer = 0;
-				}
+				this.ProcessInput(out typed);
 			}
-			specialControls:
 			if (typed) {
 				typingTimer = typingTimeoutTime;
 			} else if (typingTimer > 0 && --typingTimer == 0) {
-				SetSearch(text.ToString());
+				SetSearch(Text.ToString());
 			}
 			Vector2 offset = new(8, 2);
 			if (focused && Main.timeForVisualEffects % 40 < 20) {
 				spriteBatch.DrawString(
 					font,
 					"|",
-					bounds.TopLeft() + font.MeasureString(text.ToString()[..cursorIndex]) * Vector2.UnitX * scale + offset * new Vector2(0.5f, 1),
+					bounds.TopLeft() + font.MeasureString(Text.ToString()[..CursorIndex]) * Vector2.UnitX * scale + offset * new Vector2(0.5f, 1),
 					ItemSourceHelperConfig.Instance.SearchBarTextColor,
 					0,
 					new(0, 0),
@@ -1242,7 +1148,7 @@ namespace ItemSourceHelper {
 			}
 			spriteBatch.DrawString(
 				font,
-				text,
+				Text,
 				bounds.TopLeft() + offset,
 				ItemSourceHelperConfig.Instance.SearchBarTextColor,
 				0,
@@ -1251,10 +1157,17 @@ namespace ItemSourceHelper {
 				0,
 			0);
 		}
+		public void Submit() => SetSearch(Text.ToString());
+		void ITextInputContainer.Reset() {
+			Clear();
+			Text.Append(lastSearch);
+			focused = false;
+			typingTimer = 0;
+		}
 		public override void Reset() {
 			Clear();
 			receiver.SetSearchFilters([]);
-			cursorIndex = 0;
+			CursorIndex = 0;
 			lastSearch = "";
 			focused = false;
 		}

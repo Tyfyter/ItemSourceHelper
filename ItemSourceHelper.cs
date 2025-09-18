@@ -1,30 +1,32 @@
+using ItemSourceHelper.Core;
+using ItemSourceHelper.Default;
+using Microsoft.Build.Tasks;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using MonoMod.Utils;
+using PegasusLib;
+using ReLogic.Content;
+using ReLogic.OS;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using Terraria.ModLoader;
-using Terraria.UI;
-using ItemSourceHelper.Core;
-using System;
-using Terraria.GameInput;
-using Microsoft.Build.Tasks;
-using Terraria.ID;
-using Microsoft.Xna.Framework.Input;
+using System.Reflection;
+using System.Text;
 using Terraria;
 using Terraria.Audio;
-using Terraria.GameContent.UI.States;
-using System.Reflection;
-using Terraria.GameContent.UI.Elements;
-using Terraria.Localization;
-using Terraria.ModLoader.IO;
-using ReLogic.Content;
-using Microsoft.Xna.Framework.Graphics;
-using Terraria.GameContent.ItemDropRules;
-using ItemSourceHelper.Default;
-using Tyfyter.Utils;
 using Terraria.GameContent.Bestiary;
-using System.Text;
+using Terraria.GameContent.ItemDropRules;
+using Terraria.GameContent.UI.Elements;
+using Terraria.GameContent.UI.States;
+using Terraria.GameInput;
+using Terraria.ID;
+using Terraria.Localization;
+using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
+using Terraria.UI;
 using Terraria.WorldBuilding;
-using Microsoft.Xna.Framework;
-using MonoMod.Utils;
+using Tyfyter.Utils;
 
 namespace ItemSourceHelper;
 public class ItemSourceHelper : Mod {
@@ -147,7 +149,7 @@ public class ItemSourceHelper : Mod {
 			}
 			return false;
 		};
-		
+		PegasusLib.PegasusLib.Require(this, LibFeature.ITextInputContainer);
 	}
 	public override void Load() {
 		OpenToItemHotkey = KeybindLoader.RegisterKeybind(this, "Open Source Browser To Hovered Item", nameof(Keys.OemOpenBrackets));
