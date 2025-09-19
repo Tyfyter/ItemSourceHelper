@@ -1007,15 +1007,33 @@ public class TagsSearchProvider : SearchProvider {
 	public override string Opener => ":";
 	public override float TooltipOrder => 4;
 	public override SearchFilter GetSearchFilter(string filterText) => new TagsSearchFilter(filterText);
+	public override IEnumerable<string> GetSuggestions(string alreadyTyped) {
+		bool exact = alreadyTyped.StartsWith(':');
+		string text = exact ? alreadyTyped[1..] : alreadyTyped;
+		IEnumerable<string> suggestions = ItemSourceHelper.AllItemTags.Where(tag => tag.StartsWith(text, StringComparison.InvariantCultureIgnoreCase));
+		if (exact) suggestions = suggestions.Select(s => ':' + s);
+		return suggestions;
+	}
 	public class TagsSearchFilter(string text) : SearchFilter {
+		readonly string text = text.StartsWith(':') ? text[1..] : text;
+		readonly bool exact = text.StartsWith(':');
 		public override bool Matches(Dictionary<string, string> data) {
-			return data.TryGetValue("Tags", out string name) && name.Split(';').Contains(text, StringComparer.InvariantCultureIgnoreCase);
+			if (data.TryGetValue("Tags", out string name)) {
+				string[] tags = name.Split(';');
+				if (exact) {
+					return tags.Contains(text, StringComparer.InvariantCultureIgnoreCase);
+				} else {
+					return tags.Any(tag => tag.Contains(text, StringComparison.InvariantCultureIgnoreCase));
+				}
+			}
+			return false;
 		}
 	}
 }
 public class NegativeSearchProvider : SearchProvider {
 	public override string Opener => "-";
 	public override float TooltipOrder => 10;
+	public override IEnumerable<string> GetSuggestions(string alreadyTyped) => alreadyTyped.Length >= 1 ? SearchLoader.GetSuggestions(alreadyTyped) : [];
 	public override SearchFilter GetSearchFilter(string filterText) => new NegativeSearchFilter(filterText);
 	public class NegativeSearchFilter(string text) : SearchFilter {
 		readonly SearchFilter filter = string.IsNullOrEmpty(text) ? null : SearchLoader.Parse(text);

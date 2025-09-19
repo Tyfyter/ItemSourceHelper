@@ -57,6 +57,8 @@ public class ItemSourceHelper : Mod {
 	public static Asset<Texture2D> ItemIndicators { get; private set; }
 	public static Asset<Texture2D> NPCDropBack { get; private set; }
 	public static List<Func<Item, IEnumerable<string>>> ItemTagProviders { get; private set; }
+	public static IReadOnlyList<string> AllItemTags { get; internal set; }
+	internal static bool tooLateForNewTagProvider = false;
 	public ItemSourceHelper() {
 		Instance = this;
 		Sources = [];
@@ -197,6 +199,7 @@ public class ItemSourceHelper : Mod {
 			break;
 			case "ADDITEMTAGPROVIDER":
 			case "ADDITEMTAGPROVIDERS":
+			if (tooLateForNewTagProvider) throw new Exception($"{args[0]} must be called before {nameof(ItemSourceHelperSystem.PostSetupRecipes)}");
 			for (int i = 1; i < args.Length; i++) {
 				if (args[i] is Delegate del && del.TryCastDelegate(out Func<Item, IEnumerable<string>> provider)) {
 					ItemTagProviders.Add(provider);
@@ -296,16 +299,23 @@ public class ItemSourceHelperSystem : ModSystem {
 		static T GetFieldValue<T>(string name) {
 			return (T)typeof(ItemDropDatabase).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Main.ItemDropsDB);
 		}
-		foreach (var rules in GetFieldValue<Dictionary<int, List<IItemDropRule>>>("_entriesByNpcNetId")) {
-			DoAddDropGroup(rules.Value, ItemSourceHelper.Instance.NPCLootItems, new DropGroup(npc: rules.Key));
+		foreach ((int key, List<IItemDropRule> value) in GetFieldValue<Dictionary<int, List<IItemDropRule>>>("_entriesByNpcNetId")) {
+			DoAddDropGroup(value, ItemSourceHelper.Instance.NPCLootItems, new DropGroup(npc: key));
 		}
 		DoAddDropGroup(GetFieldValue<List<IItemDropRule>>("_globalEntries"), ItemSourceHelper.Instance.NPCLootItems, new DropGroup());
 
-		foreach (var rules in GetFieldValue<Dictionary<int, List<IItemDropRule>>>("_entriesByItemId")) {
-			DoAddDropGroup(rules.Value, ItemSourceHelper.Instance.ItemLootItems, new DropGroup(item: rules.Key));
+		foreach ((int key, List<IItemDropRule> value) in GetFieldValue<Dictionary<int, List<IItemDropRule>>>("_entriesByItemId")) {
+			DoAddDropGroup(value, ItemSourceHelper.Instance.ItemLootItems, new DropGroup(item: key));
 		}
 		int count = ItemSourceHelper.Instance.Filters.Count;
 		for (int i = 0; i < count; i++) ItemSourceHelper.Instance.Filters[i].PostSetupRecipes();
+
+		ItemSourceHelper.tooLateForNewTagProvider = true;
+		HashSet<string> tags = [];
+		foreach (string tag in ContentSamples.ItemsByType.Values.SelectMany(item => ItemSourceHelper.ItemTagProviders.SelectMany(provider => provider(item)))) {
+			tags.Add(tag);
+		}
+		ItemSourceHelper.AllItemTags = tags.Order(StringComparer.InvariantCultureIgnoreCase).ToList();
 	}
 	public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers) {
 		int inventoryIndex = layers.FindIndex(layer => layer.Name.Equals("Vanilla: Inventory"));

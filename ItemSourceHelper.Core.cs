@@ -321,6 +321,15 @@ public class SearchLoader : ILoadable {
 			SearchDataGetter<T>.function = function;
 		}
 	}
+	public static IEnumerable<string> GetSuggestions(string text) {
+		if (string.IsNullOrEmpty(text)) return [];
+		int consumed = 0;
+		do {
+			consumed++;
+			if (providersByOpener.TryGetValue(text[..consumed], out SearchProvider searchProvider)) return searchProvider.GetSuggestions(text[consumed..]).Select(s => searchProvider.Opener + s);
+		} while (consumed < text.Length);
+		return [];
+	}
 	public static SearchFilter Parse(string text) {
 		int consumed = 0;
 		do {
@@ -340,6 +349,7 @@ public abstract class SearchProvider : ModType, IComparable<SearchProvider>, ILo
 	LocalizedText _tooltipHint;
 	public virtual LocalizedText TooltipHint => _tooltipHint ??= this.GetLocalization(nameof(TooltipHint), () => "Start query with {0} to only search in").WithFormatArgs(Opener);
 	public abstract SearchFilter GetSearchFilter(string filterText);
+	public virtual IEnumerable<string> GetSuggestions(string alreadyTyped) => [];
 	protected sealed override void Register() {
 		ModTypeLookup<SearchProvider>.Register(this);
 		SearchLoader.RegisterSearchProvider(this);

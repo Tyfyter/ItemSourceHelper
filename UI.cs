@@ -17,6 +17,7 @@ using Terraria;
 using Terraria.DataStructures;
 using Terraria.GameContent;
 using Terraria.GameContent.ItemDropRules;
+using Terraria.GameContent.UI.Chat;
 using Terraria.GameInput;
 using Terraria.ID;
 using Terraria.Localization;
@@ -1064,6 +1065,8 @@ namespace ItemSourceHelper {
 		public StringBuilder Text { get; } = new();
 		string lastSearch = "";
 		public int typingTimer = 0;
+		string[] searchSuggestions = [];
+		int selectedSuggestion = -1;
 		public void SetSearch(string search) {
 			lastSearch = search;
 			ItemSourceBrowser browserWindow = ItemSourceHelper.Instance.BrowserWindow;
@@ -1126,7 +1129,36 @@ namespace ItemSourceHelper {
 			spriteBatch.DrawRoundedRetangle(bounds, color);
 			bool typed = false;
 			if (focused) {
+				int oldCursorIndex = CursorIndex;
+				string oldText = Text.ToString();
 				this.ProcessInput(out typed);
+				if (typed && (Text.ToString() != oldText || PassedComma(oldCursorIndex))) UpdateSuggestions();
+				if (searchSuggestions.Length > 0) {
+					if (TextInputContainerExtensions.JustPressed(Keys.Tab) && searchSuggestions.IndexInRange(selectedSuggestion)) {
+						string[] queries = Text.ToString().Split(',');
+						int relativeCursorIndex = CursorIndex;
+						for (int i = 0; i < queries.Length; i++) {
+							if (relativeCursorIndex > 0) {
+								relativeCursorIndex -= queries[i].Length + (i > 0).ToInt();
+								if (relativeCursorIndex <= 0) {
+									string insert = searchSuggestions[selectedSuggestion][queries[i].Trim().Length..];
+									Text.Insert(CursorIndex - relativeCursorIndex, insert);
+									CursorIndex += insert.Length - relativeCursorIndex;
+									break;
+								}
+							}
+						}
+						typed = true;
+						searchSuggestions = [];
+						selectedSuggestion = -1;
+					} else if (TextInputContainerExtensions.JustPressed(Keys.Down)) {
+						selectedSuggestion++;
+						if (selectedSuggestion >= searchSuggestions.Length) selectedSuggestion = 0;
+					} else if (TextInputContainerExtensions.JustPressed(Keys.Up)) {
+						selectedSuggestion--;
+						if (selectedSuggestion < 0) selectedSuggestion = searchSuggestions.Length - 1;
+					}
+				}
 			}
 			if (typed) {
 				typingTimer = typingTimeoutTime;
@@ -1134,28 +1166,69 @@ namespace ItemSourceHelper {
 				SetSearch(Text.ToString());
 			}
 			Vector2 offset = new(8, 2);
-			if (focused && Main.timeForVisualEffects % 40 < 20) {
+			bool blink = Main.timeForVisualEffects % 40 < 20;
+			if (focused && (blink || searchSuggestions.Length > 0)) {
 				spriteBatch.DrawString(
 					font,
 					"|",
 					bounds.TopLeft() + font.MeasureString(Text.ToString()[..CursorIndex]) * Vector2.UnitX * scale + offset * new Vector2(0.5f, 1),
-					ItemSourceHelperConfig.Instance.SearchBarTextColor,
+					ItemSourceHelperConfig.Instance.SearchBarTextColor * (blink ? 1 : 0.5f),
 					0,
 					new(0, 0),
 					scale,
 					0,
 				0);
 			}
-			spriteBatch.DrawString(
+			TextSnippet[] displayText = [new PlainTagHandler.PlainSnippet(Text.ToString(), ItemSourceHelperConfig.Instance.SearchBarTextColor)];
+			if (selectedSuggestion != -1) {
+				string[] queries = Text.ToString().Split(',');
+				displayText = new TextSnippet[displayText.Length + 1];
+				int index = 0;
+				int relativeCursorIndex = CursorIndex;
+				for (int i = 0; i < queries.Length; i++) {
+					displayText[index++] = new PlainTagHandler.PlainSnippet((i > 0 ? "," : "") + queries[i], ItemSourceHelperConfig.Instance.SearchBarTextColor);
+					if (relativeCursorIndex > 0) {
+						relativeCursorIndex -= displayText[index - 1].Text.Length;
+						if (relativeCursorIndex <= 0) {
+							displayText[index++] = new PlainTagHandler.PlainSnippet(searchSuggestions[selectedSuggestion][queries[i].Trim().Length..], ItemSourceHelperConfig.Instance.SearchBarTextColor * 0.5f);
+						}
+					}
+				}
+			}
+			ChatManager.DrawColorCodedString(
+				spriteBatch,
 				font,
-				Text,
+				displayText,
 				bounds.TopLeft() + offset,
 				ItemSourceHelperConfig.Instance.SearchBarTextColor,
 				0,
 				new(0, 0),
-				scale,
-				0,
-			0);
+				new(scale),
+				out _,
+				-1
+			);
+		}
+		bool PassedComma(int oldCursorIndex) {
+			int lower = oldCursorIndex;
+			int higher = CursorIndex;
+			if (higher < lower) Utils.Swap(ref lower, ref higher);
+			for (int i = lower; i < higher; i++) {
+				if (Text[i] == ',') return true;
+			}
+			return false;
+		}
+		public void UpdateSuggestions() {
+			const char zwnbs = '\uFEFF';
+			string[] queries = new StringBuilder(Text.ToString()).Insert(CursorIndex, zwnbs).ToString().Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+			searchSuggestions = [];
+			selectedSuggestion = -1;
+			for (int i = 0; i < queries.Length; i++) {
+				if (i == queries.Length - 1 || queries[i].Contains(zwnbs)) {
+					string query = queries[i].Replace(zwnbs.ToString(), "");
+					searchSuggestions = SearchLoader.GetSuggestions(query).Where(s => s != query).ToArray();
+					break;
+				}
+			}
 		}
 		public void Submit() => SetSearch(Text.ToString());
 		void ITextInputContainer.Reset() {
@@ -1163,6 +1236,8 @@ namespace ItemSourceHelper {
 			Text.Append(lastSearch);
 			focused = false;
 			typingTimer = 0;
+			searchSuggestions = [];
+			selectedSuggestion = -1;
 		}
 		public override void Reset() {
 			Clear();
@@ -1606,6 +1681,7 @@ namespace ItemSourceHelper {
 			}
 			blockUseHandles = Main.LocalPlayer.mouseInterface;
 			DrawCells(spriteBatch);
+
 			blockUseHandles ^= Main.LocalPlayer.mouseInterface;
 			Main.LocalPlayer.mouseInterface |= hoveringSomewhere;
 		}
@@ -1790,8 +1866,8 @@ namespace ItemSourceHelper {
 					processedIDs.Add(mergeID, (bounds, items[mergeID]));
 				}
 			}
-			foreach (var item in processedIDs.Values) {
-				item.item.DrawSelf(item.bounds, spriteBatch);
+			foreach ((Rectangle bounds, GridItem item) in processedIDs.Values) {
+				item.DrawSelf(bounds, spriteBatch);
 			}
 		}
 		public bool ShouldMerge(int aX, int aY, int bX, int bY) {

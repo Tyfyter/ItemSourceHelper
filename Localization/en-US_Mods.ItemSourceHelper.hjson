@@ -146,6 +146,8 @@ Search.HelpText:
 	Use commas to separate search queries
 	This field supports arrow keys and all vanilla chat controls
 	This field also supports Ctrl+Backspace
+	If suggestions are available, the cursor will blink between its normal color and partial transparency
+	Use the up and down keys to cycle through suggestions
 	'''
 
 Configs: {
