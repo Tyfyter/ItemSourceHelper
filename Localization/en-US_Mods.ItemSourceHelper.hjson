@@ -147,7 +147,7 @@ Search.HelpText:
 	This field supports arrow keys and all vanilla chat controls
 	This field also supports Ctrl+Backspace
 	If suggestions are available, the cursor will blink between its normal color and partial transparency
-	Use the up and down keys to cycle through suggestions
+	Use the up and down keys to cycle through suggestions, and tab to insert a suggestion
 	'''
 
 Configs: {
