@@ -2203,20 +2203,9 @@ namespace ItemSourceHelper {
 					for (int j = 0; j < 2; j++) {
 						Vector2 offset = size * new Vector2(i, j);
 						Rectangle frame = new(26 * i, 26 * j, 26, 26);
-						bool hover = UIMethods.MouseInArea(pos + offset, size);
-						spriteBatch.Draw(
-							backTexture,
-							pos + offset,
-							frame,
-							hover ? hoverColor : normalColor,
-							0f,
-							Vector2.Zero,
-							0.85f,
-							SpriteEffects.None,
-						0f);
 
 						Vector2 tickOffset = new(3, 3);
-						frame = new Rectangle(0, 0, 8, 8);
+						Rectangle tickFrame = new(0, 0, 8, 8);
 						IFilter<Item> filter = null;
 						IndicatorTypes type = IndicatorTypes.None;
 
@@ -2228,14 +2217,14 @@ namespace ItemSourceHelper {
 
 							case (0, 1):
 							tickOffset.Y = size.Y - (8 + 3);
-							frame.X = 10;
+							tickFrame.X = 10;
 							type = IndicatorTypes.Material;
 							filter = ModContent.GetInstance<MaterialFilter>();
 							break;
 
 							case (1, 0):
 							tickOffset.X = size.X - (8 + 3);
-							frame.X = 20;
+							tickFrame.X = 20;
 							type = IndicatorTypes.NPCDrop;
 							filter = ModContent.GetInstance<NPCLootFilter>();
 							break;
@@ -2243,17 +2232,30 @@ namespace ItemSourceHelper {
 							case (1, 1):
 							tickOffset.X = size.X - (8 + 3);
 							tickOffset.Y = size.Y - (8 + 3);
-							frame.X = 30;
+							tickFrame.X = 30;
 							type = IndicatorTypes.ItemDrop;
 							filter = ModContent.GetInstance<ItemLootFilter>();
 							break;
 						}
+
+						bool hover = parent.allowedMask.HasFlag(type) && UIMethods.MouseInArea(pos + offset, size);
+						spriteBatch.Draw(
+							backTexture,
+							pos + offset,
+							frame,
+							hover ? hoverColor : normalColor,
+							0f,
+							Vector2.Zero,
+							0.85f,
+							SpriteEffects.None,
+						0f);
+
 						if ((parent.allowedMask & type) == IndicatorTypes.None) continue;
 						Color tickColor = (value & type) != IndicatorTypes.None ? Color.White : Color.Gray;
 						spriteBatch.Draw(
 							ItemSourceHelper.ItemIndicators.Value,
 							pos + offset + tickOffset,
-							frame,
+							tickFrame,
 							tickColor
 						);
 						if (hover && filter is not null) {
@@ -2265,6 +2267,7 @@ namespace ItemSourceHelper {
 				}
 			}
 			public override void LeftClick(UIMouseEvent evt) {
+				if (hovered == IndicatorTypes.None) return;
 				parent.Value ^= hovered;
 			}
 		}

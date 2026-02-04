@@ -80,6 +80,7 @@ public abstract class ItemSourceType : ModTexturedType, ILocalizedModType {
 	public virtual void PostSetupRecipes() { }
 	public virtual float FilterSortPriority => 1f;
 	public virtual IEnumerable<ItemSourceFilter> ChildFilters() => [];
+	public virtual IEnumerable<ITooltipModifier> GetTooltipModifiers(ItemSource source) => [];
 }
 public abstract class LootSourceType : ModTexturedType, ILocalizedModType {
 	public string LocalizationCategory => "LootSourceType";

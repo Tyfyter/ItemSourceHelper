@@ -45,8 +45,10 @@ namespace ItemSourceHelper {
 		[DefaultValue(true)]
 		public bool AnimatedRecipeGroups { get; set; }
 
-		[CustomModConfigItem(typeof(InvertedItemSourceTypesConfigElement)), DefaultValue(typeof(ItemSourceTypesList), "")]
+		[CustomModConfigItem(typeof(InvertedItemSourceTypesConfigElement))]
 		public ItemSourceTypesList HideCraftableFor { get; set; } = new();
+		[DefaultValue(true)]
+		public bool ShowRecipeMod { get; set; }
 
 		/*[DefaultValue(true)]
 		public bool ShowCraftableIgnoreConditions { get; set; }*/
@@ -103,7 +105,7 @@ namespace ItemSourceHelper {
 		[DefaultValue(typeof(Color), "230, 230, 40, 255")]
 		public Color HoveredCraftableColor { get; set; }
 	}
-	[TypeConverter(typeof(ToFromStringConverter<ItemSourceTypesList>)), JsonConverter(typeof(ItemSourceTypesList.JsonConverter))]
+	[JsonConverter(typeof(ItemSourceTypesList.JsonConverter))]
 	public class ItemSourceTypesList {
 		HashSet<ItemSourceType> Values { get; init; } = [];
 		List<string> UnloadedValues { get; init; } = [];

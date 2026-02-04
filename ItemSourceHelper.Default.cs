@@ -3,8 +3,6 @@ using ReLogic.Content;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Terraria;
 using Terraria.GameContent.UI;
 using Terraria.ID;
@@ -19,20 +17,15 @@ using Terraria.Map;
 using System.Collections.Immutable;
 using Microsoft.Xna.Framework;
 using System.Text.RegularExpressions;
-using Stubble.Core.Imported;
 using Terraria.GameContent.Creative;
 using Terraria.GameContent.ItemDropRules;
 using Terraria.GameContent.Bestiary;
 using System.Reflection;
-using Terraria.ModLoader.UI;
 using Terraria.DataStructures;
 using Terraria.GameContent.UI.Elements;
 using Terraria.Audio;
 using Terraria.GameContent.UI.Chat;
 using Terraria.UI.Chat;
-using Mono.Cecil;
-using static System.Net.Mime.MediaTypeNames;
-using System.Collections;
 
 namespace ItemSourceHelper.Default;
 #region shop
@@ -186,6 +179,17 @@ public class CraftingItemSourceType : ItemSourceType {
 	static void ApplyRecipeGroupName(string text, Item item, int stack) {
 		item.stack = stack;
 		item.SetNameOverride(text);
+	}
+	public override IEnumerable<ITooltipModifier> GetTooltipModifiers(ItemSource source) {
+		if (source is not CraftingItemSource crafting) yield break;
+		if (ItemSourceHelperConfig.Instance.ShowRecipeMod) yield return new ShowRecipeMod(crafting.Recipe.Mod);
+	}
+	struct ShowRecipeMod(Mod mod) : ITooltipModifier {
+		public readonly void ModifyTooltips(Item item, List<TooltipLine> tooltips) {
+			tooltips.Add(new(ItemSourceHelper.Instance, "RecipeMod", Language.GetTextValue($"Mods.{nameof(ItemSourceHelper)}.RecipeFromMod", mod?.Name ?? "Terraria")) {
+				OverrideColor = new Color(169, 169, 174)
+			});
+		}
 	}
 }
 public class CraftingItemSource(ItemSourceType sourceType, Recipe recipe) : ItemSource(sourceType, recipe.createItem) {
@@ -679,7 +683,7 @@ public class WallSafetyFilter(bool safe) : ItemFilter {
 			Main.instance.LoadItem(ItemID.WoodenFence);
 			texture = TextureAssets.Item[ItemID.WoodenFence];
 		} else {
-			texture = TextureAssets.Extra[258];
+			texture = TextureAssets.Extra[ExtrasID.UnsafeIndicator];
 		}
 	}
 	public override bool Matches(Item item) => Main.wallHouse[item.createWall] == safe;
@@ -1267,6 +1271,7 @@ public class ItemSourceListGridItem : ThingListGridItem<ItemSource> {
 		UIMethods.DrawIndicators(spriteBatch, item.type, ItemSourceHelperConfig.Instance.SourceListIndicators, position, (int)(52 * Main.inventoryScale));
 		if (hovering) {
 			if (things is FilteredEnumerable<ItemSource> filteredEnum) filteredEnum.FillTooltipAdders(TooltipAdderGlobal.TooltipModifiers);
+			TooltipAdderGlobal.TooltipModifiers.AddRange(itemSource.SourceType.GetTooltipModifiers(itemSource));
 			ItemSlot.MouseHover(ref item, ItemSlot.Context.CraftingMaterial);
 		}
 		if (hovering && Main.keyState.IsKeyDown(Main.FavoriteKey)) {

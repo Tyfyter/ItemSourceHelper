@@ -323,6 +323,11 @@ Configs: {
 			Label: Show Single User Ammo Use Filters
 			Tooltip: ""
 		}
+
+		ShowRecipeMod: {
+			Label: Show Recipe Mod
+			Tooltip: ""
+		}
 	}
 
 	ItemSourceHelperPositions: {
@@ -368,12 +373,36 @@ Configs: {
 
 	IndicatorTypes: {
 		Tooltip: ""
-		None.Label: None
-		Craftable.Label: Craftable
-		Material.Label: Material
-		NPCDrop.Label: N P C Drop
-		ItemDrop.Label: Item Drop
-		All.Label: All
+
+		None: {
+			Label: None
+			Tooltip: ""
+		}
+
+		Craftable: {
+			Label: Craftable
+			Tooltip: ""
+		}
+
+		Material: {
+			Label: Material
+			Tooltip: ""
+		}
+
+		NPCDrop: {
+			Label: NPC Drop
+			Tooltip: ""
+		}
+
+		ItemDrop: {
+			Label: Item Drop
+			Tooltip: ""
+		}
+
+		All: {
+			Label: All
+			Tooltip: ""
+		}
 	}
 }
 
@@ -409,6 +438,7 @@ LootSourceFilter: {
 }
 
 UnknownCurrency: Mods.ItemSourceHelper.UnknownCurrency
+RecipeFromMod: Recipe from {0}
 Message.LootListError: Error while processing loot: {0}
 
 SearchProvider: {
