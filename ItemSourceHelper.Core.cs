@@ -221,7 +221,7 @@ public abstract class SourceFilterBase<T> : ModTexturedType, ILocalizedModType, 
 	public abstract bool Matches(T source);
 	public virtual IEnumerable<IFilter<T>> ChildFilters() => [];
 	protected void UseItemTexture(int itemType) {
-		Main.instance.LoadItem(itemType);
+		MiscUtils.LoadItemAsync(itemType);
 		texture = TextureAssets.Item[itemType];
 		animation = Main.itemAnimations[itemType];
 	}

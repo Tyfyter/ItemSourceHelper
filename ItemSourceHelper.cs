@@ -10,6 +10,7 @@ using ReLogic.Content;
 using ReLogic.OS;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -23,6 +24,7 @@ using Terraria.GameInput;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
+using Terraria.ModLoader.Core;
 using Terraria.ModLoader.IO;
 using Terraria.UI;
 using Terraria.WorldBuilding;
@@ -103,25 +105,39 @@ public class ItemSourceHelper : Mod {
 				["ModName"] = item?.ModItem?.Mod?.DisplayNameClean ?? "Terraria",
 				["ModInternalName"] = item?.ModItem?.Mod?.Name ?? "Terraria",
 			};
-			int yoyoLogo = -1; int researchLine = -1; float oldKB = item.knockBack; int numLines = 1; string[] toolTipLine = new string[30]; bool[] preFixLine = new bool[30]; bool[] badPreFixLine = new bool[30]; string[] toolTipNames = new string[30];
-			Main.MouseText_DrawItemTooltip_GetLinesInfo(item, ref yoyoLogo, ref researchLine, oldKB, ref numLines, toolTipLine, preFixLine, badPreFixLine, toolTipNames, out int prefixlineIndex);
-
-			List<TooltipLine> lines = ItemLoader.ModifyTooltips(item, ref numLines, toolTipNames, ref toolTipLine, ref preFixLine, ref badPreFixLine, ref yoyoLogo, out _, prefixlineIndex);
 			StringBuilder builder = new();
-			for (int j = 1; j < lines.Count; j++) {
-				builder.AppendLine(lines[j].Text);
-			}
-			data["Description"] = builder.ToString();
-			builder.Clear();
-			void AddTag(string tag) {
-				builder.Append(tag);
-				builder.Append(';');
-			}
-			foreach (string tag in ItemTagProviders.SelectMany(provider => provider(item))) {
-				AddTag(tag);
-			}
+			try {
+				builder.Clear();
+				int yoyoLogo = -1; int researchLine = -1; float oldKB = item.knockBack; int numLines = 1; string[] toolTipLine = new string[30]; bool[] preFixLine = new bool[30]; bool[] badPreFixLine = new bool[30]; string[] toolTipNames = new string[30];
+				Main.MouseText_DrawItemTooltip_GetLinesInfo(item, ref yoyoLogo, ref researchLine, oldKB, ref numLines, toolTipLine, preFixLine, badPreFixLine, toolTipNames, out int prefixlineIndex);
 
-			if (builder.Length > 0) data["Tags"] = builder.ToString();
+				List<TooltipLine> lines = ItemLoader.ModifyTooltips(item, ref numLines, toolTipNames, ref toolTipLine, ref preFixLine, ref badPreFixLine, ref yoyoLogo, out _, prefixlineIndex);
+				for (int j = 1; j < lines.Count; j++) {
+					builder.AppendLine(lines[j].Text);
+				}
+				data["Description"] = builder.ToString();
+			} catch (Exception) {
+#if DEBUG
+				throw;
+#endif
+			}
+			try {
+				builder.Clear();
+				void AddTag(string tag) {
+					builder.Append(tag);
+					builder.Append(';');
+				}
+				foreach (string tag in ItemTagProviders.SelectMany(provider => provider(item))) {
+					AddTag(tag);
+				}
+
+				if (builder.Length > 0) data["Tags"] = builder.ToString();
+
+			} catch (Exception) {
+#if DEBUG
+				throw;
+#endif
+			}
 			return data;
 		});
 		SearchLoader.RegisterSearchable<LootSource>(LootSource.GetSearchData);
@@ -177,7 +193,7 @@ public class ItemSourceHelper : Mod {
 		try {
 			switchOn = ((string)args[0]).ToUpper();
 		} catch (Exception e) {
-			Logger.Error($"Error while trying to process arg 0 {(args[0] is string ? ", provided value must be a string" : "")}:", e);
+			Logger.Error($"Error while trying to process arg 0 {(args[0] is not string ? ", provided value must be a string" : "")}:", e);
 			throw;
 		}
 		switch (switchOn) {
@@ -282,12 +298,27 @@ public class ItemSourceHelperSystem : ModSystem {
 			}
 		}
 
-		static void DoAddDropGroup(List<IItemDropRule> rules, HashSet<int> dropSet, DropGroup group) {
+		static void DoAddDropGroup(List<IItemDropRule> rules, HashSet<int> dropSet, DropGroup group, Mod responsibleMod) {
 			foreach (IItemDropRule rule in rules) {
 				DropRateInfoChainFeed ratesInfo = new(1f);
 				List<DropRateInfo> dropInfoList = [];
 				if (rule is OneFromRulesRule _rule && _rule.options.Contains(null)) continue;
-				rule.ReportDroprates(dropInfoList, ratesInfo);
+				try {
+					rule.ReportDroprates(dropInfoList, ratesInfo);
+				} catch (Exception ex) {
+					string inContent = "global NPC loot";
+					if (group.npc is int npcType) inContent = NPCID.Search.GetName(npcType);
+					else if (group.item is int itemType) inContent = ItemID.Search.GetName(itemType);
+					HashSet<Mod> responsibleMods = [];
+					for (int i = 0; i < dropInfoList.Count; i++) {
+						if (ItemLoader.GetItem(dropInfoList[i].itemId)?.Mod is Mod _mod) responsibleMods.Add(_mod);
+					}
+					if (responsibleMods.Count > 1) responsibleMods.Clear();
+					if (responsibleMods.Count <= 0 && responsibleMod is not null) responsibleMods.Add(responsibleMod);
+					if (responsibleMods.Count <= 0 && AssemblyManager.GetAssemblyOwner(rule.GetType().Assembly, out string modName)) responsibleMods.Add(ModLoader.GetMod(modName));
+					if (responsibleMods.FirstOrDefault() is Mod mod) throw ex.AttributedTo(mod, $"Exception thrown while reporting drops for rule {rule} from {inContent}: ");
+					throw;
+				}
 				if (dropInfoList.Count > 0) {
 					for (int i = 0; i < dropInfoList.Count; i++) {
 						dropSet.Add(dropInfoList[i].itemId);
@@ -300,12 +331,12 @@ public class ItemSourceHelperSystem : ModSystem {
 			return (T)typeof(ItemDropDatabase).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Main.ItemDropsDB);
 		}
 		foreach ((int key, List<IItemDropRule> value) in GetFieldValue<Dictionary<int, List<IItemDropRule>>>("_entriesByNpcNetId")) {
-			DoAddDropGroup(value, ItemSourceHelper.Instance.NPCLootItems, new DropGroup(npc: key));
+			DoAddDropGroup(value, ItemSourceHelper.Instance.NPCLootItems, new DropGroup(npc: key), NPCLoader.GetNPC(key)?.Mod);
 		}
-		DoAddDropGroup(GetFieldValue<List<IItemDropRule>>("_globalEntries"), ItemSourceHelper.Instance.NPCLootItems, new DropGroup());
+		DoAddDropGroup(GetFieldValue<List<IItemDropRule>>("_globalEntries"), ItemSourceHelper.Instance.NPCLootItems, new DropGroup(), null);
 
 		foreach ((int key, List<IItemDropRule> value) in GetFieldValue<Dictionary<int, List<IItemDropRule>>>("_entriesByItemId")) {
-			DoAddDropGroup(value, ItemSourceHelper.Instance.ItemLootItems, new DropGroup(item: key));
+			DoAddDropGroup(value, ItemSourceHelper.Instance.ItemLootItems, new DropGroup(item: key), ItemLoader.GetItem(key)?.Mod);
 		}
 		int count = ItemSourceHelper.Instance.Filters.Count;
 		for (int i = 0; i < count; i++) ItemSourceHelper.Instance.Filters[i].PostSetupRecipes();
@@ -316,6 +347,17 @@ public class ItemSourceHelperSystem : ModSystem {
 			tags.Add(tag);
 		}
 		ItemSourceHelper.AllItemTags = tags.Order(StringComparer.InvariantCultureIgnoreCase).ToList();
+	}
+	internal static bool FirstModInStackTrace(StackTrace stack, out string modName) {
+		for (int i = 0; i < stack.FrameCount; i++) {
+			StackFrame frame = stack.GetFrame(i);
+			Assembly assembly = frame.GetMethod()?.DeclaringType?.Assembly;
+			if (assembly != null && AssemblyManager.GetAssemblyOwner(assembly, out modName))
+				return true;
+		}
+
+		modName = null;
+		return false;
 	}
 	public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers) {
 		int inventoryIndex = layers.FindIndex(layer => layer.Name.Equals("Vanilla: Inventory"));
@@ -335,6 +377,9 @@ public class ItemSourceHelperSystem : ModSystem {
 public class DropGroup(int? npc = null, int? item = null) {
 	public readonly int? npc = npc;
 	public readonly int? item = item;
+	public bool IsNPC => npc.HasValue;
+	public bool IsItem => item.HasValue;
+	public bool IsGlobal => !npc.HasValue && !item.HasValue;
 	public List<DropRateInfo> DropInfoList { get; set; }
 }
 public class ScrollingPlayer : ModPlayer {

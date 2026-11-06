@@ -26,6 +26,7 @@ using Terraria.GameContent.UI.Elements;
 using Terraria.Audio;
 using Terraria.GameContent.UI.Chat;
 using Terraria.UI.Chat;
+using System.Threading.Tasks;
 
 namespace ItemSourceHelper.Default;
 #region shop
@@ -629,7 +630,7 @@ public class TileTypeFilter(TileType type) : ItemFilter {
 			TileType.Pylon => ItemID.TeleportationPylonPurity,
 			_ => throw new NotImplementedException()
 		};
-		Main.instance.LoadItem(itemType);
+		MiscUtils.LoadItemAsync(itemType);
 		texture = TextureAssets.Item[itemType];
 	}
 	public override bool Matches(Item item) {
@@ -680,7 +681,7 @@ public class WallSafetyFilter(bool safe) : ItemFilter {
 	protected override string FilterChannelName => "WallType";
 	public override void SetStaticDefaults() {
 		if (safe) {
-			Main.instance.LoadItem(ItemID.WoodenFence);
+			MiscUtils.LoadItemAsync(ItemID.WoodenFence);
 			texture = TextureAssets.Item[ItemID.WoodenFence];
 		} else {
 			texture = TextureAssets.Extra[ExtrasID.UnsafeIndicator];
@@ -789,7 +790,7 @@ public class RecipeGroupFilter(RecipeGroup recipeGroup) : ItemFilter {
 			} else {
 				itemType = recipeGroup.IconicItemId;
 			}
-			Main.instance.LoadItem(itemType);
+			MiscUtils.LoadItemAsync(itemType);
 			animation = Main.itemAnimations[itemType];
 			return TextureAssets.Item[itemType].Value;
 		}
@@ -1048,7 +1049,7 @@ public class NegativeSearchProvider : SearchProvider {
 #region sorting methods
 public class DefaultItemSorter : ItemSorter, ITooltipModifier {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.TallyCounter];
-	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.TallyCounter);
+	public override void SetStaticDefaults() => MiscUtils.LoadItemAsync(ItemID.TallyCounter);
 	public override float SortPriority => 0;
 	public override int Compare(Item x, Item y) => BasicComparison(x, y);
 	public static int BasicComparison(Item x, Item y) {
@@ -1061,7 +1062,7 @@ public class DefaultItemSorter : ItemSorter, ITooltipModifier {
 }
 public class NameItemSorter : ItemSorter {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.Sign];
-	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.Sign);
+	public override void SetStaticDefaults() => MiscUtils.LoadItemAsync(ItemID.Sign);
 	public override float SortPriority => 1;
 	public override int Compare(Item x, Item y) {
 		int manaComp = string.Compare(x.Name, y.Name, StringComparison.CurrentCultureIgnoreCase);
@@ -1071,7 +1072,7 @@ public class NameItemSorter : ItemSorter {
 }
 public class ValueItemSorter : ItemSorter, ITooltipModifier {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.GoldCoin];
-	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.GoldCoin);
+	public override void SetStaticDefaults() => MiscUtils.LoadItemAsync(ItemID.GoldCoin);
 	public override float SortPriority => 2;
 	public override int Compare(Item x, Item y) {
 		int valueComp = Comparer<float>.Default.Compare(x.value, y.value);
@@ -1098,7 +1099,7 @@ public class ValueItemSorter : ItemSorter, ITooltipModifier {
 }
 public class RarityItemSorter : ItemSorter, ITooltipModifier {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.MetalDetector];
-	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.MetalDetector);
+	public override void SetStaticDefaults() => MiscUtils.LoadItemAsync(ItemID.MetalDetector);
 	public override float SortPriority => 2;
 	public override int Compare(Item x, Item y) {
 		int rarityComp = Comparer<float>.Default.Compare(x.rare, y.rare);
@@ -1115,7 +1116,7 @@ public class RarityItemSorter : ItemSorter, ITooltipModifier {
 }
 public class DamageItemSorter : ItemSorter {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.DPSMeter];
-	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.DPSMeter);
+	public override void SetStaticDefaults() => MiscUtils.LoadItemAsync(ItemID.DPSMeter);
 	public override float SortPriority => 9;
 	public override int Compare(Item x, Item y) {
 		int damageComp = Comparer<float>.Default.Compare(x.damage, y.damage);
@@ -1131,7 +1132,7 @@ public class DamageItemSorter : ItemSorter {
 }
 public class ManaItemSorter : ItemSorter {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.ManaCrystal];
-	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.ManaCrystal);
+	public override void SetStaticDefaults() => MiscUtils.LoadItemAsync(ItemID.ManaCrystal);
 	public override float SortPriority => 9;
 	public override int Compare(Item x, Item y) {
 		int manaComp = Comparer<float>.Default.Compare(x.mana, y.mana);
@@ -1146,7 +1147,7 @@ public class ManaItemSorter : ItemSorter {
 }
 public class DefenseItemSorter : ItemSorter {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.Shackle];
-	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.Shackle);
+	public override void SetStaticDefaults() => MiscUtils.LoadItemAsync(ItemID.Shackle);
 	public override float SortPriority => 9;
 	public override int Compare(Item x, Item y) {
 		int defenseComp = Comparer<float>.Default.Compare(x.defense, y.defense);
@@ -1162,7 +1163,7 @@ public class DefenseItemSorter : ItemSorter {
 }
 public class FlightTimeItemSorter : ItemSorter {
 	public override Asset<Texture2D> TextureAsset => TextureAssets.Item[ItemID.WingsStardust];
-	public override void SetStaticDefaults() => Main.instance.LoadItem(ItemID.WingsStardust);
+	public override void SetStaticDefaults() => MiscUtils.LoadItemAsync(ItemID.WingsStardust);
 	public override float SortPriority => 9;
 	public override int Compare(Item x, Item y) {
 		int flightTimeComp = Comparer<int>.Default.Compare(ArmorIDs.Wing.Sets.Stats[x.wingSlot].FlyTime, ArmorIDs.Wing.Sets.Stats[y.wingSlot].FlyTime);
@@ -1219,7 +1220,7 @@ public class SourceBrowserWindow : WindowElement {
 		HeightWeights = new([0f, 0f, 0f, 0f, 3f, 0f, 0f]);
 		MinWidths = new([43, 180, 180]);
 		MinHeights = new([31, 21, 16, 21, 132, 53, 20]);
-		Main.instance.LoadNPC(NPCID.Guide);
+		MiscUtils.LoadNPCAsync(NPCID.Guide);
 		int index = NPC.TypeToDefaultHeadIndex(NPCID.Guide);
 		if (index != -1) texture = TextureAssets.NpcHead[index];
 	}
@@ -1313,7 +1314,7 @@ public class ItemBrowserWindow : WindowElement {
 		HeightWeights = new([0f, 0f, 0f, 0f, 3f, 0f, 0f]);
 		MinWidths = new([43, 180, 180]);
 		MinHeights = new([31, 21, 16, 21, 132, 53, 2]);
-		Main.instance.LoadItem(ItemID.Chest);
+		MiscUtils.LoadItemAsync(ItemID.Chest);
 		texture = TextureAssets.Item[ItemID.Chest];
 	}
 	public override void SetDefaultSortMethod() {
@@ -1408,7 +1409,7 @@ public class LootBrowserWindow : WindowElement {
 		HeightWeights = new([0f, 0f, 0f, 0f, 3f, 0f, 0f]);
 		MinWidths = new([43, 180, 180]);
 		MinHeights = new([31, 21, 16, 21, 132, 2, 53]);
-		Main.instance.LoadItem(ItemID.GoodieBag);
+		MiscUtils.LoadItemAsync(ItemID.GoodieBag);
 		texture = TextureAssets.Item[ItemID.GoodieBag];
 	}
 	public override void SetDefaultSortMethod() {
@@ -1608,17 +1609,19 @@ public class BestiaryFilter(IEntryFilter<BestiaryEntry> entry, float progress) :
 		UIElement _image = entry.GetImage();
 		if (_image is UIImageFramed framedImage) {
 			texture = Framed_texture.GetValue(framedImage);
-			if (texture.State == AssetState.Loading) {
-				texture.Wait();
-				framedImage = (UIImageFramed)entry.GetImage();
-			}
-			animation = new SingleFrameAnimation(_frame.GetValue(framedImage));
+			if (texture.State == AssetState.Loading) Task.Run(ApplyAnimationWhenLoaded);
+			else animation = new SingleFrameAnimation(_frame.GetValue(framedImage));
 		} else if (_image is UIImage image) {
 			texture = _texture.GetValue(image);
 			if (texture.State == AssetState.NotLoaded) {
 				texture = ModContent.Request<Texture2D>(texture.Name);
 			}
 		}
+	}
+	void ApplyAnimationWhenLoaded() {
+		texture.Wait();
+		UIImageFramed framedImage = (UIImageFramed)entry.GetImage();
+		animation = new SingleFrameAnimation(_frame.GetValue(framedImage));
 	}
 	protected override string FilterChannelName => "NPCBestiaryFilter";
 	public override string Name => $"{base.Name}_{entry.GetDisplayNameKey()}";

@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Reflection.Emit;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.Graphics.Shaders;
 using Terraria.ModLoader.IO;
 
@@ -430,6 +431,14 @@ namespace Tyfyter.Utils {
 					return;
 				}
 			}
+		}
+		public static void LoadItemAsync(int i) {
+			if (TextureAssets.Item[i].State == AssetState.NotLoaded)
+				Main.Assets.Request<Texture2D>(TextureAssets.Item[i].Name);
+		}
+		public static void LoadNPCAsync(int i) {
+			if (TextureAssets.Npc[i].State == AssetState.NotLoaded)
+				Main.Assets.Request<Texture2D>(TextureAssets.Npc[i].Name);
 		}
 	}
 }
