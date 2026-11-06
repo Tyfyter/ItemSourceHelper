@@ -97,7 +97,8 @@ public class ItemSourceHelper : Mod {
 			item => ItemID.Sets.IsAKite[item.type] ? ["Kite"] : [],
 			item => ItemID.Sets.IsDrill[item.type] ? ["Drill"] : [],
 			item => ItemID.Sets.IsChainsaw[item.type] ? ["Chainsaw"] : [],
-			item => ItemID.Sets.Spears[item.type] ? ["Spear"] : []
+			item => ItemID.Sets.Spears[item.type] ? ["Spear"] : [],
+			item => item.shoot != ProjectileID.None && ContentSamples.ProjectilesByType[item.shoot].aiStyle == ProjAIStyleID.Flail ? ["Flail"] : []
 		];
 		SearchLoader.RegisterSearchable<Item>(item => {
 			Dictionary<string, string> data = new() {
